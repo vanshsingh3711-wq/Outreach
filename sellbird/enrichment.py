@@ -1,0 +1,449 @@
+"""Single-company URL enrichment service with strict SSRF protection.
+
+Accepts any company website URL (e.g. https://example.com), verifies safety,
+maps essential company pages (About, Team, Leadership, Contact, Careers), extracts
+company profile data and tech stack, discovers personnel, and records evidence.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import ipaddress
+import logging
+import re
+import socket
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from html import unescape
+from typing import Any
+from urllib.parse import urljoin, urlparse
+
+import httpx
+
+from sellbird.collectors.discover import (
+    name_from_domain,
+    normalize_domain,
+    site_name_from_html,
+)
+from sellbird.collectors import people as people_mod
+from sellbird.integrations.tech_detect import detect_tech
+from sellbird.models.company import Company
+from sellbird.models.prospect import Prospect
+from sellbird.public_http import (
+    PublicHTTPTransport,
+    UnsafeURLError,
+    public_http_client,
+)
+from sellbird.state import StateManager
+
+logger = logging.getLogger("sellbird.enrichment")
+
+# Maximum bytes to read per response (2MB limit to prevent memory exhaustion)
+MAX_PAGE_BYTES = 2_000_000
+# Default timeout for enrichment fetches
+ENRICHMENT_TIMEOUT = 12.0
+# Maximum pages to visit per company
+MAX_ENRICH_PAGES = 6
+# Maximum total HTTP fetches allowed during one enrichment run
+MAX_ENRICH_FETCHES = 10
+
+# Standard candidate paths for company intelligence
+CANDIDATE_PATHS = (
+    "/about",
+    "/about-us",
+    "/team",
+    "/our-team",
+    "/leadership",
+    "/management",
+    "/contact",
+    "/contact-us",
+    "/careers",
+    "/jobs",
+)
+
+# Private and reserved networks that must never be accessed
+_BLOCKED_NETWORKS = (
+    ipaddress.ip_network("0.0.0.0/8"),
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("100.64.0.0/10"),
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("169.254.0.0/16"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.0.0.0/24"),
+    ipaddress.ip_network("192.0.2.0/24"),
+    ipaddress.ip_network("192.88.99.0/24"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("198.18.0.0/15"),
+    ipaddress.ip_network("198.51.100.0/24"),
+    ipaddress.ip_network("203.0.113.0/24"),
+    ipaddress.ip_network("224.0.0.0/4"),
+    ipaddress.ip_network("240.0.0.0/4"),
+    ipaddress.ip_network("255.255.255.255/32"),
+    # IPv6
+    ipaddress.ip_network("::/128"),
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("::ffff:0:0/96"),
+    ipaddress.ip_network("100::/64"),
+    ipaddress.ip_network("64:ff9b::/96"),
+    ipaddress.ip_network("64:ff9b:1::/48"),
+    ipaddress.ip_network("2001::/32"),
+    ipaddress.ip_network("2001:db8::/32"),
+    ipaddress.ip_network("fc00::/7"),
+    ipaddress.ip_network("fe80::/10"),
+    ipaddress.ip_network("ff00::/8"),
+)
+
+
+class SSRFValidationError(ValueError):
+    """Raised when an input URL violates SSRF safety constraints."""
+
+
+def _check_ip_address_safety(ip_str: str) -> None:
+    """Ensure an IP is public, non-reserved, and not in private/loopback ranges."""
+    try:
+        ip = ipaddress.ip_address(ip_str)
+    except ValueError as exc:
+        raise SSRFValidationError(f"Invalid IP address: {ip_str}") from exc
+
+    if not ip.is_global or ip.is_multicast or ip.is_reserved or ip.is_unspecified or ip.is_loopback:
+        raise SSRFValidationError(f"Target address {ip_str} is private, loopback, or reserved.")
+
+    for net in _BLOCKED_NETWORKS:
+        if ip in net:
+            raise SSRFValidationError(f"Target address {ip_str} belongs to blocked subnet {net}.")
+
+
+def validate_and_normalize_url(raw_url: str) -> tuple[str, str]:
+    """Validate URL syntax, enforce SSRF constraints, and return (canonical_url, domain).
+
+    Rules:
+    - Schemes must be HTTP or HTTPS only.
+    - User/password authentication info in URL is rejected.
+    - Localhost and .localhost domains are rejected.
+    - Numeric private/loopback/link-local IPs are rejected.
+    - Port must be valid (1..65535).
+    - Returns (canonical_url, domain).
+    """
+    if not raw_url or not isinstance(raw_url, str):
+        raise SSRFValidationError("URL must be a non-empty string.")
+
+    cleaned = raw_url.strip()
+
+    # If scheme separator is present, inspect scheme
+    if ":" in cleaned:
+        candidate_scheme = cleaned.split(":", 1)[0].lower()
+        if candidate_scheme not in {"http", "https"}:
+            raise SSRFValidationError(
+                f"Unsupported scheme '{candidate_scheme}'. Only http and https are allowed."
+            )
+    else:
+        cleaned = "https://" + cleaned
+
+    try:
+        parsed = urlparse(cleaned)
+    except Exception as exc:
+        raise SSRFValidationError(f"Malformed URL: {exc}") from exc
+
+    scheme = (parsed.scheme or "").lower()
+    if scheme not in {"http", "https"}:
+        raise SSRFValidationError(f"Unsupported scheme '{scheme}'. Only http and https are allowed.")
+
+    if parsed.username or parsed.password:
+        raise SSRFValidationError("Credentials in URL are forbidden.")
+
+    hostname = (parsed.hostname or "").strip().lower().rstrip(".")
+    if not hostname:
+        raise SSRFValidationError("URL contains no valid host.")
+
+    if "%" in hostname:
+        raise SSRFValidationError("Scoped / percent-encoded hostnames are forbidden.")
+
+    if hostname == "localhost" or hostname.endswith(".localhost"):
+        raise SSRFValidationError("Localhost destinations are forbidden.")
+
+    try:
+        port = parsed.port
+    except ValueError as exc:
+        raise SSRFValidationError(f"Invalid port: {exc}") from exc
+
+    if port is not None and not (1 <= port <= 65535):
+        raise SSRFValidationError(f"Invalid port: {port}")
+
+    # Check if host is an IP literal
+    try:
+        ip = ipaddress.ip_address(hostname)
+        is_ip = True
+    except ValueError:
+        is_ip = False
+
+    if is_ip:
+        _check_ip_address_safety(str(ip))
+    else:
+        # Host is a domain name. Check for internal/cloud metadata names
+        if hostname in {"metadata.google.internal", "instance-data", "metadata"}:
+            raise SSRFValidationError(f"Internal cloud metadata domain '{hostname}' is forbidden.")
+
+    # Canonical domain extraction
+    domain = normalize_domain(hostname)
+    if not domain or "." not in domain:
+        raise SSRFValidationError(f"Invalid or incomplete domain name: '{hostname}'")
+
+    # Reconstruct clean canonical starting URL
+    canonical_port = f":{port}" if port and port not in (80, 443) else ""
+    path = parsed.path or "/"
+    canonical_url = f"{scheme}://{hostname}{canonical_port}{path}"
+
+    return canonical_url, domain
+
+
+@dataclass
+class PageSnapshot:
+    url: str
+    html: str
+    status_code: int = 200
+    page_type: str = "general"   # home, about, team, leadership, contact, careers
+
+
+@dataclass
+class DiscoveredPerson:
+    first_name: str
+    last_name: str
+    title: str
+    role_priority: int = 4       # 1=Founder/CEO, 2=CTO, 3=VP/Head of Eng, 4=Lead/Eng Mgr/Other
+    evidence_snippet: str = ""
+    source_url: str = ""
+    linkedin_url: str = ""
+    confidence: float = 0.8
+
+
+@dataclass
+class EnrichmentResult:
+    company: Company
+    is_new: bool
+    canonical_url: str
+    pages_crawled: list[str] = field(default_factory=list)
+    people: list[DiscoveredPerson] = field(default_factory=list)
+    emails: list[str] = field(default_factory=list)
+    hiring_detected: bool = False
+    error: str = ""
+
+
+class CompanyEnricher:
+    """Crawls a company website safely, extracts firmographic data, and discovers people."""
+
+    def __init__(self, state: StateManager, timeout: float = ENRICHMENT_TIMEOUT):
+        self.state = state
+        self.timeout = timeout
+
+    async def _safe_fetch(self, client: httpx.AsyncClient, url: str) -> str:
+        """Fetch a single URL with PublicHTTPTransport and response size limits."""
+        try:
+            resp = await client.get(url)
+        except (httpx.HTTPError, UnsafeURLError, ValueError) as exc:
+            logger.debug("Fetch failed for %s: %s", url, exc)
+            return ""
+
+        if resp.status_code != 200:
+            return ""
+
+        ctype = resp.headers.get("content-type", "").lower()
+        if "html" not in ctype and "xml" not in ctype and "text" not in ctype:
+            return ""
+
+        text = resp.text or ""
+        if len(text) > MAX_PAGE_BYTES:
+            text = text[:MAX_PAGE_BYTES]
+
+        return text
+
+    def _classify_page_type(self, url: str) -> str:
+        low = url.lower()
+        if re.search(r"/(team|our-team|people|staff|leadership|management|founders?)", low):
+            return "team"
+        if re.search(r"/(about|about-us|company|story|who-we-are)", low):
+            return "about"
+        if re.search(r"/(careers?|jobs?|join-us|work-with-us)", low):
+            return "careers"
+        if re.search(r"/(contact|contact-us|reach-us)", low):
+            return "contact"
+        return "general"
+
+    async def enrich_url(self, raw_url: str) -> EnrichmentResult:
+        """Execute full company URL enrichment safely."""
+        try:
+            canonical_url, domain = validate_and_normalize_url(raw_url)
+        except SSRFValidationError as exc:
+            raise exc
+
+        existing = await self.state.get_company_by_domain(domain)
+        is_new = existing is None
+        company = existing or Company(
+            domain=domain,
+            website=canonical_url,
+            source="manual_enrichment",
+            source_url=canonical_url,
+        )
+
+        pages: list[PageSnapshot] = []
+        fetched_urls: set[str] = set()
+
+        async with public_http_client(timeout=self.timeout) as client:
+            # 1. Fetch homepage
+            home_html = await self._safe_fetch(client, canonical_url)
+            if not home_html and canonical_url.startswith("https://"):
+                # Try http fallback if https failed
+                http_fallback = "http://" + canonical_url[8:]
+                home_html = await self._safe_fetch(client, http_fallback)
+                if home_html:
+                    canonical_url = http_fallback
+
+            if not home_html:
+                return EnrichmentResult(
+                    company=company,
+                    is_new=is_new,
+                    canonical_url=canonical_url,
+                    error=f"Unable to reach website at {canonical_url}",
+                )
+
+            pages.append(PageSnapshot(url=canonical_url, html=home_html, page_type="home"))
+            fetched_urls.add(people_mod._norm_url(canonical_url))
+
+            # 2. Extract internal links from homepage menu
+            menu_urls = people_mod.menu_links(home_html, canonical_url, limit=MAX_ENRICH_PAGES - 1)
+
+            # Add candidates paths if menu links are sparse
+            all_targets = list(menu_urls)
+            for path in CANDIDATE_PATHS:
+                target = urljoin(canonical_url, path)
+                if target not in all_targets:
+                    all_targets.append(target)
+
+            # Fetch target pages up to budget
+            for target_url in all_targets:
+                if len(pages) >= MAX_ENRICH_PAGES or len(fetched_urls) >= MAX_ENRICH_FETCHES:
+                    break
+                norm_key = people_mod._norm_url(target_url)
+                if norm_key in fetched_urls:
+                    continue
+                fetched_urls.add(norm_key)
+
+                html = await self._safe_fetch(client, target_url)
+                if html and len(html) > 200:
+                    ptype = self._classify_page_type(target_url)
+                    pages.append(PageSnapshot(url=target_url, html=html, page_type=ptype))
+
+        # 3. Extract Company Profile Facts
+        home_page = pages[0]
+        site_name = site_name_from_html(home_page.html, domain)
+        if site_name:
+            company.name = site_name
+        elif not company.name:
+            company.name = name_from_domain(domain)
+
+        if not company.description:
+            # Extract meta description
+            m_desc = re.search(r'<meta[^>]+(?:name|property)=["\'](?:description|og:description)["\'][^>]*content=["\']([^"\']+)["\']',
+                               home_page.html, re.I)
+            if not m_desc:
+                m_desc = re.search(r'<meta[^>]+content=["\']([^"\']+)["\'][^>]*property=["\']og:description["\']',
+                                   home_page.html, re.I)
+            if m_desc:
+                company.description = unescape(m_desc.group(1)).strip()[:500]
+
+        # Detect technologies across crawled pages
+        detected_tech: set[str] = set(company.tech_stack)
+        for p in pages:
+            for tech in detect_tech(p.html):
+                detected_tech.add(tech)
+        company.tech_stack = sorted(detected_tech)
+
+        # Detect hiring indicators
+        hiring_detected = any(p.page_type == "careers" for p in pages)
+        if not hiring_detected:
+            hiring_keywords = re.compile(r"(?i)\b(we'?re hiring|careers|open positions|join our team|job openings)\b")
+            for p in pages:
+                if hiring_keywords.search(p.html):
+                    hiring_detected = True
+                    break
+
+        if hiring_detected:
+            # Append signal
+            signal_entry = {
+                "type": "hiring_signal",
+                "detail": "Careers or hiring notices detected on website",
+                "found_at": datetime.now(timezone.utc).isoformat(),
+            }
+            if not any(s.get("type") == "hiring_signal" for s in company.signals):
+                company.signals.append(signal_entry)
+
+        # 4. Discover People / Decision-Makers
+        page_tuples = [(p.url, p.html) for p in pages]
+        raw_people = people_mod.find_people(page_tuples, domain, site_name)
+
+        discovered_people: list[DiscoveredPerson] = []
+        for rp in raw_people:
+            title = rp.get("title", "")
+            title_low = title.lower()
+
+            # Assign preliminary role priority
+            if re.search(r"\b(founder|co-founder|cofounder|ceo|chief executive)\b", title_low):
+                priority = 1
+            elif re.search(r"\b(cto|chief technology officer)\b", title_low):
+                priority = 2
+            elif re.search(r"\b(vp of engineering|head of engineering|director of engineering|vp engineering)\b", title_low):
+                priority = 3
+            else:
+                priority = 4
+
+            person = DiscoveredPerson(
+                first_name=rp.get("first_name", ""),
+                last_name=rp.get("last_name", ""),
+                title=title,
+                role_priority=priority,
+                evidence_snippet=rp.get("evidence", "")[:300],
+                source_url=rp.get("url", canonical_url),
+                confidence=0.85 if priority <= 2 else 0.70,
+            )
+            discovered_people.append(person)
+
+        # 5. Discover Published Email Addresses
+        discovered_emails: list[str] = []
+        for p in pages:
+            for email in people_mod.emails_on_page(p.html):
+                if email not in discovered_emails:
+                    discovered_emails.append(email)
+
+        # 6. Save or Update in Database
+        company.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        if is_new:
+            company_id = await self.state.add_company(company)
+            company.id = company_id
+        else:
+            # Update existing company record with enriched fields
+            await self.state.update_company(company)
+
+        # Save discovered people as Prospects if valid
+        for dp in discovered_people:
+            if dp.first_name and dp.last_name and dp.title:
+                prospect = Prospect(
+                    company_id=company.id,
+                    first_name=dp.first_name,
+                    last_name=dp.last_name,
+                    title=dp.title,
+                    company=company.name,
+                    source="url_enrichment",
+                    source_url=dp.source_url,
+                    personalization_notes=dp.evidence_snippet,
+                    score=90 if dp.role_priority == 1 else (80 if dp.role_priority == 2 else 70),
+                )
+                await self.state.add_prospect(prospect)
+
+        return EnrichmentResult(
+            company=company,
+            is_new=is_new,
+            canonical_url=canonical_url,
+            pages_crawled=[p.url for p in pages],
+            people=discovered_people,
+            emails=discovered_emails,
+            hiring_detected=hiring_detected,
+        )

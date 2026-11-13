@@ -740,6 +740,41 @@ class StateManager:
             )
             await db.commit()
 
+    async def update_company(self, company: Company) -> None:
+        """Update an existing company record with non-empty fields."""
+        if not company.id:
+            return
+        company.domain = _norm(company.domain)
+        async with self._connect() as db:
+            await db.execute(
+                """UPDATE companies SET
+                    name = COALESCE(NULLIF(?, ''), name),
+                    website = COALESCE(NULLIF(?, ''), website),
+                    description = COALESCE(NULLIF(?, ''), description),
+                    industry = COALESCE(NULLIF(?, ''), industry),
+                    company_size = COALESCE(NULLIF(?, ''), company_size),
+                    location = COALESCE(NULLIF(?, ''), location),
+                    phone = COALESCE(NULLIF(?, ''), phone),
+                    tech_stack_json = ?,
+                    signals_json = ?,
+                    updated_at = ?
+                   WHERE id = ?""",
+                (
+                    company.name,
+                    company.website,
+                    company.description,
+                    company.industry,
+                    company.company_size,
+                    company.location,
+                    company.phone,
+                    json.dumps(company.tech_stack),
+                    json.dumps(company.signals),
+                    _utcnow().isoformat(),
+                    company.id,
+                ),
+            )
+            await db.commit()
+
     async def get_company(self, company_id: str) -> Company | None:
         async with self._connect() as db:
             db.row_factory = aiosqlite.Row

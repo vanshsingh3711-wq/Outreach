@@ -774,6 +774,59 @@ async def export_companies():
     )
 
 
+@app.post("/api/prospecting/enrich-url")
+async def enrich_company_url(request: Request):
+    """Enrich a company by its website URL with SSRF protection."""
+    from sellbird.enrichment import CompanyEnricher, SSRFValidationError
+    from sellbird.state import StateManager
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
+
+    url = (body.get("url") or "").strip()
+    if not url:
+        return JSONResponse({"error": "Missing 'url' field"}, status_code=400)
+
+    state = StateManager()
+    await state.init_db()
+    enricher = CompanyEnricher(state)
+
+    try:
+        result = await enricher.enrich_url(url)
+    except SSRFValidationError as exc:
+        return JSONResponse({"error": f"Security restriction: {exc}"}, status_code=400)
+    except Exception as exc:
+        logger.exception("URL enrichment error: %s", exc)
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+    if result.error:
+        return JSONResponse({"error": result.error}, status_code=502)
+
+    return {
+        "success": True,
+        "is_new": result.is_new,
+        "canonical_url": result.canonical_url,
+        "company": result.company.model_dump(),
+        "pages_crawled": result.pages_crawled,
+        "people": [
+            {
+                "first_name": p.first_name,
+                "last_name": p.last_name,
+                "title": p.title,
+                "role_priority": p.role_priority,
+                "evidence_snippet": p.evidence_snippet,
+                "source_url": p.source_url,
+                "confidence": p.confidence,
+            }
+            for p in result.people
+        ],
+        "emails": result.emails,
+        "hiring_detected": result.hiring_detected,
+    }
+
+
 @app.get("/api/companies/{company_id}/profile")
 async def get_company_profile(company_id: str):
     """One company's facts for its detail card: the register row plus what

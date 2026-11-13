@@ -604,6 +604,58 @@ def cmd_profile(args):
     asyncio.run(_profile())
 
 
+def cmd_enrich(args):
+    """Enrich a single company website URL: extract profile, decision-makers, and emails."""
+    from sellbird.enrichment import CompanyEnricher, SSRFValidationError
+    from sellbird.state import StateManager
+
+    async def _enrich():
+        state = StateManager()
+        await state.init_db()
+
+        url = args.url
+        print(f"\n  Enriching company website: {url}...")
+        enricher = CompanyEnricher(state)
+        try:
+            result = await enricher.enrich_url(url)
+        except SSRFValidationError as exc:
+            print(f"\n  Error: Destination refused by security check: {exc}\n")
+            return
+        except Exception as exc:
+            print(f"\n  Error during enrichment: {exc}\n")
+            return
+
+        if result.error:
+            print(f"\n  Warning: {result.error}\n")
+            return
+
+        co = result.company
+        action = "Created new" if result.is_new else "Updated existing"
+        print(f"\n  {action} company record:")
+        print(f"    Name:        {co.name or 'Unknown'}")
+        print(f"    Domain:      {co.domain}")
+        print(f"    Website:     {co.website}")
+        if co.description:
+            print(f"    Description: {co.description[:120]}...")
+        if co.tech_stack:
+            print(f"    Tech Stack:  {', '.join(co.tech_stack[:6])}")
+        print(f"    Hiring:      {'Yes' if result.hiring_detected else 'No'}")
+        print(f"    Pages Read:  {len(result.pages_crawled)}")
+
+        if result.people:
+            print(f"\n  Discovered Decision-Makers ({len(result.people)}):")
+            for p in result.people:
+                print(f"    - {p.first_name} {p.last_name} | {p.title} (Priority {p.role_priority})")
+
+        if result.emails:
+            print(f"\n  Discovered Email Candidates ({len(result.emails)}):")
+            for em in result.emails:
+                print(f"    - {em}")
+        print()
+
+    asyncio.run(_enrich())
+
+
 def cmd_discover(args):
     """Find businesses. The only stage that spends money, so it estimates first."""
     from sellbird.state import StateManager
@@ -1257,6 +1309,11 @@ def main():
     sub.add_argument("--stale-days", type=int, default=90,
                      help="Re-read a site after this many days (default: 90)")
     sub.set_defaults(func=cmd_profile)
+
+    sub = subparsers.add_parser(
+        "enrich", help="Enrich a company website URL with SSRF protection")
+    sub.add_argument("url", help="Company website URL to enrich (e.g. https://example.com)")
+    sub.set_defaults(func=cmd_enrich)
 
     sub = subparsers.add_parser(
         "signals", help="Review/confirm which signals Sellbird prospects against")
