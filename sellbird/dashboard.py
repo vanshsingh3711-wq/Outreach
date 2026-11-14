@@ -874,6 +874,301 @@ async def discover_companies_endpoint(request: Request):
     }
 
 
+@app.get("/api/prospecting/decision-makers")
+async def get_decision_makers_endpoint(
+    role_priority: str = "",
+    deliverability: str = "",
+    search: str = "",
+    company_id: str = "",
+    format: str = "",
+    limit: int = 200,
+):
+    """Retrieve discovered technical decision-makers with dual-scoring & company metadata."""
+    import csv
+    import io
+    import re
+    from sellbird.decision_makers import classify_role_priority
+
+    query = (
+        "SELECT p.id, p.first_name, p.last_name, p.title, p.email, p.email_status, "
+        "p.email_verified, p.linkedin_url, p.personalization_notes, p.status AS prospect_status, "
+        "p.score, p.created_at, p.company_id, c.name AS company_name, c.domain, "
+        "c.website, c.industry, c.location "
+        "FROM prospects p LEFT JOIN companies c ON c.id = p.company_id "
+        "WHERE 1=1 "
+    )
+    params: list[object] = []
+
+    if company_id:
+        query += "AND p.company_id = ? "
+        params.append(company_id)
+
+    if deliverability:
+        query += "AND LOWER(p.email_status) = ? "
+        params.append(deliverability.lower())
+
+    if search:
+        s = f"%{search.strip()}%"
+        query += (
+            "AND (p.first_name LIKE ? OR p.last_name LIKE ? OR p.title LIKE ? "
+            "OR p.email LIKE ? OR c.name LIKE ? OR c.domain LIKE ?) "
+        )
+        params.extend([s, s, s, s, s, s])
+
+    query += "ORDER BY p.created_at DESC LIMIT ?"
+    params.append(limit)
+
+    rows = await query_db(query, tuple(params))
+    results = []
+
+    conf_regex = re.compile(r"match_confidence:\s*([0-9.]+)")
+
+    for r in rows:
+        fn = r.get("first_name") or ""
+        ln = r.get("last_name") or ""
+        title = r.get("title") or ""
+        full_name = f"{fn} {ln}".strip() or "Unknown"
+
+        # Extract match confidence and evidence from personalization_notes
+        notes_raw = r.get("personalization_notes") or ""
+        match_conf = 0.85
+        evidence = ""
+        priority = None
+
+        if notes_raw:
+            conf_match = conf_regex.search(notes_raw)
+            if conf_match:
+                try:
+                    match_conf = float(conf_match.group(1))
+                except (ValueError, TypeError):
+                    pass
+            try:
+                parsed_notes = json.loads(notes_raw)
+                if isinstance(parsed_notes, dict):
+                    match_conf = float(parsed_notes.get("match_confidence", match_conf))
+                    evidence = str(parsed_notes.get("evidence", ""))
+                    priority = parsed_notes.get("role_priority")
+            except Exception:
+                pass
+
+        if priority is None:
+            score = r.get("score") or 0
+            if score >= 90:
+                priority = 1
+            elif score >= 80:
+                priority = 2
+            elif score >= 70:
+                priority = 3
+            elif score >= 60:
+                priority = 4
+            else:
+                priority = classify_role_priority(title)
+
+        # Filter by role priority if specified
+        if role_priority and str(priority) != str(role_priority):
+            continue
+
+        item = {
+            "id": r["id"],
+            "first_name": fn,
+            "last_name": ln,
+            "full_name": full_name,
+            "title": title,
+            "role_priority": priority,
+            "email": r.get("email") or "",
+            "email_status": r.get("email_status") or ("verified" if r.get("email_verified") else "guess"),
+            "email_match_confidence": match_conf,
+            "evidence": evidence or notes_raw,
+            "linkedin_url": r.get("linkedin_url") or "",
+            "company_id": r.get("company_id") or "",
+            "company_name": r.get("company_name") or (r.get("domain") or "").split(".")[0].title() or "Unknown",
+            "company_domain": r.get("domain") or "",
+            "website": r.get("website") or "",
+            "industry": r.get("industry") or "",
+            "location": r.get("location") or "",
+            "status": r.get("prospect_status") or "new",
+            "created_at": r.get("created_at") or "",
+        }
+        results.append(item)
+
+    if format.lower() == "csv":
+        output = io.StringIO()
+        writer = csv.DictWriter(
+            output,
+            fieldnames=[
+                "id", "full_name", "first_name", "last_name", "title", "role_priority",
+                "email", "email_status", "email_match_confidence", "linkedin_url",
+                "company_name", "company_domain", "industry", "location", "status",
+            ],
+            extrasaction="ignore",
+        )
+        writer.writeheader()
+        for item in results:
+            writer.writerow(item)
+        return PlainTextResponse(
+            "\ufeff" + output.getvalue(),
+            media_type="text/csv",
+            headers={"Content-Disposition": 'attachment; filename="decision-makers.csv"'},
+        )
+
+    return {
+        "success": True,
+        "count": len(results),
+        "decision_makers": results,
+    }
+
+
+@app.post("/api/prospecting/draft-proposal")
+async def draft_proposal_endpoint(request: Request):
+    """Generate a tailored outreach proposal draft for a prospect."""
+    from sellbird.proposal_generator import ProposalGenerator
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
+
+    prospect_id = (body.get("prospect_id") or "").strip()
+    if not prospect_id:
+        return JSONResponse({"error": "Missing 'prospect_id' field"}, status_code=400)
+
+    opp_type = (body.get("opportunity_type") or "ai_contract").strip()
+    custom_angle = (body.get("custom_angle") or "").strip()
+    sender_name = (body.get("sender_name") or "Vansh Singh").strip()
+
+    prospect_rows = await query_db("SELECT * FROM prospects WHERE id = ?", (prospect_id,))
+    if not prospect_rows:
+        return JSONResponse({"error": f"Prospect '{prospect_id}' not found"}, status_code=404)
+    prospect = prospect_rows[0]
+
+    company_id = prospect.get("company_id") or ""
+    company = {}
+    if company_id:
+        co_rows = await query_db("SELECT * FROM companies WHERE id = ?", (company_id,))
+        if co_rows:
+            company = co_rows[0]
+
+    # Gather tech stack and hiring roles from observations
+    tech_stack = []
+    hiring_roles = []
+    if company_id:
+        obs = await query_db(
+            "SELECT signal_code, value_text FROM observations WHERE company_id = ?",
+            (company_id,),
+        )
+        for o in obs:
+            code = o.get("signal_code") or ""
+            val = o.get("value_text") or ""
+            if code == "TECH_STACK" and val and val not in tech_stack:
+                tech_stack.append(val)
+            elif code == "HIRING_ROLE" and val and val not in hiring_roles:
+                hiring_roles.append(val)
+
+    draft = ProposalGenerator.generate_draft(
+        first_name=prospect.get("first_name") or "",
+        last_name=prospect.get("last_name") or "",
+        title=prospect.get("title") or "",
+        company=company.get("name") or prospect.get("company") or "",
+        domain=company.get("domain") or "",
+        opportunity_type=opp_type,
+        tech_stack=tech_stack,
+        hiring_roles=hiring_roles,
+        sender_name=sender_name,
+        custom_angle=custom_angle,
+    )
+    draft.recipient_email = prospect.get("email") or ""
+
+    return {
+        "success": True,
+        "draft": {
+            "opportunity_type": draft.opportunity_type,
+            "opportunity_label": draft.opportunity_label,
+            "prospect_id": prospect_id,
+            "prospect_name": draft.prospect_name,
+            "recipient_email": draft.recipient_email,
+            "recipient_title": draft.recipient_title,
+            "company_id": company_id,
+            "company_name": draft.company_name,
+            "company_domain": company.get("domain") or "",
+            "subject": draft.subject,
+            "body": draft.body,
+            "target_role": draft.target_role,
+            "tech_stack": draft.tech_stack,
+        },
+    }
+
+
+@app.post("/api/prospecting/approve-outreach")
+async def approve_outreach_endpoint(request: Request):
+    """Explicit human approval gate: save reviewed outreach draft to the outbox."""
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
+
+    prospect_id = (body.get("prospect_id") or "").strip()
+    to_email = (body.get("to_email") or "").strip()
+    subject = (body.get("subject") or "").strip()
+    draft_body = (body.get("body") or "").strip()
+    queue_status = (body.get("queue_status") or "pending_review").strip()
+
+    if not prospect_id or not to_email or not subject or not draft_body:
+        return JSONResponse(
+            {"error": "Missing required fields: prospect_id, to_email, subject, body"},
+            status_code=400,
+        )
+
+    state = _state()
+    await state.init_db()
+
+    # Insert into outbox with human approval status (pending_review or approved)
+    outbox_id = await state.add_outbox_item(
+        prospect_id=prospect_id,
+        to_email=to_email,
+        subject=subject,
+        body=draft_body,
+        send_at=datetime.now(timezone.utc).isoformat(),
+        status=queue_status,
+        kind="prospecting",
+        approved_by="you" if queue_status == "approved" else "",
+    )
+
+    if not outbox_id:
+        # Check if already in outbox
+        outbox_items = await query_db(
+            "SELECT id FROM outbox WHERE prospect_id = ? AND kind = 'prospecting'",
+            (prospect_id,),
+        )
+        if outbox_items:
+            outbox_id = outbox_items[0]["id"]
+
+    # Update prospect status to reflect outreach prepared/queued
+    async with storage.connect(str(DB_PATH)) as db:
+        await db.execute(
+            "UPDATE prospects SET status = 'queued', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (prospect_id,),
+        )
+        await db.commit()
+
+    await state.log_action(
+        "prospecting_outreach_queued",
+        "dashboard",
+        {
+            "outbox_id": outbox_id or "",
+            "prospect_id": prospect_id,
+            "to_email": to_email,
+            "status": queue_status,
+        },
+    )
+
+    return {
+        "success": True,
+        "outbox_id": outbox_id,
+        "status": queue_status,
+        "message": f"Outreach successfully queued with status '{queue_status}'.",
+    }
+
+
 @app.get("/api/companies/{company_id}/profile")
 async def get_company_profile(company_id: str):
     """One company's facts for its detail card: the register row plus what

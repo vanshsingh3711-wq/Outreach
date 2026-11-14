@@ -427,6 +427,10 @@ function loadCurrentTab() {
     case 'settings': loadSettings(); loadSendingModeCard(); break;
     case 'company': loadCompany(); break;
     case 'controls': loadSellbirdStatus(); loadLogs(); break;
+    case 'ai-discovery': loadAiDiscovery(); break;
+    case 'url-enrichment': loadUrlEnrichment(); break;
+    case 'decision-makers': loadDecisionMakers(); break;
+    case 'outreach-prep': loadOutreachPrep(); break;
   }
 }
 
@@ -447,6 +451,7 @@ async function loadToday() {
   navCount('nav-outbox', (data.stats || {}).outbox_pending || 0);
   navCount('nav-signals', (data.stats || {}).signals_proposed || 0);
   navCount('nav-conversations', (data.stats || {}).needs_human || 0);
+  updateDecisionMakerCount();
   _todayStats = data.stats || {};
   renderFigures(_todayStats);
 
@@ -3365,3 +3370,635 @@ async function dismissProposedOffer() {
   d.addEventListener('close', () => { if (_inboxPoll) { clearInterval(_inboxPoll); _inboxPoll = null; } });
   d.addEventListener('click', e => { if (e.target === d) closeInboxDialog(); });
 })();
+
+// ══════════════════════════════════════════════════════════════
+// AI Prospecting & Proposal Intelligence
+// ══════════════════════════════════════════════════════════════
+
+const DISCOVERY_PRESETS = {
+  ai_startups: {
+    industries: "Artificial Intelligence, Generative AI",
+    roles: "Applied AI Engineer, AI Engineer",
+    tech: "OpenAI, Anthropic, LangGraph, Qdrant",
+    locations: "Remote, United States",
+    model: "product",
+    query: '("AI startup" OR "generative AI" OR "building AI agents" OR "LLM")'
+  },
+  software_agencies: {
+    industries: "Software Development, Custom Software",
+    roles: "Full Stack Developer, Python Backend Engineer",
+    tech: "Python, FastAPI, React",
+    locations: "United States, Germany, United Kingdom",
+    model: "agency",
+    query: '("software development agency" OR "AI automation agency" OR "custom software development") ("our clients" OR "case studies")'
+  },
+  ai_hiring: {
+    industries: "Artificial Intelligence, SaaS",
+    roles: "Applied AI Engineer, AI Backend Engineer, LLM Engineer",
+    tech: "LangGraph, PyTorch, FastAPI",
+    locations: "Remote",
+    model: "",
+    query: '("hiring AI engineer" OR "careers" "Applied AI Engineer")'
+  },
+  agent_products: {
+    industries: "Artificial Intelligence, Generative AI",
+    roles: "AI Agent Engineer, Multi-Agent Systems",
+    tech: "LangGraph, LangChain, LlamaIndex, Qdrant",
+    locations: "Remote, United States",
+    model: "product",
+    query: '("AI agents" OR "agentic workflows" OR "LangGraph" OR "autonomous agents")'
+  },
+  ai_contracts: {
+    industries: "Artificial Intelligence, Software Development",
+    roles: "Contract AI Developer, Freelance Engineer",
+    tech: "Python, FastAPI, OpenAI",
+    locations: "Remote",
+    model: "",
+    query: '("contract AI developer" OR "freelance engineer" OR "seeking AI engineer")'
+  }
+};
+
+function applyDiscoveryPreset(presetKey) {
+  const p = DISCOVERY_PRESETS[presetKey];
+  if (!p) return;
+  const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+  setVal('disc-industries', p.industries);
+  setVal('disc-roles', p.roles);
+  setVal('disc-tech', p.tech);
+  setVal('disc-locations', p.locations);
+  setVal('disc-model', p.model);
+  updateDiscoveryDorkPreview();
+}
+
+function updateDiscoveryDorkPreview() {
+  const el = document.getElementById('disc-dork-preview');
+  if (!el) return;
+  const ind = (document.getElementById('disc-industries')?.value || '').trim();
+  const roles = (document.getElementById('disc-roles')?.value || '').trim();
+  const tech = (document.getElementById('disc-tech')?.value || '').trim();
+  const parts = [];
+  if (ind) parts.push(ind.split(',')[0].trim());
+  if (roles) parts.push(`"${roles.split(',')[0].trim()}"`);
+  if (tech) parts.push(`("${tech.split(',').slice(0, 2).map(t => t.trim()).join('" OR "')}")`);
+  parts.push('-site:linkedin.com -site:indeed.com -site:clutch.co');
+  el.textContent = 'Dork: ' + parts.join(' ');
+}
+
+function loadAiDiscovery() {
+  updateDiscoveryDorkPreview();
+  ['disc-industries', 'disc-roles', 'disc-tech', 'disc-locations'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && !el.dataset.bound) {
+      el.addEventListener('input', updateDiscoveryDorkPreview);
+      el.dataset.bound = 'true';
+    }
+  });
+}
+
+async function runAiDiscovery() {
+  const btn = document.getElementById('btn-run-discovery');
+  const tableEl = document.getElementById('disc-results-table');
+  const countEl = document.getElementById('disc-count-hint');
+  
+  const industries = (document.getElementById('disc-industries')?.value || '')
+    .split(',').map(s => s.trim()).filter(Boolean);
+  const roles = (document.getElementById('disc-roles')?.value || '')
+    .split(',').map(s => s.trim()).filter(Boolean);
+  const tech_stack = (document.getElementById('disc-tech')?.value || '')
+    .split(',').map(s => s.trim()).filter(Boolean);
+  const locations = (document.getElementById('disc-locations')?.value || '')
+    .split(',').map(s => s.trim()).filter(Boolean);
+  const business_model = document.getElementById('disc-model')?.value || '';
+  const limit = parseInt(document.getElementById('disc-limit')?.value || '10', 10);
+  const auto_enrich = document.getElementById('disc-auto-enrich')?.checked || false;
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="status-dot working" style="display:inline-block;margin-right:6px"></span> Discovering...';
+  tableEl.innerHTML = '<p class="desc" style="text-align: center; padding: 32px 0;"><span class="status-dot working" style="display:inline-block;margin-right:8px"></span>Querying search engines and excluding junk directories...</p>';
+
+  const res = await api('/api/prospecting/discover', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      industries,
+      roles,
+      tech_stack,
+      locations,
+      business_model,
+      limit,
+      auto_enrich,
+    }),
+  });
+
+  btn.disabled = false;
+  btn.innerHTML = '<svg class="icon" style="width:14px;height:14px"><use href="#i-sparkle"/></svg> Find Companies';
+
+  if (!res || !res.success) {
+    tableEl.innerHTML = `<p class="desc" style="color: var(--bad); padding: 24px; text-align: center;">Error running discovery: ${escHtml((res && res.error) || 'Failed to communicate with discovery engine.')}</p>`;
+    return;
+  }
+
+  const companies = res.companies || [];
+  countEl.textContent = `${companies.length} candidate${companies.length === 1 ? '' : 's'}`;
+
+  if (companies.length === 0) {
+    tableEl.innerHTML = '<p class="desc" style="text-align: center; padding: 24px 0; color: var(--text-3);">No new candidates found matching these criteria. Try adjusting industries or role keywords.</p>';
+    return;
+  }
+
+  let html = '<div class="table-card"><table class="table clip"><thead><tr>';
+  html += '<th style="width: 25%;">Company / Domain</th>';
+  html += '<th style="width: 25%;">Industry / Business</th>';
+  html += '<th style="width: 35%;">Matched Snippet / Provenance</th>';
+  html += '<th style="width: 15%; text-align: right;">Action</th>';
+  html += '</tr></thead><tbody>';
+
+  companies.forEach(c => {
+    const coName = escHtml(c.name || c.domain);
+    const domain = escHtml(c.domain || '');
+    const url = c.website || ('https://' + domain);
+    const industry = escHtml(c.industry || 'Technology');
+    const snippet = escHtml(c.snippet || (c.source_url ? `Rank #${c.search_rank || 1} via ${c.source}` : 'Search hit'));
+
+    html += `<tr>`;
+    html += `<td><b>${coName}</b><br><a href="${safeHref(url)}" target="_blank" rel="noopener" style="font-family: var(--mono); font-size: 11px; color: var(--text-3);">${domain}</a></td>`;
+    html += `<td>${industry}</td>`;
+    html += `<td style="font-size: 12px; color: var(--text-2);">${snippet}</td>`;
+    html += `<td style="text-align: right;">`;
+    html += `<button class="btn btn-secondary btn-sm" onclick="goToEnrichUrl('${escHtml(url)}')">Enrich URL</button>`;
+    html += `</td>`;
+    html += `</tr>`;
+  });
+
+  html += '</tbody></table></div>';
+  tableEl.innerHTML = html;
+  showToast(`Found ${companies.length} prospective companies!`, 'success');
+}
+
+function goToEnrichUrl(targetUrl) {
+  showTab('url-enrichment');
+  const input = document.getElementById('enrich-url-input');
+  if (input) input.value = targetUrl;
+  runUrlEnrichment(targetUrl);
+}
+
+function loadUrlEnrichment() {
+  // Ready
+}
+
+async function runUrlEnrichment(targetUrl) {
+  const url = (targetUrl || document.getElementById('enrich-url-input')?.value || '').trim();
+  if (!url) {
+    showToast('Please enter a website URL or domain.', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('btn-run-enrich');
+  const progEl = document.getElementById('enrich-progress');
+  const msgEl = document.getElementById('enrich-status-msg');
+  const resultEl = document.getElementById('enrich-result-view');
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="status-dot working" style="display:inline-block;margin-right:6px"></span> Investigating...';
+  progEl.style.display = 'block';
+  msgEl.textContent = '1. Checking SSRF security & DNS boundaries...';
+  resultEl.innerHTML = '';
+
+  const timer1 = setTimeout(() => {
+    if (msgEl) msgEl.textContent = '2. Crawling target website (/team, /about, /careers)...';
+  }, 1200);
+
+  const timer2 = setTimeout(() => {
+    if (msgEl) msgEl.textContent = '3. Extracting firmographics, AI stack & hiring signals...';
+  }, 2800);
+
+  const res = await api('/api/prospecting/enrich-url', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url }),
+  });
+
+  clearTimeout(timer1);
+  clearTimeout(timer2);
+  btn.disabled = false;
+  btn.innerHTML = '<svg class="icon" style="width:14px;height:14px"><use href="#i-refresh"/></svg> Investigate & Enrich';
+  progEl.style.display = 'none';
+
+  if (!res || !res.success) {
+    resultEl.innerHTML = `<div class="card" style="border-left: 3px solid var(--bad);"><p style="color: var(--bad); margin: 0;"><b>Enrichment Failed:</b> ${escHtml((res && res.error) || 'Could not enrich target URL.')}</p></div>`;
+    return;
+  }
+
+  const co = res.company || {};
+  const firmo = res.firmographics || {};
+  const people = res.people || [];
+  const hiring = res.hiring_detected || [];
+  const techStack = firmo.tech_stack || [];
+
+  let html = '<div class="card" style="margin-bottom: var(--sp-4);">';
+  html += `<div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: var(--sp-3); flex-wrap: wrap; gap: 8px;">`;
+  html += `<div><h3 style="margin: 0 0 4px 0;">${escHtml(co.name || co.domain)}</h3>`;
+  html += `<a href="${safeHref(res.canonical_url || co.website)}" target="_blank" rel="noopener" style="font-family: var(--mono); font-size: 12px;">${escHtml(co.domain)}</a></div>`;
+  html += `<div><span class="badge ${res.is_new ? 't-good' : 't-idle'}">${res.is_new ? 'New Company' : 'Existing in DB'}</span></div>`;
+  html += `</div>`;
+
+  // Firmographic grid
+  html += `<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: var(--sp-2); padding: var(--sp-2) 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); font-size: var(--fs-ui); margin-bottom: var(--sp-3);">`;
+  html += `<div><span style="color: var(--text-3); display: block; font-size: 11px;">Industry</span><b>${escHtml(co.industry || 'Technology')}</b></div>`;
+  html += `<div><span style="color: var(--text-3); display: block; font-size: 11px;">Business Model</span><b>${escHtml(firmo.business_model || (co.signals && co.signals.business_model) || 'Unknown')}</b></div>`;
+  html += `<div><span style="color: var(--text-3); display: block; font-size: 11px;">Size Tier</span><b>${escHtml(firmo.employee_size_tier || 'Unknown')}</b></div>`;
+  html += `<div><span style="color: var(--text-3); display: block; font-size: 11px;">Funding</span><b>${escHtml(firmo.funding_stage || 'Unknown')}</b></div>`;
+  html += `<div><span style="color: var(--text-3); display: block; font-size: 11px;">Remote Work</span><b>${firmo.is_remote_friendly ? 'Remote Friendly' : 'On-Site / Unspecified'}</b></div>`;
+  html += `</div>`;
+
+  // Tech stack & hiring chips
+  if (techStack.length || hiring.length) {
+    html += `<div style="margin-bottom: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-2);">`;
+    if (techStack.length) {
+      html += `<div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">`;
+      html += `<span style="font-size: 12px; color: var(--text-3); font-weight: 600; margin-right: 4px;">AI Stack:</span>`;
+      techStack.forEach(t => {
+        html += `<span class="badge t-active" style="font-size: 11px;">${escHtml(t)}</span>`;
+      });
+      html += `</div>`;
+    }
+    if (hiring.length) {
+      html += `<div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">`;
+      html += `<span style="font-size: 12px; color: var(--text-3); font-weight: 600; margin-right: 4px;">Hiring Roles:</span>`;
+      hiring.forEach(h => {
+        html += `<span class="badge t-good" style="font-size: 11px;">${escHtml(h)}</span>`;
+      });
+      html += `</div>`;
+    }
+    html += `</div>`;
+  }
+
+  // Crawled pages summary
+  html += `<div style="font-size: 11px; color: var(--text-3);">Crawled ${res.pages_crawled ? res.pages_crawled.length : 0} page(s) with SSRF validation.</div>`;
+  html += `</div>`;
+
+  // Discovered decision-makers
+  html += `<div class="subhead">Discovered Decision-Makers (${people.length})</div>`;
+  if (people.length === 0) {
+    html += `<div class="card"><p class="desc" style="text-align: center; padding: 16px 0; color: var(--text-3);">No executive or engineering leadership profiles identified on crawled pages.</p></div>`;
+  } else {
+    html += `<div class="table-card"><table class="table"><thead><tr>`;
+    html += `<th>Name & Title</th>`;
+    html += `<th>Priority</th>`;
+    html += `<th>Email & Deliverability</th>`;
+    html += `<th>Match Conf.</th>`;
+    html += `<th>LinkedIn</th>`;
+    html += `<th style="text-align: right;">Action</th>`;
+    html += `</tr></thead><tbody>`;
+
+    people.forEach(p => {
+      const name = escHtml(`${p.first_name || ''} ${p.last_name || ''}`.trim() || 'Unknown');
+      const title = escHtml(p.title || 'Technical Lead');
+      const priority = p.role_priority || 1;
+      const prioBadges = {
+        1: '<span class="badge t-note">P1: Executive</span>',
+        2: '<span class="badge t-active">P2: CTO</span>',
+        3: '<span class="badge t-good">P3: Eng VP</span>',
+        4: '<span class="badge t-waiting">P4: Eng Lead</span>',
+      };
+      const prioHtml = prioBadges[priority] || `<span class="badge t-idle">P${priority}</span>`;
+      
+      const email = escHtml(p.primary_email || '');
+      const emailStatus = p.email_status || 'guess';
+      const statusPills = {
+        verified: '<span class="badge t-good" style="font-size: 10px;">verified</span>',
+        risky: '<span class="badge t-waiting" style="font-size: 10px;">catch-all</span>',
+        guess: '<span class="badge t-idle" style="font-size: 10px;">guess</span>',
+      };
+      const pillHtml = email ? (statusPills[emailStatus] || `<span class="badge t-idle">${emailStatus}</span>`) : '<span style="color: var(--text-3);">none</span>';
+      const confPct = Math.round((p.email_match_confidence || 0.85) * 100);
+
+      html += `<tr>`;
+      html += `<td><b>${name}</b><br><span style="font-size: 12px; color: var(--text-2);">${title}</span></td>`;
+      html += `<td>${prioHtml}</td>`;
+      html += `<td>${email ? `<span style="font-family: var(--mono); font-size: 12px;">${email}</span><br>${pillHtml}` : pillHtml}</td>`;
+      html += `<td>${confPct}%</td>`;
+      html += `<td>${p.linkedin_url ? `<a href="${safeHref(p.linkedin_url)}" target="_blank" rel="noopener">Profile</a>` : '<span style="color: var(--text-3);">&mdash;</span>'}</td>`;
+      html += `<td style="text-align: right;"><button class="btn btn-secondary btn-sm" onclick="goToOutreachPrepByName('${escHtml(p.first_name)}', '${escHtml(p.last_name)}')">Draft Outreach</button></td>`;
+      html += `</tr>`;
+    });
+
+    html += `</tbody></table></div>`;
+  }
+
+  resultEl.innerHTML = html;
+  showToast(`Enriched ${co.name || co.domain} successfully!`, 'success');
+  updateDecisionMakerCount();
+}
+
+let _dmSearchDebounce = null;
+function debouncedLoadDecisionMakers() {
+  clearTimeout(_dmSearchDebounce);
+  _dmSearchDebounce = setTimeout(loadDecisionMakers, 300);
+}
+
+async function loadDecisionMakers() {
+  const container = document.getElementById('dm-table-container');
+  const countEl = document.getElementById('dm-count-subhead');
+  if (!container) return;
+
+  const search = (document.getElementById('dm-filter-search')?.value || '').trim();
+  const priority = document.getElementById('dm-filter-priority')?.value || '';
+  const deliverability = document.getElementById('dm-filter-deliverability')?.value || '';
+
+  const params = new URLSearchParams();
+  if (search) params.set('search', search);
+  if (priority) params.set('role_priority', priority);
+  if (deliverability) params.set('deliverability', deliverability);
+
+  const res = await api('/api/prospecting/decision-makers?' + params.toString());
+  if (!res || !res.success) {
+    container.innerHTML = '<p class="desc" style="text-align: center; padding: 24px 0; color: var(--bad);">Could not load decision-makers.</p>';
+    return;
+  }
+
+  const dms = res.decision_makers || [];
+  if (countEl) countEl.textContent = `Decision-Makers (${dms.length})`;
+  navCount('nav-decision-makers', dms.length);
+
+  if (dms.length === 0) {
+    container.innerHTML = '<p class="desc" style="text-align: center; padding: 32px 0; color: var(--text-3);">No decision-makers found matching these filters. Try discovering companies or enriching a URL first.</p>';
+    return;
+  }
+
+  let html = '<table class="table nowrap"><thead><tr>';
+  html += '<th>Name & Title</th>';
+  html += '<th>Company</th>';
+  html += '<th>Role Priority</th>';
+  html += '<th>Email & Deliverability</th>';
+  html += '<th>Match Conf.</th>';
+  html += '<th>Status</th>';
+  html += '<th style="text-align: right;">Action</th>';
+  html += '</tr></thead><tbody>';
+
+  dms.forEach(d => {
+    const name = escHtml(d.full_name);
+    const title = escHtml(d.title || 'Technical Lead');
+    const co = escHtml(d.company_name || d.company_domain);
+    const domain = escHtml(d.company_domain || '');
+    const web = d.website || (domain ? 'https://' + domain : '#');
+
+    const prioBadges = {
+      1: '<span class="badge t-note">P1: Exec</span>',
+      2: '<span class="badge t-active">P2: CTO</span>',
+      3: '<span class="badge t-good">P3: Eng VP</span>',
+      4: '<span class="badge t-waiting">P4: Eng Lead</span>',
+    };
+    const prioHtml = prioBadges[d.role_priority] || `<span class="badge t-idle">P${d.role_priority}</span>`;
+
+    const email = escHtml(d.email || '');
+    const emailStatus = d.email_status || 'guess';
+    const statusPills = {
+      verified: '<span class="badge t-good" style="font-size: 10px;">verified</span>',
+      risky: '<span class="badge t-waiting" style="font-size: 10px;">catch-all</span>',
+      guess: '<span class="badge t-idle" style="font-size: 10px;">guess</span>',
+    };
+    const pillHtml = email ? (statusPills[emailStatus] || `<span class="badge t-idle">${emailStatus}</span>`) : '<span style="color: var(--text-3);">none</span>';
+    const confPct = Math.round((d.email_match_confidence || 0.85) * 100);
+
+    const statusBadge = d.status === 'queued'
+      ? '<span class="badge t-good">outbox queued</span>'
+      : (d.status === 'contacted' ? '<span class="badge t-active">contacted</span>' : '<span class="badge t-idle">new</span>');
+
+    html += `<tr>`;
+    html += `<td><b>${name}</b><br><span style="font-size: 12px; color: var(--text-2);">${title}</span></td>`;
+    html += `<td><b>${co}</b><br><a href="${safeHref(web)}" target="_blank" rel="noopener" style="font-family: var(--mono); font-size: 11px; color: var(--text-3);">${domain}</a></td>`;
+    html += `<td>${prioHtml}</td>`;
+    html += `<td>${email ? `<span style="font-family: var(--mono); font-size: 12px;">${email}</span><br>${pillHtml}` : pillHtml}</td>`;
+    html += `<td>${confPct}%</td>`;
+    html += `<td>${statusBadge}</td>`;
+    html += `<td style="text-align: right;"><button class="btn btn-secondary btn-sm" onclick="goToOutreachPrep('${escHtml(d.id)}')">Draft Proposal</button></td>`;
+    html += `</tr>`;
+  });
+
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+function exportDecisionMakersCsv() {
+  const token = authToken();
+  const url = '/api/prospecting/decision-makers?format=csv' + (token ? '&token=' + encodeURIComponent(token) : '');
+  window.open(url, '_blank');
+}
+
+let _prepProspectsList = [];
+let _selectedPrepProspectId = null;
+let _selectedPrepOppType = 'ai_contract';
+
+function goToOutreachPrep(prospectId) {
+  _selectedPrepProspectId = prospectId;
+  showTab('outreach-prep');
+  loadOutreachPrep(prospectId);
+}
+
+function goToOutreachPrepByName(firstName, lastName) {
+  showTab('outreach-prep');
+  loadOutreachPrep(null, `${firstName} ${lastName}`.trim());
+}
+
+function setPrepOppType(oppType) {
+  _selectedPrepOppType = oppType;
+  const container = document.getElementById('prep-opp-buttons');
+  if (container) {
+    container.querySelectorAll('button').forEach(btn => {
+      if (btn.dataset.opp === oppType) {
+        btn.classList.add('active', 'btn-primary');
+        btn.classList.remove('btn-secondary');
+      } else {
+        btn.classList.remove('active', 'btn-primary');
+        btn.classList.add('btn-secondary');
+      }
+    });
+  }
+  if (_selectedPrepProspectId) {
+    generateOutreachDraft();
+  }
+}
+
+async function loadOutreachPrep(preselectId, preselectName) {
+  const select = document.getElementById('prep-prospect-select');
+  if (!select) return;
+
+  const res = await api('/api/prospecting/decision-makers?limit=100');
+  if (!res || !res.success) return;
+
+  _prepProspectsList = res.decision_makers || [];
+  let html = '<option value="">Select a decision-maker...</option>';
+  _prepProspectsList.forEach(d => {
+    html += `<option value="${escHtml(d.id)}">${escHtml(d.full_name)} (${escHtml(d.title)} &middot; ${escHtml(d.company_name)})</option>`;
+  });
+  select.innerHTML = html;
+
+  let targetId = preselectId;
+  if (!targetId && preselectName) {
+    const match = _prepProspectsList.find(d => d.full_name.toLowerCase() === preselectName.toLowerCase());
+    if (match) targetId = match.id;
+  }
+
+  if (targetId) {
+    select.value = targetId;
+    _selectedPrepProspectId = targetId;
+    generateOutreachDraft();
+  }
+}
+
+function onPrepProspectSelected() {
+  const select = document.getElementById('prep-prospect-select');
+  _selectedPrepProspectId = select ? select.value : null;
+  if (_selectedPrepProspectId) {
+    generateOutreachDraft();
+  }
+}
+
+async function generateOutreachDraft() {
+  if (!_selectedPrepProspectId) {
+    showToast('Please select a target decision-maker first.', 'error');
+    return;
+  }
+
+  const p = _prepProspectsList.find(d => d.id === _selectedPrepProspectId);
+  const senderName = document.getElementById('prep-sender-name')?.value || 'Vansh Singh';
+  const customAngle = document.getElementById('prep-custom-angle')?.value || '';
+
+  const res = await api('/api/prospecting/draft-proposal', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      prospect_id: _selectedPrepProspectId,
+      opportunity_type: _selectedPrepOppType,
+      sender_name: senderName,
+      custom_angle: customAngle,
+    }),
+  });
+
+  if (!res || !res.success) {
+    showToast((res && res.error) || 'Failed to generate draft.', 'error');
+    return;
+  }
+
+  const draft = res.draft;
+  const workspace = document.getElementById('prep-workspace');
+  const dossierEl = document.getElementById('prep-dossier');
+  const toEl = document.getElementById('prep-draft-to');
+  const subjEl = document.getElementById('prep-draft-subject');
+  const bodyEl = document.getElementById('prep-draft-body');
+
+  workspace.style.display = 'grid';
+
+  // Render Left Dossier
+  let dosHtml = '';
+  dosHtml += `<div style="margin-bottom: var(--sp-2);">`;
+  dosHtml += `<b style="font-size: var(--fs-body);">${escHtml(draft.prospect_name)}</b><br>`;
+  dosHtml += `<span style="color: var(--text-2);">${escHtml(draft.recipient_title)}</span>`;
+  dosHtml += `</div>`;
+
+  dosHtml += `<div style="margin-bottom: var(--sp-3); padding-bottom: var(--sp-2); border-bottom: 1px solid var(--line);">`;
+  dosHtml += `<b>${escHtml(draft.company_name)}</b>`;
+  if (draft.company_domain) {
+    dosHtml += `<br><span style="font-family: var(--mono); font-size: 11px; color: var(--text-3);">${escHtml(draft.company_domain)}</span>`;
+  }
+  dosHtml += `</div>`;
+
+  dosHtml += `<div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: var(--sp-3);">`;
+  dosHtml += `<div><span style="color: var(--text-3); font-size: 11px; display: block;">Target Opportunity Angle</span><span class="badge t-active">${escHtml(draft.opportunity_label)}</span></div>`;
+  dosHtml += `<div><span style="color: var(--text-3); font-size: 11px; display: block;">Deliverable Email</span><span style="font-family: var(--mono); font-size: 12px;">${escHtml(draft.recipient_email || 'None on file')}</span></div>`;
+  dosHtml += `</div>`;
+
+  if (draft.tech_stack && draft.tech_stack.length) {
+    dosHtml += `<div style="margin-bottom: var(--sp-2);"><span style="color: var(--text-3); font-size: 11px; display: block; margin-bottom: 4px;">Detected Tech Stack</span><div style="display: flex; gap: 4px; flex-wrap: wrap;">`;
+    draft.tech_stack.forEach(t => {
+      dosHtml += `<span class="badge t-idle" style="font-size: 10px;">${escHtml(t)}</span>`;
+    });
+    dosHtml += `</div></div>`;
+  }
+
+  dossierEl.innerHTML = dosHtml;
+
+  // Render Right Editor
+  toEl.value = draft.recipient_email || (p ? p.email : '');
+  subjEl.value = draft.subject;
+  bodyEl.value = draft.body;
+  updatePrepCharCount();
+  showToast('Outreach proposal draft generated!', 'success');
+}
+
+function updatePrepCharCount() {
+  const body = document.getElementById('prep-draft-body')?.value || '';
+  const el = document.getElementById('prep-char-count');
+  if (el) {
+    const chars = body.length;
+    const words = body.trim().split(/\s+/).filter(Boolean).length;
+    el.textContent = `${chars} characters &middot; ${words} words`;
+  }
+}
+
+function copyDraftToClipboard() {
+  const subj = document.getElementById('prep-draft-subject')?.value || '';
+  const body = document.getElementById('prep-draft-body')?.value || '';
+  const full = `Subject: ${subj}\n\n${body}`;
+  navigator.clipboard.writeText(full).then(() => {
+    showToast('Copied proposal draft to clipboard!', 'success');
+  }).catch(() => {
+    showToast('Could not copy to clipboard.', 'error');
+  });
+}
+
+async function approveAndQueueOutreach() {
+  if (!_selectedPrepProspectId) {
+    showToast('No prospect selected.', 'error');
+    return;
+  }
+  const toEmail = (document.getElementById('prep-draft-to')?.value || '').trim();
+  const subject = (document.getElementById('prep-draft-subject')?.value || '').trim();
+  const body = (document.getElementById('prep-draft-body')?.value || '').trim();
+
+  if (!toEmail) {
+    showToast('Cannot approve: recipient email is missing.', 'error');
+    return;
+  }
+  if (!subject || !body) {
+    showToast('Cannot approve: subject or email body is empty.', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('btn-approve-outreach');
+  btn.disabled = true;
+  btn.textContent = 'Approving & Queuing...';
+
+  const res = await api('/api/prospecting/approve-outreach', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      prospect_id: _selectedPrepProspectId,
+      to_email: toEmail,
+      subject: subject,
+      body: body,
+      opportunity_type: _selectedPrepOppType,
+      queue_status: 'pending_review',
+    }),
+  });
+
+  btn.disabled = false;
+  btn.innerHTML = '<svg class="icon" style="width:14px;height:14px"><use href="#i-check"/></svg> Approve & Queue for Outbox';
+
+  if (!res || !res.success) {
+    showToast((res && res.error) || 'Failed to queue proposal into Outbox.', 'error');
+    return;
+  }
+
+  showToast('Draft approved and safely queued in Outbox! Zero automated sending.', 'success');
+  loadDecisionMakers();
+}
+
+async function updateDecisionMakerCount() {
+  const data = await api('/api/prospecting/decision-makers?limit=1');
+  if (data && typeof data.count === 'number') {
+    navCount('nav-decision-makers', data.count);
+  }
+}
+

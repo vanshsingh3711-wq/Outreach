@@ -85,6 +85,13 @@
       <button onclick="showTab('conversations', this)"><svg class="icon" aria-hidden="true"><use href="#i-conversations"/></svg><span class="label">Conversations</span><span class="nav-count" id="nav-conversations"></span></button>
     </div>
     <div class="nav-group">
+      <div class="nav-label">AI Prospecting</div>
+      <button onclick="showTab('ai-discovery', this)"><svg class="icon" aria-hidden="true"><use href="#i-sparkle"/></svg><span class="label">ICP Discovery</span></button>
+      <button onclick="showTab('url-enrichment', this)"><svg class="icon" aria-hidden="true"><use href="#i-discover"/></svg><span class="label">URL Enrichment</span></button>
+      <button onclick="showTab('decision-makers', this)"><svg class="icon" aria-hidden="true"><use href="#i-contacts"/></svg><span class="label">Decision-Makers</span><span class="nav-count" id="nav-decision-makers"></span></button>
+      <button onclick="showTab('outreach-prep', this)"><svg class="icon" aria-hidden="true"><use href="#i-pen"/></svg><span class="label">Outreach Prep</span></button>
+    </div>
+    <div class="nav-group">
       <div class="nav-label">Pipeline</div>
       <button onclick="showTab('signals', this)"><svg class="icon" aria-hidden="true"><use href="#i-signals"/></svg><span class="label">Signals</span><span class="nav-count" id="nav-signals"></span></button>
       <button onclick="showTab('discover', this)"><svg class="icon" aria-hidden="true"><use href="#i-discover"/></svg><span class="label">Discover</span></button>
@@ -190,6 +197,259 @@
       how many companies match right now.</p>
     <div id="cohort-builder"></div>
     <div id="cohort-result"></div>
+  </div>
+</div>
+
+<!-- AI Prospecting: ICP Discovery Engine -->
+<div id="ai-discovery" class="section">
+  <div class="section-head">
+    <div>
+      <h2>ICP Discovery Engine</h2>
+      <p>Targeted discovery for AI startups, software development agencies, and high-intent contract/employment opportunities.</p>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom: var(--sp-4);">
+    <div style="display: flex; gap: var(--sp-3); align-items: flex-end; margin-bottom: var(--sp-3); flex-wrap: wrap;">
+      <div style="flex: 2; min-width: 250px;">
+        <label class="form-label" for="disc-preset">Opportunity Preset</label>
+        <select class="form-select" id="disc-preset" onchange="applyDiscoveryPreset(this.value)">
+          <option value="">Custom Criteria</option>
+          <option value="ai_startups">AI & GenAI Startups (LLM & Agents)</option>
+          <option value="software_agencies">Software & AI Development Agencies</option>
+          <option value="ai_hiring">Startups Actively Hiring AI Engineers</option>
+          <option value="agent_products">Agentic & RAG Product Companies</option>
+          <option value="ai_contracts">Freelance & Contract AI Engineering</option>
+        </select>
+      </div>
+      <div style="width: 120px;">
+        <label class="form-label" for="disc-limit">Max Results</label>
+        <input type="number" class="form-input" id="disc-limit" value="10" min="1" max="50">
+      </div>
+      <div>
+        <button class="btn btn-primary" id="btn-run-discovery" onclick="runAiDiscovery()">
+          <svg class="icon" style="width:14px;height:14px"><use href="#i-sparkle"/></svg> Find Companies
+        </button>
+      </div>
+    </div>
+
+    <div class="grid-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); margin-bottom: var(--sp-3);">
+      <div class="form-group">
+        <label class="form-label" for="disc-industries">Industries</label>
+        <input type="text" class="form-input" id="disc-industries" placeholder="e.g. Artificial Intelligence, Software Development">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="disc-roles">Target Roles / Hiring</label>
+        <input type="text" class="form-input" id="disc-roles" placeholder="e.g. Applied AI Engineer, Python Backend Engineer">
+      </div>
+    </div>
+
+    <div class="grid-3" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--sp-3); margin-bottom: var(--sp-3);">
+      <div class="form-group">
+        <label class="form-label" for="disc-tech">Tech Stack (comma-separated)</label>
+        <input type="text" class="form-input" id="disc-tech" placeholder="e.g. LangGraph, FastAPI, Qdrant, OpenAI">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="disc-locations">Locations (or Remote)</label>
+        <input type="text" class="form-input" id="disc-locations" placeholder="e.g. Remote, United States, Germany">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="disc-model">Business Model</label>
+        <select class="form-select" id="disc-model">
+          <option value="">Any Model</option>
+          <option value="agency">Agency / Consulting (Freelance Target)</option>
+          <option value="product">Product / SaaS (Contract & Job Target)</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: var(--sp-4); align-items: center; justify-content: space-between; border-top: 1px solid var(--line); padding-top: var(--sp-3);">
+      <label style="display: flex; align-items: center; gap: 8px; font-size: var(--fs-ui); cursor: pointer;">
+        <input type="checkbox" id="disc-auto-enrich">
+        <span>Auto-enrich discovered companies immediately (crawls website & discovers decision-makers)</span>
+      </label>
+      <span class="hint" id="disc-dork-preview" style="font-family: var(--mono); font-size: 11px; max-width: 480px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></span>
+    </div>
+  </div>
+
+  <div class="subhead" style="display: flex; justify-content: space-between; align-items: center;">
+    <span>Discovered Candidates</span>
+    <span class="hint" id="disc-count-hint">0 companies</span>
+  </div>
+  <div class="card" id="disc-results-table">
+    <p class="desc" style="text-align: center; padding: 24px 0; color: var(--text-3);">Select a preset or enter search criteria and click <b>Find Companies</b> to discover target prospects.</p>
+  </div>
+</div>
+
+<!-- AI Prospecting: Single-Company URL Enrichment -->
+<div id="url-enrichment" class="section">
+  <div class="section-head">
+    <div>
+      <h2>Single-Company URL Enrichment</h2>
+      <p>Deep crawl any target company website with SSRF security verification to extract firmographics, AI stack, and decision-makers.</p>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom: var(--sp-4);">
+    <div style="display: flex; gap: var(--sp-3); align-items: flex-end;">
+      <div style="flex: 1;">
+        <label class="form-label" for="enrich-url-input">Company Website URL or Domain</label>
+        <input type="url" class="form-input" id="enrich-url-input" placeholder="https://example.com or example.com">
+      </div>
+      <div>
+        <button class="btn btn-primary" id="btn-run-enrich" onclick="runUrlEnrichment()">
+          <svg class="icon" style="width:14px;height:14px"><use href="#i-refresh"/></svg> Investigate & Enrich
+        </button>
+      </div>
+    </div>
+    <div id="enrich-progress" style="display: none; margin-top: var(--sp-3); padding-top: var(--sp-3); border-top: 1px solid var(--line);">
+      <div style="display: flex; gap: var(--sp-2); align-items: center; font-size: var(--fs-ui);">
+        <span class="status-dot working" id="enrich-dot"></span>
+        <span id="enrich-status-msg">Initiating SSRF security scan & website crawler...</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="enrich-result-view"></div>
+</div>
+
+<!-- AI Prospecting: Technical Decision-Maker Database -->
+<div id="decision-makers" class="section">
+  <div class="section-head" style="display: flex; justify-content: space-between; align-items: flex-start;">
+    <div>
+      <h2>Technical Decision-Makers</h2>
+      <p>Curated database of engineering leads, founders, and CTOs with dual-confidence email scoring.</p>
+    </div>
+    <div style="display: flex; gap: var(--sp-2);">
+      <button class="btn btn-secondary btn-sm" onclick="exportDecisionMakersCsv()">
+        <svg class="icon" style="width:13px;height:13px"><use href="#i-download"/></svg> Export CSV
+      </button>
+      <button class="btn btn-secondary btn-sm" onclick="loadDecisionMakers()">
+        <svg class="icon" style="width:13px;height:13px"><use href="#i-refresh"/></svg> Refresh
+      </button>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom: var(--sp-4); padding: 12px 16px;">
+    <div style="display: flex; gap: var(--sp-3); align-items: center; flex-wrap: wrap;">
+      <div style="flex: 2; min-width: 220px;">
+        <input type="text" class="form-input" id="dm-filter-search" placeholder="Search by name, title, company, or domain..." oninput="debouncedLoadDecisionMakers()">
+      </div>
+      <div style="flex: 1; min-width: 170px;">
+        <select class="form-select" id="dm-filter-priority" onchange="loadDecisionMakers()">
+          <option value="">All Priorities</option>
+          <option value="1">Priority 1: Founder / CEO</option>
+          <option value="2">Priority 2: CTO / Tech Lead</option>
+          <option value="3">Priority 3: VP / Head of Eng</option>
+          <option value="4">Priority 4: Eng Manager / AI Lead</option>
+        </select>
+      </div>
+      <div style="flex: 1; min-width: 170px;">
+        <select class="form-select" id="dm-filter-deliverability" onchange="loadDecisionMakers()">
+          <option value="">All Deliverability</option>
+          <option value="verified">Verified Only (100% Deliverable)</option>
+          <option value="risky">Risky / Catch-All</option>
+          <option value="guess">Pattern Guess</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="subhead" id="dm-count-subhead">Decision-Makers</div>
+  <div class="table-card" id="dm-table-container">
+    <p class="desc" style="text-align: center; padding: 24px 0;">Loading decision-makers...</p>
+  </div>
+</div>
+
+<!-- AI Prospecting: Outreach Review & Proposal Preparation -->
+<div id="outreach-prep" class="section">
+  <div class="section-head">
+    <div>
+      <h2>Outreach Review & Proposal Prep</h2>
+      <p>Zero-automated sending: customize and explicitly approve every human-style outreach proposal.</p>
+    </div>
+  </div>
+
+  <!-- Safety Banner -->
+  <div style="background: var(--wait-bg); border: 1px solid var(--wait-line); color: var(--wait); padding: 12px 16px; border-radius: var(--r-md); margin-bottom: var(--sp-4); font-size: var(--fs-ui); display: flex; gap: 10px; align-items: center;">
+    <svg class="icon" style="width:18px;height:18px;flex:none"><use href="#i-alert"/></svg>
+    <div>
+      <b>Human Review & Safety Gate:</b> Outreacho never sends automated emails. Every proposal draft must be reviewed, tailored, and explicitly approved by you before entering the outbox.
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom: var(--sp-4);">
+    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: var(--sp-3); margin-bottom: var(--sp-3);">
+      <div>
+        <label class="form-label" for="prep-prospect-select">Target Decision-Maker</label>
+        <select class="form-select" id="prep-prospect-select" onchange="onPrepProspectSelected()">
+          <option value="">Select a decision-maker...</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label" for="prep-sender-name">Your Name</label>
+        <input type="text" class="form-input" id="prep-sender-name" value="Vansh Singh">
+      </div>
+    </div>
+
+    <div style="margin-bottom: var(--sp-3);">
+      <label class="form-label">Opportunity Type / Pitch Angle</label>
+      <div style="display: flex; gap: var(--sp-2); flex-wrap: wrap;" id="prep-opp-buttons">
+        <button class="btn btn-secondary btn-sm active" data-opp="ai_contract" onclick="setPrepOppType('ai_contract')">AI Engineering Contract (Startups)</button>
+        <button class="btn btn-secondary btn-sm" data-opp="freelance" onclick="setPrepOppType('freelance')">Freelance Software Dev (Agencies)</button>
+        <button class="btn btn-secondary btn-sm" data-opp="junior_ai" onclick="setPrepOppType('junior_ai')">Junior / Applied AI Role (Full-Time)</button>
+        <button class="btn btn-secondary btn-sm" data-opp="ai_automation" onclick="setPrepOppType('ai_automation')">AI Automation & RAG (Custom)</button>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: var(--sp-3); align-items: flex-end;">
+      <div style="flex: 1;">
+        <label class="form-label" for="prep-custom-angle">Custom Angle / P.S. Note (Optional)</label>
+        <input type="text" class="form-input" id="prep-custom-angle" placeholder="e.g. Saw your recent announcement / Liked your open-source LangGraph agent...">
+      </div>
+      <div>
+        <button class="btn btn-primary" onclick="generateOutreachDraft()">
+          <svg class="icon" style="width:14px;height:14px"><use href="#i-sparkle"/></svg> Generate Draft
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Side-by-side Editor & Context -->
+  <div id="prep-workspace" style="display: none; grid-template-columns: 340px 1fr; gap: var(--sp-4);">
+    <!-- Left: Context Card -->
+    <div>
+      <div class="subhead">Target Dossier</div>
+      <div class="card" id="prep-dossier" style="font-size: var(--fs-ui);"></div>
+    </div>
+
+    <!-- Right: Editable Draft Editor -->
+    <div>
+      <div class="subhead">Draft Proposal (Human Review Required)</div>
+      <div class="card">
+        <div class="form-group">
+          <label class="form-label" for="prep-draft-to">Recipient</label>
+          <input type="email" class="form-input" id="prep-draft-to" readonly style="background: var(--surface-2); font-family: var(--mono);">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="prep-draft-subject">Subject Line</label>
+          <input type="text" class="form-input" id="prep-draft-subject">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="prep-draft-body">Proposal Email Body</label>
+          <textarea class="form-input" id="prep-draft-body" rows="12" style="font-family: var(--sans); font-size: var(--fs-body); line-height: 1.6;" oninput="updatePrepCharCount()"></textarea>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--line); padding-top: var(--sp-3);">
+          <div class="hint" id="prep-char-count">0 characters</div>
+          <div style="display: flex; gap: var(--sp-2);">
+            <button class="btn btn-secondary" onclick="copyDraftToClipboard()">Copy to Clipboard</button>
+            <button class="btn btn-primary" id="btn-approve-outreach" onclick="approveAndQueueOutreach()">
+              <svg class="icon" style="width:14px;height:14px"><use href="#i-check"/></svg> Approve & Queue for Outbox
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
