@@ -26,6 +26,7 @@ from sellbird.collectors.discover import (
     site_name_from_html,
 )
 from sellbird.collectors import people as people_mod
+from sellbird.decision_makers import DecisionMakerExtractor
 from sellbird.integrations.tech_detect import detect_tech
 from sellbird.models.company import Company
 from sellbird.models.prospect import Prospect
@@ -378,31 +379,25 @@ class CompanyEnricher:
 
         # 4. Discover People / Decision-Makers
         page_tuples = [(p.url, p.html) for p in pages]
-        raw_people = people_mod.find_people(page_tuples, domain, site_name)
+        dm_extractor = DecisionMakerExtractor()
+        extracted_dms = dm_extractor.extract_from_site_pages(
+            page_tuples,
+            domain=domain,
+            site_name=site_name,
+            company_size=company.company_size,
+        )
 
         discovered_people: list[DiscoveredPerson] = []
-        for rp in raw_people:
-            title = rp.get("title", "")
-            title_low = title.lower()
-
-            # Assign preliminary role priority
-            if re.search(r"\b(founder|co-founder|cofounder|ceo|chief executive)\b", title_low):
-                priority = 1
-            elif re.search(r"\b(cto|chief technology officer)\b", title_low):
-                priority = 2
-            elif re.search(r"\b(vp of engineering|head of engineering|director of engineering|vp engineering)\b", title_low):
-                priority = 3
-            else:
-                priority = 4
-
+        for dm in extracted_dms:
             person = DiscoveredPerson(
-                first_name=rp.get("first_name", ""),
-                last_name=rp.get("last_name", ""),
-                title=title,
-                role_priority=priority,
-                evidence_snippet=rp.get("evidence", "")[:300],
-                source_url=rp.get("url", canonical_url),
-                confidence=0.85 if priority <= 2 else 0.70,
+                first_name=dm.first_name,
+                last_name=dm.last_name,
+                title=dm.title,
+                role_priority=dm.role_priority,
+                evidence_snippet=dm.evidence_snippet[:300],
+                source_url=dm.source_url or canonical_url,
+                linkedin_url=dm.linkedin_url,
+                confidence=dm.confidence,
             )
             discovered_people.append(person)
 
@@ -431,10 +426,11 @@ class CompanyEnricher:
                     last_name=dp.last_name,
                     title=dp.title,
                     company=company.name,
+                    linkedin_url=dp.linkedin_url,
                     source="url_enrichment",
                     source_url=dp.source_url,
                     personalization_notes=dp.evidence_snippet,
-                    score=90 if dp.role_priority == 1 else (80 if dp.role_priority == 2 else 70),
+                    score=95 if dp.role_priority == 1 else (85 if dp.role_priority == 2 else (75 if dp.role_priority == 3 else 65)),
                 )
                 await self.state.add_prospect(prospect)
 
