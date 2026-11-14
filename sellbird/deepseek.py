@@ -35,16 +35,28 @@ DEFAULT_MAX_RETRIES = 2
 DEFAULT_MAX_TOKENS = 1024
 
 
+def _get_env_val(key: str, default: str = "") -> str:
+    val = os.environ.get(key)
+    if val is not None and val.strip():
+        return val.strip()
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+    except Exception:
+        pass
+    return os.environ.get(key, default).strip()
+
+
 @dataclass
 class DeepSeekConfig:
     """Configuration for DeepSeek API operations."""
 
-    api_key: str = field(default_factory=lambda: os.environ.get("DEEPSEEK_API_KEY", "").strip())
+    api_key: str = field(default_factory=lambda: _get_env_val("DEEPSEEK_API_KEY", ""))
     base_url: str = field(
-        default_factory=lambda: os.environ.get("DEEPSEEK_BASE_URL", DEFAULT_DEEPSEEK_BASE_URL).strip()
+        default_factory=lambda: _get_env_val("DEEPSEEK_BASE_URL", DEFAULT_DEEPSEEK_BASE_URL)
     )
     model: str = field(
-        default_factory=lambda: os.environ.get("DEEPSEEK_MODEL", DEFAULT_DEEPSEEK_MODEL).strip()
+        default_factory=lambda: _get_env_val("DEEPSEEK_MODEL", DEFAULT_DEEPSEEK_MODEL)
     )
     timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS
     max_retries: int = DEFAULT_MAX_RETRIES
