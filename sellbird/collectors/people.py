@@ -355,7 +355,9 @@ def title_names_other_org(title: str, domain: str, site_name: str = "") -> bool:
     for m in _TITLE_ORG.finditer(fold_accents(title or "")):
         org = m.group(1).strip()
         if re.fullmatch(r"(?i)(?:and\s+)?(?:owner|founder|co-?founder|ceo|cto|coo|cmo|president|"
-                        r"principal|partner|director|chief[\w\s]*|operations|executive officer)", org) \
+                        r"principal|partner|director|chief[\w\s]*|operations|executive officer|"
+                        r"[\w\s]*officer|vp[\w\s]*|vice president[\w\s]*|head of [\w\s]+|"
+                        r"engineering|product|technology|design|operations|finance|marketing)", org) \
                 or re.fullmatch(rf"(?i){_FR_TITLE_WORDS}", org):
             continue
         if not names_business(org, domain, site_name):

@@ -162,6 +162,40 @@ Inside it are `sellbird.yaml` (and `sellbird.local.yaml` once you train), `.env`
 first run and never overwrites them, so your edits survive upgrades. `data/` holds the
 database, the logs and the dashboard token.
 
+## Outreacho: Personal AI Prospecting Agent
+
+Outreacho upgrades Sellbird with a specialized personal prospecting and outreach agent designed to discover high-fit opportunities and land engineering projects or roles across 4 distinct profiles:
+
+1. **Freelance Software Development**: Custom agency engineering capacity, API design, and sprint delivery.
+2. **AI Engineering Contracts**: Production LLM architectures, fine-tuning, evals, and vector search systems.
+3. **Junior / Applied AI Developer Roles**: Full-time engineering opportunities at startups building AI products.
+4. **AI Automation & Multi-Agent Systems**: End-to-end automation workflows, LangGraph pipelines, and enterprise RAG backends.
+
+### Key Capabilities
+
+* **SSRF-Defended Single-Company Enrichment (`sellbird enrich <url>`)**: Safely crawls target domains while blocking internal network probes, AWS/GCP metadata endpoints (`169.254.169.254`), and loopback IPs.
+* **Technical Decision-Maker Discovery**: Extracts C-Suite and engineering leadership (CTO, VP of Engineering, Head of AI, Technical Founders) while adapting priority based on company headcount (favoring technical leaders over non-technical executives at scale) and filtering out advisors, board members, and customer testimonials.
+* **Dual-Scoring Email Intelligence**: Combines pattern derivation confidence (0.0 to 1.0) with SMTP deliverability verification (`verified`, `risky`, `invalid`, `guess`) to safeguard sender domain reputation.
+* **Filtered Company Discovery Engine (`sellbird discover-companies`)**: Generates high-intent targeted search queries filtered by industry, hiring roles, AI tech stack (e.g. LangGraph, FastAPI), funding stage, and location.
+* **DeepSeek AI Intelligence (`DEEPSEEK_API_KEY`)**: Optional DeepSeek LLM enhancement (`deepseek-chat` / `deepseek-reasoner`) for nuanced title normalization, structured team extraction, and highly tailored pitch generation with 100% graceful fallback to deterministic heuristics.
+* **Dedicated Prospecting Dashboard**: Modern web UI tabs for filtered discovery, on-demand URL enrichment, decision-maker review with CSV export, and interactive proposal drafting.
+* **Strict Safety Gate (Zero Automated Sends)**: All outreach proposals enter the outbox in `pending_review` status. Automated sender loops cannot dispatch cold prospecting proposals without explicit, human-in-the-loop review and approval.
+
+### CLI Usage
+
+```bash
+# Enrich a single target company domain safely
+sellbird enrich https://agentic-solutions.io --json
+
+# Discover high-intent companies matching specific criteria
+sellbird discover-companies --industry "AI startups" --role "Applied AI Engineer" --tech "LangGraph" --limit 10
+
+# Launch the prospecting dashboard
+sellbird dashboard
+```
+
+---
+
 ## Documentation
 
 | Guide | What's in it |
