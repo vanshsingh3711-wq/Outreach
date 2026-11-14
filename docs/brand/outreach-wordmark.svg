@@ -1,18 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 64" fill="none" role="img" aria-label="Outreacho">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 64" fill="none" role="img" aria-label="Outreach">
   <defs>
-    <linearGradient id="outreacho-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient id="outreach-grad" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#2563EB" />
       <stop offset="100%" stop-color="#06B6D4" />
     </linearGradient>
   </defs>
   <!-- Signal / Radar Icon -->
   <g transform="translate(10, 8)">
-    <circle cx="24" cy="24" r="22" stroke="url(#outreacho-grad)" stroke-width="3" fill="none" opacity="0.25"/>
-    <circle cx="24" cy="24" r="14" stroke="url(#outreacho-grad)" stroke-width="3" fill="none" opacity="0.6"/>
-    <circle cx="24" cy="24" r="6" fill="url(#outreacho-grad)"/>
-    <path d="M24 10 L38 24 L24 38" stroke="url(#outreacho-grad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <circle cx="24" cy="24" r="22" stroke="url(#outreach-grad)" stroke-width="3" fill="none" opacity="0.25"/>
+    <circle cx="24" cy="24" r="14" stroke="url(#outreach-grad)" stroke-width="3" fill="none" opacity="0.6"/>
+    <circle cx="24" cy="24" r="6" fill="url(#outreach-grad)"/>
+    <path d="M24 10 L38 24 L24 38" stroke="url(#outreach-grad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
   </g>
   <!-- Typography -->
-  <text x="68" y="44" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="34" font-weight="800" fill="#0F172A" letter-spacing="-0.03em">Outreach<tspan fill="url(#outreacho-grad)">o</tspan></text>
+  <text x="68" y="44" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="34" font-weight="800" fill="#0F172A" letter-spacing="-0.03em">Outreach</text>
 </svg>
-
