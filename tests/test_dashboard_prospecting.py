@@ -154,3 +154,13 @@ def test_approve_outreach_endpoint(client):
     dm_res = client.get("/api/prospecting/decision-makers?search=Alex")
     assert dm_res.json()["decision_makers"][0]["status"] == "queued"
 
+
+def test_get_ai_status(client):
+    r = client.get("/api/prospecting/ai-status")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["provider"] == "deepseek"
+    assert "configured" in data
+    assert "model" in data
+
+

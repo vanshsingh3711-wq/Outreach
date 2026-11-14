@@ -1064,7 +1064,8 @@ async def draft_proposal_endpoint(request: Request):
             elif code == "HIRING_ROLE" and val and val not in hiring_roles:
                 hiring_roles.append(val)
 
-    draft = ProposalGenerator.generate_draft(
+    use_ai = bool(body.get("use_ai", True))
+    draft = await ProposalGenerator.generate_draft_async(
         first_name=prospect.get("first_name") or "",
         last_name=prospect.get("last_name") or "",
         title=prospect.get("title") or "",
@@ -1075,6 +1076,7 @@ async def draft_proposal_endpoint(request: Request):
         hiring_roles=hiring_roles,
         sender_name=sender_name,
         custom_angle=custom_angle,
+        use_ai=use_ai,
     )
     draft.recipient_email = prospect.get("email") or ""
 
@@ -1166,6 +1168,20 @@ async def approve_outreach_endpoint(request: Request):
         "outbox_id": outbox_id,
         "status": queue_status,
         "message": f"Outreach successfully queued with status '{queue_status}'.",
+    }
+
+
+@app.get("/api/prospecting/ai-status")
+async def get_ai_status():
+    """Report DeepSeek AI status, configured state, and model."""
+    from sellbird.deepseek import get_deepseek_client
+
+    client = get_deepseek_client()
+    return {
+        "provider": "deepseek",
+        "configured": client.is_available(),
+        "model": client.config.model,
+        "base_url": client.config.base_url,
     }
 
 

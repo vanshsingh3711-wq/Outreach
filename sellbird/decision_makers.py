@@ -151,6 +151,34 @@ def normalize_technical_title(title: str) -> tuple[str, int, str]:
     return clean, 4, "individual"
 
 
+async def normalize_technical_title_async(
+    title: str,
+    company_name: str = "",
+    use_ai: bool = True,
+) -> tuple[str, int, str]:
+    """Analyze a title using heuristic rules and optional DeepSeek AI for eccentric titles."""
+    clean, base_prio, base_seniority = normalize_technical_title(title)
+    if not use_ai:
+        return clean, base_prio, base_seniority
+
+    try:
+        from sellbird.deepseek import get_deepseek_client
+
+        client = get_deepseek_client()
+        if client.is_available():
+            norm_res = await client.normalize_title(title, company_name)
+            if norm_res and norm_res.get("normalized_title"):
+                return (
+                    str(norm_res["normalized_title"]),
+                    int(norm_res.get("role_priority", base_prio)),
+                    str(norm_res.get("seniority", base_seniority)),
+                )
+    except Exception as exc:
+        logger.debug("DeepSeek title normalization skipped: %s", exc)
+
+    return clean, base_prio, base_seniority
+
+
 def classify_role_priority(
     title: str,
     company_size: str | int = "",

@@ -15,8 +15,11 @@ Strict Rules:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import logging
 import re
 from typing import Any
+
+logger = logging.getLogger("sellbird.proposal_generator")
 
 
 @dataclass
@@ -150,4 +153,65 @@ class ProposalGenerator:
             target_role=roles[0] if roles else "",
             tech_stack=techs,
         )
+
+    @classmethod
+    async def generate_draft_async(
+        cls,
+        first_name: str,
+        last_name: str = "",
+        title: str = "",
+        company: str = "",
+        domain: str = "",
+        opportunity_type: str = "ai_contract",
+        tech_stack: list[str] | None = None,
+        hiring_roles: list[str] | None = None,
+        business_model: str = "",
+        sender_name: str = "Vansh Singh",
+        custom_angle: str = "",
+        use_ai: bool = True,
+    ) -> ProposalDraft:
+        """Create a targeted proposal draft, with optional DeepSeek AI enhancement if available."""
+        # Baseline deterministic draft
+        base_draft = cls.generate_draft(
+            first_name=first_name,
+            last_name=last_name,
+            title=title,
+            company=company,
+            domain=domain,
+            opportunity_type=opportunity_type,
+            tech_stack=tech_stack,
+            hiring_roles=hiring_roles,
+            business_model=business_model,
+            sender_name=sender_name,
+            custom_angle=custom_angle,
+        )
+
+        if not use_ai:
+            return base_draft
+
+        try:
+            from sellbird.deepseek import get_deepseek_client
+
+            client = get_deepseek_client()
+            if not client.is_available():
+                return base_draft
+
+            fn = f"{first_name} {last_name}".strip() or first_name or "there"
+            ai_pitch = await client.tailor_pitch(
+                prospect_name=fn,
+                prospect_title=title,
+                company_name=base_draft.company_name,
+                opportunity_type=base_draft.opportunity_type,
+                tech_stack=tech_stack,
+                hiring_roles=hiring_roles,
+                custom_context=custom_angle,
+                sender_name=sender_name,
+            )
+            if ai_pitch and ai_pitch.get("body") and ai_pitch.get("subject"):
+                base_draft.subject = ai_pitch["subject"]
+                base_draft.body = ai_pitch["body"]
+        except Exception as exc:
+            logger.debug("DeepSeek pitch tailoring skipped: %s", exc)
+
+        return base_draft
 
