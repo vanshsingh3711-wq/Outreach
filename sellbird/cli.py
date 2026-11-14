@@ -631,13 +631,30 @@ def cmd_enrich(args):
 
         co = result.company
         action = "Created new" if result.is_new else "Updated existing"
+        fg = result.firmographics or {}
         print(f"\n  {action} company record:")
         print(f"    Name:        {co.name or 'Unknown'}")
         print(f"    Domain:      {co.domain}")
         print(f"    Website:     {co.website}")
         if co.description:
             print(f"    Description: {co.description[:120]}...")
-        if co.tech_stack:
+        if co.industry:
+            print(f"    Industry:    {co.industry}")
+        if fg.get("business_model") and fg.get("business_model") != "Unknown":
+            print(f"    Model:       {fg.get('business_model').capitalize()}")
+        if co.company_size:
+            print(f"    Size Tier:   {co.company_size}")
+        if co.location:
+            rem = " (Remote-friendly)" if fg.get("is_remote_friendly") else ""
+            print(f"    Location:    {co.location}{rem}")
+        if fg.get("funding_stage") and fg.get("funding_stage") != "Unknown":
+            rec = " [Recent]" if fg.get("is_recent_funding") else ""
+            print(f"    Funding:     {fg.get('funding_stage')} {fg.get('funding_amount', '')}{rec}".strip())
+        if fg.get("hiring_target_roles"):
+            print(f"    AI Hiring:   {', '.join(fg.get('hiring_target_roles'))}")
+        if fg.get("ai_tech_stack"):
+            print(f"    AI Tech:     {', '.join(fg.get('ai_tech_stack'))}")
+        elif co.tech_stack:
             print(f"    Tech Stack:  {', '.join(co.tech_stack[:6])}")
         print(f"    Hiring:      {'Yes' if result.hiring_detected else 'No'}")
         print(f"    Pages Read:  {len(result.pages_crawled)}")

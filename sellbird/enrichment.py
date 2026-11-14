@@ -28,6 +28,7 @@ from sellbird.collectors.discover import (
 from sellbird.collectors import people as people_mod
 from sellbird.decision_makers import DecisionMakerExtractor
 from sellbird.email_intelligence import EmailIntelligenceService
+from sellbird.firmographics import FirmographicExtractor
 from sellbird.integrations.tech_detect import detect_tech
 from sellbird.models.company import Company
 from sellbird.models.prospect import Prospect
@@ -232,6 +233,7 @@ class EnrichmentResult:
     emails: list[str] = field(default_factory=list)
     hiring_detected: bool = False
     error: str = ""
+    firmographics: dict = field(default_factory=dict)
 
 
 class CompanyEnricher:
@@ -338,6 +340,15 @@ class CompanyEnricher:
                     ptype = self._classify_page_type(target_url)
                     pages.append(PageSnapshot(url=target_url, html=html, page_type=ptype))
 
+            # Extract Firmographic Profile (headcount, revenue, industry, model, funding, AI tech, ATS roles)
+            page_tuples = [(p.url, p.html) for p in pages]
+            firmo_extractor = FirmographicExtractor()
+            firmo_profile = await firmo_extractor.extract_firmographics(
+                page_tuples,
+                domain=domain,
+                client=client,
+            )
+
         # 3. Extract Company Profile Facts
         home_page = pages[0]
         site_name = site_name_from_html(home_page.html, domain)
@@ -356,15 +367,27 @@ class CompanyEnricher:
             if m_desc:
                 company.description = unescape(m_desc.group(1)).strip()[:500]
 
-        # Detect technologies across crawled pages
+        # Populate firmographic properties on Company model
+        if firmo_profile.employee_tier != "Unknown":
+            company.company_size = firmo_profile.employee_tier
+        if firmo_profile.primary_industry and (not company.industry or firmo_profile.primary_industry != "Technology"):
+            company.industry = firmo_profile.primary_industry
+        elif not company.industry:
+            company.industry = firmo_profile.primary_industry
+        if firmo_profile.formatted_location:
+            company.location = firmo_profile.formatted_location
+
+        # Detect technologies across crawled pages + merge AI tech stack
         detected_tech: set[str] = set(company.tech_stack)
         for p in pages:
             for tech in detect_tech(p.html):
                 detected_tech.add(tech)
+        for ai_tech in firmo_profile.ai_tech_stack:
+            detected_tech.add(ai_tech)
         company.tech_stack = sorted(detected_tech)
 
         # Detect hiring indicators
-        hiring_detected = any(p.page_type == "careers" for p in pages)
+        hiring_detected = firmo_profile.is_hiring or any(p.page_type == "careers" for p in pages)
         if not hiring_detected:
             hiring_keywords = re.compile(r"(?i)\b(we'?re hiring|careers|open positions|join our team|job openings)\b")
             for p in pages:
@@ -373,14 +396,38 @@ class CompanyEnricher:
                     break
 
         if hiring_detected:
-            # Append signal
+            hiring_detail = (
+                f"Hiring {', '.join(firmo_profile.hiring_target_roles)}"
+                if firmo_profile.hiring_target_roles
+                else "Careers or hiring notices detected on website"
+            )
             signal_entry = {
                 "type": "hiring_signal",
-                "detail": "Careers or hiring notices detected on website",
+                "detail": hiring_detail,
+                "roles": firmo_profile.hiring_target_roles,
                 "found_at": datetime.now(timezone.utc).isoformat(),
             }
             if not any(s.get("type") == "hiring_signal" for s in company.signals):
                 company.signals.append(signal_entry)
+
+        if firmo_profile.funding_stage != "Unknown":
+            funding_signal = {
+                "type": "funding_signal",
+                "detail": f"{firmo_profile.funding_stage} {firmo_profile.funding_amount}".strip(),
+                "is_recent": firmo_profile.is_recent_funding,
+                "found_at": datetime.now(timezone.utc).isoformat(),
+            }
+            if not any(s.get("type") == "funding_signal" for s in company.signals):
+                company.signals.append(funding_signal)
+
+        if firmo_profile.business_model != "Unknown":
+            model_signal = {
+                "type": "business_model",
+                "detail": firmo_profile.business_model,
+                "found_at": datetime.now(timezone.utc).isoformat(),
+            }
+            if not any(s.get("type") == "business_model" for s in company.signals):
+                company.signals.append(model_signal)
 
         # 4. Discover People / Decision-Makers
         page_tuples = [(p.url, p.html) for p in pages]
@@ -480,4 +527,5 @@ class CompanyEnricher:
             people=discovered_people,
             emails=discovered_emails,
             hiring_detected=hiring_detected,
+            firmographics=firmo_profile.to_dict(),
         )
