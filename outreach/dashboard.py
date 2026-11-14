@@ -3376,6 +3376,13 @@ async def get_instance():
     return {"instance": INSTANCE_ID}
 
 
+@app.get("/api/auth/check")
+async def get_auth_check(request: Request):
+    """Fast health/auth verification endpoint for decoupled frontends."""
+    principal = getattr(request.state, "principal", "user")
+    return {"authenticated": True, "principal": principal}
+
+
 from outreach.inbox_routes import router as _inbox_router  # noqa: E402
 
 app.include_router(_inbox_router)

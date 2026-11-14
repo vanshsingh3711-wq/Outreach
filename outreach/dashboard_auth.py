@@ -55,6 +55,7 @@ import secrets
 import stat
 import threading
 import time
+import urllib.parse
 from pathlib import Path
 
 TOKEN_RE = re.compile(r"[A-Za-z0-9_-]{43,128}")
@@ -291,6 +292,20 @@ def is_loopback(host: str) -> bool:
         return False
 
 
+def is_dev_cors_origin(origin: str) -> bool:
+    """Check if an origin is a trusted local loopback development origin (e.g. Next.js on port 3000)."""
+    if not (os.environ.get("OUTREACH_DEV_CORS") == "1" or os.environ.get("OUTREACH_ALLOW_CORS") == "1"):
+        return False
+    origin = origin.strip().rstrip("/").lower()
+    try:
+        parsed = urllib.parse.urlparse(origin)
+        if parsed.scheme in ("http", "https") and is_loopback(parsed.hostname or ""):
+            return True
+    except Exception:
+        pass
+    return False
+
+
 def is_public_path(method: str, path: str) -> bool:
     if method not in ("GET", "HEAD"):
         return False
@@ -349,11 +364,23 @@ class DashboardGuard:
         for k, v in scope.get("headers") or []:
             headers.setdefault(k.decode("latin-1").lower(), []).append(v.decode("latin-1"))
 
+        method = scope.get("method", "GET").upper()
+        path = scope.get("path", "")
+        origins = headers.get("origin", [])
+        dev_cors_allowed = bool(origins and is_dev_cors_origin(origins[0]))
+
         async def send_secured(message):
             if message["type"] == "http.response.start":
                 existing = [(k, v) for k, v in message.get("headers", [])
                             if k.lower() not in {h for h, _ in SECURITY_HEADERS}]
-                message = {**message, "headers": existing + SECURITY_HEADERS}
+                extra = list(SECURITY_HEADERS)
+                existing_keys = {k.lower() for k, _ in existing}
+                if dev_cors_allowed and origins and b"access-control-allow-origin" not in existing_keys:
+                    extra.extend([
+                        (b"access-control-allow-origin", origins[0].encode("latin-1")),
+                        (b"access-control-allow-credentials", b"true"),
+                    ])
+                message = {**message, "headers": existing + extra}
             await send(message)
 
         async def deny(status: int, code: str, message: str, extra=()):
@@ -364,9 +391,6 @@ class DashboardGuard:
                                             *extra]})
             await send_secured({"type": "http.response.body", "body": body})
 
-        method = scope.get("method", "GET").upper()
-        path = scope.get("path", "")
-
         # 1. Host, before anything else.
         hosts = headers.get("host", [])
         host = parse_host(hosts[0]) if len(hosts) == 1 else None
@@ -375,17 +399,29 @@ class DashboardGuard:
                               "This dashboard only answers to localhost / 127.0.0.1.")
         host_header = hosts[0].lower()
 
+        if method == "OPTIONS" and dev_cors_allowed:
+            cors_headers = [
+                (b"access-control-allow-origin", origins[0].encode("latin-1")),
+                (b"access-control-allow-methods", b"GET, POST, PUT, DELETE, OPTIONS"),
+                (b"access-control-allow-headers", b"Authorization, Content-Type, Accept, *"),
+                (b"access-control-allow-credentials", b"true"),
+                (b"access-control-max-age", b"86400"),
+            ]
+            await send_secured({"type": "http.response.start", "status": 204,
+                                "headers": cors_headers})
+            await send_secured({"type": "http.response.body", "body": b""})
+            return
+
         # 2. Browser provenance.
         public = is_public_path(method, path)
         navigation = (method in ("GET", "HEAD") and path == "/"
                       and headers.get("sec-fetch-mode", [""])[0] == "navigate"
                       and headers.get("sec-fetch-dest", [""])[0] == "document")
-        origins = headers.get("origin", [])
-        if origins and (len(origins) != 1 or origins[0].lower() != f"http://{host_header}"):
+        if origins and (len(origins) != 1 or (origins[0].lower() != f"http://{host_header}" and not dev_cors_allowed)):
             if not navigation:
                 return await deny(403, "cross_origin", "Cross-origin requests are refused.")
         site = headers.get("sec-fetch-site", [])
-        if site and site[0].lower() not in ("same-origin", "none") and not navigation:
+        if site and site[0].lower() not in ("same-origin", "none") and not navigation and not dev_cors_allowed:
             return await deny(403, "cross_origin", "Cross-site requests are refused.")
 
         if public:

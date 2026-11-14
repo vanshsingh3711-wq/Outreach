@@ -196,6 +196,10 @@ def cmd_dashboard(args):
     from outreach.dashboard import DashboardSetupError, dashboard_url, start_dashboard
     from outreach.dashboard_auth import TokenError
 
+    if getattr(args, "cors", False):
+        os.environ["OUTREACH_DEV_CORS"] = "1"
+        print("  CORS enabled for local loopback development (e.g. Next.js on port 3000)")
+
     if not 1 <= args.port <= 65535:
         print(f"  Invalid port: {args.port}. Must be 1-65535.")
         sys.exit(2)
@@ -1291,6 +1295,10 @@ def main():
     sub.add_argument("--port", type=int, default=5555, help="Port (default: 5555)")
     sub.add_argument("--url", action="store_true",
                      help="Print the unlock link (with its token) and exit")
+    sub.add_argument("--cors", action="store_true",
+                     help="Enable CORS for local frontend development (e.g. Next.js on port 3000)")
+    sub.add_argument("--api-only", action="store_true",
+                     help="Run as headless REST API server without static asset expectations")
     sub.set_defaults(func=cmd_dashboard)
 
     # outreach status

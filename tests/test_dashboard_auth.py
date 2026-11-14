@@ -872,3 +872,32 @@ def test_app_js_only_talks_to_the_api_through_authfetch():
     assert "localStorage.setItem('outreach-dashboard" not in app
     html = (WEB / "index.html").read_text(encoding="utf-8")
     assert "downloadCsv('/api/export/prospects.csv'" in html
+
+
+def test_dev_cors_allows_loopback_frontend_and_preflight(authed, env, monkeypatch):
+    """When OUTREACH_DEV_CORS=1 is set, loopback origins (e.g. Next.js on port 3000) are permitted with CORS headers."""
+    monkeypatch.setenv("OUTREACH_DEV_CORS", "1")
+    # Preflight OPTIONS
+    r = authed.options("/api/auth/check", headers={
+        "Origin": "http://localhost:3000",
+        "Access-Control-Request-Method": "GET",
+        "Access-Control-Request-Headers": "authorization,content-type",
+    })
+    assert r.status_code == 204
+    assert r.headers.get("access-control-allow-origin") == "http://localhost:3000"
+
+    # Authenticated GET
+    r = authed.get("/api/auth/check", headers={
+        "Origin": "http://localhost:3000",
+        "Authorization": f"Bearer {env['token']}",
+    })
+    assert r.status_code == 200
+    assert r.json() == {"authenticated": True, "principal": "user"}
+    assert r.headers.get("access-control-allow-origin") == "http://localhost:3000"
+
+    # External evil origin remains blocked even in dev mode
+    r_evil = authed.options("/api/auth/check", headers={
+        "Origin": "https://evil.example",
+        "Access-Control-Request-Method": "GET",
+    })
+    assert r_evil.status_code == 403
