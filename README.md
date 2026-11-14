@@ -1,7 +1,7 @@
 # Outreacho — Autonomous AI Prospecting & Cold Outreach Platform
 
 <p align="center">
-  <a href="https://github.com/vanshsingh3711-wq/Outreacho">
+  <a href="https://github.com/vanshsingh3711-wq/Outreach">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="docs/brand/outreacho-wordmark-white.svg">
       <img src="docs/brand/outreacho-wordmark.svg" alt="Outreacho" width="300">
@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/vanshsingh3711-wq/Outreacho"><img alt="GitHub" src="https://img.shields.io/badge/github-Outreacho-2563EB?logo=github"></a>
+  <a href="https://github.com/vanshsingh3711-wq/Outreach"><img alt="GitHub" src="https://img.shields.io/badge/github-Outreach-2563EB?logo=github"></a>
   <a href="LICENSE"><img alt="License: AGPL-3.0" src="https://img.shields.io/badge/license-AGPL--3.0-0F172A"></a>
   <img alt="Python 3.11+" src="https://img.shields.io/badge/python-3.11%2B-0284C7?logo=python&logoColor=white">
   <img alt="DeepSeek AI" src="https://img.shields.io/badge/AI-DeepSeek%20%7C%20Claude-6366F1">
@@ -126,8 +126,8 @@ Outreacho generates hyper-targeted pitches aligned with 4 distinct career and bu
 
 ```bash
 # Clone the repository
-git clone https://github.com/vanshsingh3711-wq/Outreacho.git
-cd Outreacho
+git clone https://github.com/vanshsingh3711-wq/Outreach.git
+cd Outreach
 
 # Create and activate a Python 3.11+ virtual environment
 python3 -m venv .venv
