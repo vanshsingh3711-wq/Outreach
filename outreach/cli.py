@@ -2,6 +2,7 @@
 
 import argparse
 import asyncio
+import os
 import subprocess
 import sys
 import textwrap
@@ -199,6 +200,8 @@ def cmd_dashboard(args):
     if getattr(args, "cors", False):
         os.environ["OUTREACH_DEV_CORS"] = "1"
         print("  CORS enabled for local loopback development (e.g. Next.js on port 3000)")
+        from outreach.dashboard import token_store
+        print(f"  Next.js Frontend:     http://localhost:3000/#token={token_store.get()}")
 
     if not 1 <= args.port <= 65535:
         print(f"  Invalid port: {args.port}. Must be 1-65535.")
