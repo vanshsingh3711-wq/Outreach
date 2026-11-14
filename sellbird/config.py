@@ -1193,11 +1193,11 @@ def do_not_contact_from_file(path=None) -> list[str]:
 
 
 def _find_config_file() -> str:
-    """Search for Sellbird's config.
+    """Search for Outreacho's config (outreacho.yaml or legacy sellbird.yaml).
 
-    ``sellbird.local.yaml`` wins when present. It is gitignored, so a fork can
+    ``outreacho.local.yaml`` / ``sellbird.local.yaml`` wins when present. It is gitignored, so a fork can
     carry a real product configuration (trained on an actual company) while
-    the tracked ``sellbird.yaml`` stays an untrained template — nobody
+    the tracked ``outreacho.yaml`` stays an untrained template — nobody
     publishes their positioning, pricing, and prospect targeting by accident.
     """
     # A home that names its config file uses exactly that one.
@@ -1205,17 +1205,28 @@ def _find_config_file() -> str:
     home_config = current_home().config_file
     if home_config is not None:
         if not home_config.exists():
+            # Check if outreacho.yaml or sellbird.yaml exists alongside it
+            for alt_name in ("outreacho.yaml", "sellbird.yaml"):
+                alt_path = home_config.parent / alt_name
+                if alt_path.exists():
+                    return str(alt_path)
             raise ConfigFileNotFoundError(
-                f"sellbird.yaml not found at {home_config}. "
-                "Create one from sellbird.yaml.example or run 'sellbird setup'."
+                f"Configuration file not found at {home_config}. "
+                "Create one from outreacho.yaml or run 'outreacho setup'."
             )
         return str(home_config)
     # The working directory counts only for a checkout run in place. A home
-    # folder (SELLBIRD_HOME, a pipx install, Docker) reads its own config even
-    # when started from a folder holding a sellbird.yaml.
-    from sellbird.paths import HOME_ENV, is_checkout
-    if is_checkout(PROJECT_ROOT) and not os.environ.get(HOME_ENV, "").strip():
+    # folder (OUTREACHO_HOME, SELLBIRD_HOME, a pipx install, Docker) reads its own config even
+    # when started from a folder holding an outreacho.yaml / sellbird.yaml.
+    from sellbird.paths import HOME_ENV, LEGACY_HOME_ENV, is_checkout
+    has_home_override = bool(os.environ.get(HOME_ENV, "").strip() or os.environ.get(LEGACY_HOME_ENV, "").strip())
+    if is_checkout(PROJECT_ROOT) and not has_home_override:
         candidates = [
+            Path.cwd() / "outreacho.local.yaml",
+            PROJECT_ROOT / "outreacho.local.yaml",
+            Path.cwd() / "outreacho.yaml",
+            Path.cwd().parent / "outreacho.yaml",
+            PROJECT_ROOT / "outreacho.yaml",
             Path.cwd() / "sellbird.local.yaml",
             PROJECT_ROOT / "sellbird.local.yaml",
             Path.cwd() / "sellbird.yaml",
@@ -1223,12 +1234,17 @@ def _find_config_file() -> str:
             PROJECT_ROOT / "sellbird.yaml",
         ]
     else:
-        candidates = [PROJECT_ROOT / "sellbird.local.yaml", PROJECT_ROOT / "sellbird.yaml"]
+        candidates = [
+            PROJECT_ROOT / "outreacho.local.yaml",
+            PROJECT_ROOT / "outreacho.yaml",
+            PROJECT_ROOT / "sellbird.local.yaml",
+            PROJECT_ROOT / "sellbird.yaml",
+        ]
     for path in candidates:
         if path.exists():
             return str(path)
     raise ConfigFileNotFoundError(
-        "sellbird.yaml not found in "
+        "outreacho.yaml (or sellbird.yaml) not found in "
         + ", ".join(str(p.parent) for p in candidates)
-        + ". Create one from sellbird.yaml.example or run 'sellbird setup'."
+        + ". Create one from outreacho.yaml or run 'outreacho setup'."
     )

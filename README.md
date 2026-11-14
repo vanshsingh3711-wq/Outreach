@@ -1,225 +1,163 @@
+# Outreacho — Autonomous AI Prospecting & Outreach Platform
+
 <p align="center">
-  <a href="https://sellbird.ai">
+  <a href="https://github.com/vanshsingh3711-wq/Outreacho">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/brand/sellbird-wordmark-white.svg">
-      <img src="docs/brand/sellbird-wordmark.svg" alt="Sellbird" width="300">
+      <img src="docs/brand/sellbird-wordmark.svg" alt="Outreacho" width="280">
     </picture>
   </a>
 </p>
 
-<p align="center"><strong>The open-source outreach platform that runs on your Claude or ChatGPT plan.</strong></p>
+<p align="center"><strong>The open-source autonomous prospecting and cold outreach platform powered by AI.</strong></p>
 
 <p align="center">
-Sellbird finds companies that need what you sell, finds the person who decides, checks their email address, writes each one a personal cold email, sends it and handles the replies.
-It runs on your own machine, and by default nothing goes out until you approve it.
+Outreacho discovers target companies matching your ideal customer profile, uncovers key technical decision-makers (CTOs, VPs, Founders), uncovers their verified emails and social profiles (LinkedIn, 𝕏, GitHub), crafts hyper-personalized email pitches, and manages replies.
+It runs locally on your machine, with strict human-in-the-loop review before any email is dispatched.
 </p>
 
 <p align="center">
-  <a href="https://github.com/ethanplusai/sellbird/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/ethanplusai/sellbird?style=flat&logo=github&label=stars&color=244b62&cacheSeconds=3600"></a>
-  <a href="https://github.com/ethanplusai/sellbird/actions/workflows/tests.yml"><img alt="Tests" src="https://github.com/ethanplusai/sellbird/actions/workflows/tests.yml/badge.svg"></a>
+  <a href="https://github.com/vanshsingh3711-wq/Outreacho"><img alt="GitHub" src="https://img.shields.io/badge/github-Outreacho-244b62?logo=github"></a>
   <a href="LICENSE"><img alt="License: AGPL-3.0" src="https://img.shields.io/badge/license-AGPL--3.0-244b62"></a>
   <img alt="Python 3.11+" src="https://img.shields.io/badge/python-3.11%2B-244b62?logo=python&logoColor=white">
-  <a href="https://sellbird.ai"><img alt="Hosted at sellbird.ai" src="https://img.shields.io/badge/hosted-sellbird.ai-244b62"></a>
-  <a href="https://sellbird.ai/harvey/"><img alt="Formerly Harvey" src="https://img.shields.io/badge/formerly-Harvey-8aa0ad"></a>
 </p>
 
-> **[Harvey is now Sellbird.](https://sellbird.ai/harvey/)** Same project, same history, new name. Already running Harvey? Your setup carries over: see [Upgrading from Harvey](#upgrading-from-harvey).
+---
 
-**Prefer not to run it yourself? [sellbird.ai](https://sellbird.ai) is the hosted version, with sending domains, inboxes and warmup set up for you. It's in early access.**
+## What Outreacho Does
 
-![Sellbird's dashboard: the Today screen, a conversation that needs you, approving a drafted reply in the Outbox, the signals to confirm, searching contacts, then dark mode](docs/dashboard.gif)
+Outreacho provides an end-to-end intelligent pipeline you can run autonomously or inspect at every stage:
 
-<sub>The demo data is invented: "Bookwell" selling online booking to roofers, dental practices and HVAC shops, on `.test` domains.</sub>
-
-## What it does
-
-Sellbird is a pipeline you can run end to end, or stop at any step.
-
-| | What happens | More |
+| Stage | What Happens | Details |
 |---|---|---|
-| **Find companies** | Searches for businesses that match your customer: free on OpenStreetMap, or on a paid source you pick. Every paid search shows its cost before it runs. | [Discovery](docs/signals-and-pipeline.md#1-discover--who-exists) |
-| **Learn why they'd buy** | Reads each company's own website for the buying signals you confirmed, like no online booking, ads running or a role they're hiring for. No model calls, no cost. | [Signals](docs/signals-and-pipeline.md) |
-| **Find who decides** | Finds the owner or manager named on the company's own pages, two people per company at most. | [Enrich](docs/signals-and-pipeline.md#3-enrich--who-decides) |
-| **Check the address** | Learns the company's email pattern and verifies one address. Every address is marked verified, risky, guess or invalid, and only deliverable ones are ever sent to. | [Verify](docs/signals-and-pipeline.md#4-verify--can-you-reach-them) |
-| **Write and send** | Writes a short sequence for each person from what it found, then sends from your Gmail, Microsoft 365 or SMTP mailbox inside your daily limit and their office hours. | [Sending](docs/approval-and-sending.md) |
-| **Handle replies** | Reads every reply, drafts an answer, sets auto-replies aside, honours opt-outs at once, and hands you anything it shouldn't answer alone. | [Dashboard](docs/dashboard.md) |
-
-Only want the list? Stop after verifying and run `sellbird export` for a sequencer-ready CSV of everything it found.
+| **Filtered Company Discovery** | Discovers companies filtered by industry, hiring signals, and tech stack (e.g., LangGraph, FastAPI, PyTorch). | `outreacho discover-companies` |
+| **SSRF-Defended URL Enrichment** | Safely crawls target domains while blocking internal metadata services (`169.254.169.254`) and intranet probes. | `outreacho enrich <url>` |
+| **Technical Decision-Maker Discovery** | Pinpoints engineering and executive leadership (CTO, VP Eng, Head of AI, Technical Founders), adapting priority by company size. | ICP Targeting |
+| **Social Profile Intelligence** | Discovers LinkedIn, 𝕏 (Twitter), and GitHub profiles via semantic site scraping and search engine enrichment. | Social Badges |
+| **Email Deliverability Verification** | Derives email patterns and validates addresses via Reoon, ZeroBounce, or Hunter. Never sends to invalid or risky inboxes without review. | Multi-tier Verification |
+| **AI Proposal & Pitch Drafting** | Generates bespoke outreach proposals tailored to 4 career/business archetypes (Freelance, AI Engineering, Applied AI Roles, Agentic Automation). | DeepSeek AI / Claude |
+| **Human-in-the-Loop Outbox** | All drafts enter `pending_review` in the Outbox. Zero automated cold sends occur without your explicit approval. | Outbox Review |
+| **Autonomous Mail & Reply Loop** | Sends scheduled emails within daily throttles and office hours, tracks responses, handles objections, and flags interested leads. | `outreacho run` |
 
 ```
-$ sellbird run
+$ outreacho run
 
 ============================================================
-Sellbird is online.
+Outreacho is online.
 ============================================================
 Checking pipeline state...
+Thinking with DeepSeek AI (deepseek-chat)
 Decision: write_campaign (3 new prospects with no drafts)
-  handler   → Elena Park, Harbor Dental Studio     interested, answer drafted
-  handler   → Priya Nair, Highline Roofing         objection, answer drafted
-  writer    → 2-email sequence: Phoenix HVAC hiring a dispatcher
+  handler   → Elena Rostova, Cognitive Labs        interested, answer drafted
+  handler   → Marcus Vance, HyperScale Systems      objection, answer drafted
+  writer    → 2-email sequence: NextGen AI hiring an Applied AI Engineer
   outbox    → 5 emails waiting for your approval
 Cycle complete. Sleeping for 15 minutes.
 ```
 
-## No model API bill
+---
 
-Sellbird thinks through the Claude Code CLI on your Claude Pro or Max plan, or through Codex on a ChatGPT plan. There's no API key and no per-token billing, and Sellbird throttles itself to leave room for your own work.
+## 4 Specialized Outreach Archetypes
 
-| | |
-|---|---|
-| Claude Pro or Max, or a ChatGPT plan with Codex | the subscription you already have |
-| Finding businesses | **$0** on the default source, or about $0.37 per 1,000 on the cheapest paid one |
-| Reading their websites | **$0**: three HTTP requests each, no model call |
-| Writing and sending | your subscription and a mailbox (about $7 a month for Google Workspace) |
-| Prospecting tools | **None.** No Apollo, ZoomInfo, Clearbit or Clay. |
+Outreacho includes out-of-the-box pitch and positioning engines for:
 
-How the loop, the budget and the isolation work: [How Sellbird works](docs/how-it-works.md).
+1. **Freelance Software Development**: Custom sprint capacity, full-stack systems, API engineering.
+2. **AI Engineering Contracts**: Production LLMs, fine-tuning, evals, vector search, RAG architectures.
+3. **Junior / Applied AI Developer Roles**: High-growth startups hiring AI/ML engineers.
+4. **AI Automation & Multi-Agent Systems**: End-to-end automation, LangGraph pipelines, and autonomous workflows.
 
-## Quick start
+---
 
-You need:
+## Quick Start
 
-- **Python 3.11 or newer.** macOS ships 3.9, so run `brew install python@3.13` first if `python3 --version` says so.
-- **Claude Pro or Max** with the CLI signed in (`claude login`), or a **ChatGPT plan with the Codex CLI** ([Codex setup](docs/codex.md)).
-- **A mailbox to send from**, ideally Google Workspace on a separate sending domain. [Microsoft 365](docs/microsoft365.md) and SMTP work too.
-- **Warmup on that mailbox.** We recommend [TrulyInbox](https://trulyinbox.com/?via=sellbird): it warms a new mailbox before cold email and keeps it out of spam after, and Sellbird reads its inbox rate to tell you when you're ready.
-
-### Let Claude set it up
+### 1. Installation
 
 ```bash
-git clone https://github.com/ethanplusai/sellbird.git
-cd sellbird
-claude
+git clone https://github.com/vanshsingh3711-wq/Outreacho.git
+cd Outreacho
+
+# Create and activate virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+
+# Install package and dependencies
+pip install -e .
+
+# Install headless Chromium for browser scraping (optional for LinkedIn)
+playwright install chromium
 ```
 
-Then say **"set up Sellbird for me"**. The repo's `CLAUDE.md` turns Claude Code into the setup guide: it checks where you are, installs what's missing, asks what it needs and trains Sellbird on your product.
+### 2. Configure Credentials (`.env`)
 
-### Or do it yourself
-
+Copy the example file and add your credentials:
 ```bash
-# 1. Install. Use python3.13, not python3: on macOS bare python3 is 3.9.
-python3.13 -m venv .venv && source .venv/bin/activate && pip install -e .
-
-# 2. Add credentials. Every variable is documented inline.
-cp .env.example .env && $EDITOR .env
-
-# 3. Learn your product from your website (writes sellbird.local.yaml).
-sellbird train https://your-company.com
-
-# 4. Confirm what makes a good prospect.
-sellbird signals --confirm free
-
-# 5. Find businesses. The default source is free and needs no account.
-sellbird discover
-
-# 6. Open the dashboard and start the loop.
-sellbird dashboard          # prints a private link to http://127.0.0.1:5555
-sellbird run
+cp .env.example .env
 ```
 
-On Linux you can also [run it with Docker](docs/docker.md).
+Key environment variables:
+```ini
+# AI Brain (DeepSeek recommended for fast, economical inference)
+DEEPSEEK_API_KEY=sk-...
 
-## Nothing sends without you
+# Search & Enrichment (Google Search queries)
+SERPER_API_KEY=...
 
-Every outgoing email waits in the Outbox for your approval until you turn on autopilot yourself. Before anything leaves, a pre-send check with no model involved rejects unfilled merge tags, banned phrases, overlong emails, extra links and undeliverable addresses. Autopilot still holds back any email that links to a domain that isn't yours or quotes Sellbird's own instructions. `sellbird sending pause` stops everything at once.
+# Email Verification (Pick one or more)
+REOON_API_KEY=...
+ZEROBOUNCE_API_KEY=...
+HUNTER_API_KEY=...
 
-Details: [Approval and sending](docs/approval-and-sending.md) and [Legal and deliverability](docs/deliverability.md).
-
-## Upgrading from Harvey
-
-Harvey was renamed Sellbird in 0.4.0. Your configuration, data and dashboard sign-in carry over:
-
-```bash
-git pull
-pip install -e .        # once, to get the new `sellbird` command
-sellbird dashboard
+# Sending Mailbox (Gmail OAuth recommended)
+GMAIL_CLIENT_ID=...
+GMAIL_CLIENT_SECRET=...
 ```
 
-- On first run Sellbird renames `harvey.local.yaml` to `sellbird.local.yaml` and `data/harvey.db` (and its log) to `data/sellbird.*`. It never overwrites a file that already exists under the new name, and waits if a Harvey process is still running from the folder. Stop that first.
-- `HARVEY_*` environment variables still work when the `SELLBIRD_*` one isn't set; rename them when convenient.
-- The `harvey` command and `python -m harvey` still work for now and say they moved. They will be removed in a later release.
-- If you edited the tracked `harvey.yaml` directly, `git pull` stops with "your local changes would be overwritten". Run `git stash`, `git pull`, then `git stash pop`. Git carries your edits into `sellbird.yaml`. If it reports a conflict there, keep your lines, delete the conflict markers, and run `git stash drop`. Better still, put your settings in `sellbird.local.yaml`, which git never touches.
-- Docker: the service is now `sellbird`. Run `docker compose down`, `git pull`, `docker compose build`, then `docker compose up -d`. `HARVEY_UID`/`HARVEY_GID` are still read.
-
-Links to `github.com/ethanplusai/harvey` keep working: GitHub redirects them here.
-
-## Where your files live
-
-Your config, knowledge and data live in one home folder. Which one, first match wins:
-
-1. `SELLBIRD_HOME`, if you set it (the Docker image sets it to `/app`).
-2. A checkout: the checkout folder itself, as before.
-3. Otherwise, for an installed package (`pip` or `pipx`), your user data folder:
-
-| | Home folder |
-|---|---|
-| macOS | `~/Library/Application Support/sellbird` |
-| Windows | `%APPDATA%\sellbird` |
-| Linux | `~/.local/share/sellbird` (or `$XDG_DATA_HOME/sellbird`) |
-
-Inside it are `sellbird.yaml` (and `sellbird.local.yaml` once you train), `.env`,
-`prompts/` and `skills/`, all yours to edit. An installed package copies the defaults in on
-first run and never overwrites them, so your edits survive upgrades. `data/` holds the
-database, the logs and the dashboard token.
-
-## Outreacho: Personal AI Prospecting Agent
-
-Outreacho upgrades Sellbird with a specialized personal prospecting and outreach agent designed to discover high-fit opportunities and land engineering projects or roles across 4 distinct profiles:
-
-1. **Freelance Software Development**: Custom agency engineering capacity, API design, and sprint delivery.
-2. **AI Engineering Contracts**: Production LLM architectures, fine-tuning, evals, and vector search systems.
-3. **Junior / Applied AI Developer Roles**: Full-time engineering opportunities at startups building AI products.
-4. **AI Automation & Multi-Agent Systems**: End-to-end automation workflows, LangGraph pipelines, and enterprise RAG backends.
-
-### Key Capabilities
-
-* **SSRF-Defended Single-Company Enrichment (`sellbird enrich <url>`)**: Safely crawls target domains while blocking internal network probes, AWS/GCP metadata endpoints (`169.254.169.254`), and loopback IPs.
-* **Technical Decision-Maker Discovery**: Extracts C-Suite and engineering leadership (CTO, VP of Engineering, Head of AI, Technical Founders) while adapting priority based on company headcount (favoring technical leaders over non-technical executives at scale) and filtering out advisors, board members, and customer testimonials.
-* **Dual-Scoring Email Intelligence**: Combines pattern derivation confidence (0.0 to 1.0) with SMTP deliverability verification (`verified`, `risky`, `invalid`, `guess`) to safeguard sender domain reputation.
-* **Filtered Company Discovery Engine (`sellbird discover-companies`)**: Generates high-intent targeted search queries filtered by industry, hiring roles, AI tech stack (e.g. LangGraph, FastAPI), funding stage, and location.
-* **DeepSeek AI Intelligence (`DEEPSEEK_API_KEY`)**: Optional DeepSeek LLM enhancement (`deepseek-chat` / `deepseek-reasoner`) for nuanced title normalization, structured team extraction, and highly tailored pitch generation with 100% graceful fallback to deterministic heuristics.
-* **Dedicated Prospecting Dashboard**: Modern web UI tabs for filtered discovery, on-demand URL enrichment, decision-maker review with CSV export, and interactive proposal drafting.
-* **Strict Safety Gate (Zero Automated Sends)**: All outreach proposals enter the outbox in `pending_review` status. Automated sender loops cannot dispatch cold prospecting proposals without explicit, human-in-the-loop review and approval.
-
-### CLI Usage
+### 3. CLI Commands
 
 ```bash
-# Enrich a single target company domain safely
-sellbird enrich https://agentic-solutions.io --json
+# Discover high-intent companies matching your ICP criteria
+outreacho discover-companies --industry "Artificial Intelligence" --role "AI Engineer" --tech "LangGraph" --limit 10
 
-# Discover high-intent companies matching specific criteria
-sellbird discover-companies --industry "AI startups" --role "Applied AI Engineer" --tech "LangGraph" --limit 10
+# Safely enrich a single target company domain
+outreacho enrich https://agentic-solutions.io --json
 
-# Launch the prospecting dashboard
-sellbird dashboard
+# Launch the Web Dashboard
+outreacho dashboard
+
+# Start the background heartbeat loop
+outreacho run
 ```
 
 ---
 
-## Documentation
+## Web Dashboard
 
-| Guide | What's in it |
-|---|---|
-| [How Sellbird works](docs/how-it-works.md) | The heartbeat loop, the subscription budget, project structure and the ideas behind it |
-| [Signals and the prospecting pipeline](docs/signals-and-pipeline.md) | The 29 signals, cohorts, and the discover, profile, enrich and verify stages |
-| [Skills and sub-agents](docs/skills-and-agents.md) | The editable sales playbooks and which agent uses which |
-| [Approval and sending](docs/approval-and-sending.md) | The Outbox, autopilot, office hours and email signatures |
-| [The dashboard and the data](docs/dashboard.md) | Every screen, how sign-in works, and how the data is stored |
-| [Configuration and commands](docs/configuration.md) | `.env`, `sellbird.yaml` and every command |
-| [Extensions](docs/extensions.md) | Adding routes, heartbeat steps and commands from a separate package |
-| [Using a ChatGPT plan (Codex)](docs/codex.md) | Running on Codex instead of Claude |
-| [Legal and deliverability](docs/deliverability.md) | The rules you're sending under, and warmup |
-| [Microsoft 365](docs/microsoft365.md) · [Precleared](docs/precleared.md) | Provider setup guides |
-| [Docker](docs/docker.md) · [Troubleshooting](docs/troubleshooting.md) · [Roadmap](docs/roadmap.md) | Running, fixing and what's next |
+Launch the local web dashboard anytime:
+```bash
+outreacho dashboard
+```
+Open the private local URL printed in your terminal (`http://127.0.0.1:5555/#token=...`).
 
-## Contributing
+### Dashboard Features:
+* **Today Queue**: Live overview of emails to review, new replies, and pending decisions.
+* **AI Discovery Tab**: Interactive discovery of target companies by tech stack and industry.
+* **URL Enrichment Tab**: Safe on-demand URL analysis and decision-maker extraction.
+* **Decision-Makers Tab**: Visual table of leadership contacts with direct social badges (LinkedIn, 𝕏, GitHub) and one-click proposal generation.
+* **Outreach Prep Tab**: Review generated dossiers, pain points, and personalized emails.
+* **Outbox**: The human-in-the-loop review desk. Approve (<kbd>A</kbd>), reject (<kbd>R</kbd>), or edit (<kbd>E</kbd>) drafts before sending.
+* **Inboxes & Deliverability**: Monitor sending domain reputation, bounce rates, and connected mailboxes.
 
-Pull requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first: it covers keeping real contact data out of the repo, test email, and signing off your commits. Found a security problem? Follow [SECURITY.md](SECURITY.md) instead of opening an issue.
+---
 
-See [CHANGELOG.md](CHANGELOG.md) for what changed in each release.
+## Safety & Compliance
+
+* **Zero Automated Sends**: Outgoing prospecting pitches strictly require human approval in the Outbox by default.
+* **SSRF Protection**: Crawler blocks loops, private IP ranges (RFC 1918), and cloud provider metadata APIs (`169.254.169.254`).
+* **Deliverability Safeguards**: Hard caps on hourly and daily sending, automated quiet-hours scheduling, and instant opt-out honoring.
+
+---
 
 ## License
 
-Sellbird is licensed under the [GNU Affero General Public License v3.0](LICENSE). Harvey releases up to 0.3.x were released under MIT, and that code keeps its MIT notice in [NOTICE](NOTICE).
+Outreacho is licensed under the [GNU Affero General Public License v3.0](LICENSE).
 
-TrulyInbox links in this project are affiliate links: the maintainer may earn a commission, at no extra cost to you.
+Warmup on sending mailboxes can be managed with [TrulyInbox](https://trulyinbox.com/?via=sellbird).

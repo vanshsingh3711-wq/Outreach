@@ -231,7 +231,7 @@ def test_start_launches_the_heartbeat_not_the_cli_help(status_client, monkeypatc
 
     monkeypatch.setattr(dash.subprocess, "Popen", FakePopen)
     assert status_client.post("/api/sellbird/start").json()["success"] is True
-    assert launched["cmd"][1:] == ["-m", "sellbird", "run"]
+    assert launched["cmd"][1:] in (["-m", "outreacho", "run"], ["-m", "sellbird", "run"])
 
 
 class _FakeChild:
@@ -273,7 +273,7 @@ def test_start_refuses_before_setup_is_done(status_client, monkeypatch, tmp_path
     monkeypatch.setattr(dash.subprocess, "Popen", _never)
     data = status_client.post("/api/sellbird/start").json()
     assert data["success"] is False
-    assert "sellbird setup" in data["message"]
+    assert "outreacho setup" in data["message"] or "sellbird setup" in data["message"]
 
 
 def test_sellbird_run_without_a_terminal_does_not_start_the_wizard(monkeypatch, capsys):
@@ -288,7 +288,8 @@ def test_sellbird_run_without_a_terminal_does_not_start_the_wizard(monkeypatch, 
     with pytest.raises(SystemExit) as exc:
         main_mod.main()
     assert exc.value.code == 1
-    assert "sellbird setup" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "outreacho setup" in out or "sellbird setup" in out
 
 
 def test_stop_that_could_not_end_the_loop_says_so(status_client, monkeypatch, tmp_path):

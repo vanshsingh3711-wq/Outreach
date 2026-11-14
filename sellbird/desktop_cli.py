@@ -10,7 +10,7 @@ import sys
 
 
 def register_desktop_commands(subparsers) -> None:
-    sub = subparsers.add_parser("autostart", help="Start the Sellbird tray when you log in")
+    sub = subparsers.add_parser("autostart", help="Start the Outreacho tray when you log in")
     sub.add_argument("autostart_action", choices=["install", "uninstall", "status"])
     sub.add_argument("--port", type=int, default=None,
                      help="Dashboard port the tray uses (default: the tray's own default)")
@@ -43,7 +43,7 @@ def cmd_autostart(args, *, platform=None, runner=subprocess.run, env=None, home=
 # ── `sellbird tray` ──
 
 def register(subparsers) -> None:
-    sub = subparsers.add_parser("tray", help="Menu-bar icon: start, stop and open Sellbird")
+    sub = subparsers.add_parser("tray", help="Menu-bar icon: start, stop and open Outreacho")
     sub.add_argument("--status", action="store_true",
                      help="Print whether it's running and the next setup step, then exit")
     sub.add_argument("--port", type=int, default=None,
@@ -68,7 +68,7 @@ def cmd_tray(args, *, data_dir=None, transport=None, autostart=None):
     port = tray.resolve_port(data_dir, args.port)
     if args.status:
         status = tray.TrayController(data_dir, port=port, transport=transport).status()
-        print(f"  Sellbird: {tray.state_label(status)}")
+        print(f"  Outreacho: {tray.state_label(status)}")
         if status.error:
             print(f"  {status.error}")
         elif status.dashboard != "running":

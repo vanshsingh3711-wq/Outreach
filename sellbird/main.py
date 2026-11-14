@@ -137,17 +137,17 @@ def _new_counts(summary: dict) -> tuple[int, int]:
 
 
 def unusable_backlog_notice(summary: dict) -> str:
-    """Why Sellbird paused prospecting for the day, or ""."""
+    """Why Outreacho paused prospecting for the day, or ""."""
     _, writable = _new_counts(summary)
     recent = summary.get("recent_unusable_prospects", 0) or 0
     if writable or recent < PROSPECT_BACKLOG:
         return ""
     return (
-        f"Sellbird found {recent} prospects in the last day, but none has a verified "
+        f"Outreacho found {recent} prospects in the last day, but none has a verified "
         "or catch-all email, so it paused prospecting for about a day to save search "
         "and verifier credits. Add an email verifier key (REOON_API_KEY, "
         "ZEROBOUNCE_API_KEY or HUNTER_API_KEY in .env) or check it still has credits. "
-        "`sellbird export --all` exports the list as it is."
+        "`outreacho export --all` exports the list as it is."
     )
 
 
@@ -278,7 +278,7 @@ async def heartbeat(stop_event: asyncio.Event | None = None):
         stop_event = asyncio.Event()
 
     logger.info("=" * 60)
-    logger.info("Sellbird is online.")
+    logger.info("Outreacho is online.")
     logger.info("=" * 60)
 
     try:
@@ -372,7 +372,7 @@ async def heartbeat(stop_event: asyncio.Event | None = None):
             problem = await brain.preflight()
             if problem:
                 logger.error(
-                    f"Sellbird is paused: {problem} Nothing was sent or changed. "
+                    f"Outreacho is paused: {problem} Nothing was sent or changed. "
                     f"Re-checking in {config.usage.heartbeat_interval_minutes} minutes."
                 )
                 if await _interruptible_sleep(interval, stop_event):
@@ -500,11 +500,11 @@ async def heartbeat(stop_event: asyncio.Event | None = None):
             if await _interruptible_sleep(backoff, stop_event):
                 break
 
-    logger.info("Sellbird shutting down. Deals don't close themselves, but I need a break.")
+    logger.info("Outreacho shutting down. Deals don't close themselves, but I need a break.")
 
 
 def _needs_setup() -> bool:
-    """Check if Sellbird needs first-time setup."""
+    """Check if Outreacho needs first-time setup."""
     from sellbird.paths import PROJECT_ROOT
     from sellbird.config import _find_config_file, ConfigFileNotFoundError
 
@@ -564,9 +564,9 @@ def main():
     if _needs_setup():
         if not sys.stdin.isatty():
             # Started by the dashboard or a service: nobody can answer the wizard.
-            print("Sellbird isn't set up yet. Run `sellbird setup` in a terminal first.")
+            print("Outreacho isn't set up yet. Run `outreacho setup` in a terminal first.")
             sys.exit(1)
-        print("\n  First time running Sellbird? Let's get you set up.\n")
+        print("\n  First time running Outreacho? Let's get you set up.\n")
         from sellbird.setup import run_setup
         asyncio.run(run_setup())
         return
@@ -576,7 +576,7 @@ def main():
     lock = hold_loop_lock(LOCK_FILE)
     if lock is None:
         running = read_pid()
-        print(f"Sellbird is already running{f' (pid {running})' if running else ''}. "
+        print(f"Outreacho is already running{f' (pid {running})' if running else ''}. "
               "Stop it first, from the dashboard or with Ctrl+C in its terminal.")
         sys.exit(1)
     write_pid_file()

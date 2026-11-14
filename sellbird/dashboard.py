@@ -37,7 +37,7 @@ from sellbird.textio import read_user_text  # noqa: E402
 from sellbird.workspace_home import NotOnHosted, use_home  # noqa: E402
 DB_PATH = PROJECT_ROOT / "data" / "sellbird.db"
 ENV_FILE = PROJECT_ROOT / ".env"
-CONFIG_FILE = PROJECT_ROOT / "sellbird.yaml"
+CONFIG_FILE = (PROJECT_ROOT / "outreacho.yaml") if (PROJECT_ROOT / "outreacho.yaml").exists() else (PROJECT_ROOT / "sellbird.yaml")
 PID_FILE = PROJECT_ROOT / "data" / "sellbird.pid"
 LOG_FILE = PROJECT_ROOT / "data" / "sellbird.log"
 TOKEN_FILE = PROJECT_ROOT / "data" / "dashboard-token"
@@ -45,9 +45,9 @@ AGENT_TOKEN_FILE = PROJECT_ROOT / "data" / "agent-token"
 
 
 def _resolve_config_file() -> Path:
-    """sellbird.local.yaml wins when present — same resolution as config.py's
+    """outreacho.local.yaml / sellbird.local.yaml wins when present — same resolution as config.py's
     loader, so the dashboard doesn't judge setup complete against the
-    tracked sellbird.yaml template while the real trained config sits in the
+    tracked template while the real trained config sits in the
     gitignored local override."""
     from sellbird.config import _find_config_file, ConfigFileNotFoundError
     try:
@@ -57,7 +57,7 @@ def _resolve_config_file() -> Path:
 
 # No /docs, /redoc or /openapi.json: the API is for this UI only, and every
 # route except the static shell needs the token (see dashboard_auth).
-app = FastAPI(title="Sellbird Dashboard", docs_url=None, redoc_url=None, openapi_url=None)
+app = FastAPI(title="Outreacho Dashboard", docs_url=None, redoc_url=None, openapi_url=None)
 token_store = auth.TokenStore(TOKEN_FILE)
 agent_token_store = auth.TokenStore(AGENT_TOKEN_FILE)
 # Innermost first: the guard (added next) sets the principal before this runs.
@@ -1283,12 +1283,13 @@ async def get_feedback(entity_type: str, entity_id: str):
     return rows
 
 
-# ── Sellbird Controls ──
+# ── Outreacho Controls ──
 
 
+@app.get("/api/outreacho/status")
 @app.get("/api/sellbird/status")
 async def get_sellbird_status():
-    """Check if Sellbird is currently running."""
+    """Check if Outreacho is currently running."""
     pid = _check_sellbird_pid()
     started = _sellbird_started_at.isoformat() if _sellbird_started_at else None
     try:
@@ -1301,17 +1302,18 @@ async def get_sellbird_status():
             "sending_paused": paused}
 
 
+@app.post("/api/outreacho/start")
 @app.post("/api/sellbird/start")
 async def start_sellbird():
-    """Start Sellbird's heartbeat loop as a subprocess."""
+    """Start Outreacho's heartbeat loop as a subprocess."""
     global _sellbird_process, _sellbird_started_at
 
     if _check_sellbird_pid():
-        return {"success": False, "message": "Sellbird is already running."}
+        return {"success": False, "message": "Outreacho is already running."}
     from sellbird.main import _needs_setup
     if _needs_setup():
         return {"success": False,
-                "message": "Sellbird isn't set up yet. Run `sellbird setup` in a terminal first."}
+                "message": "Outreacho isn't set up yet. Run `outreacho setup` in a terminal first."}
 
     # Ensure data dir exists
     (PROJECT_ROOT / "data").mkdir(parents=True, exist_ok=True)
@@ -1327,7 +1329,7 @@ async def start_sellbird():
         log_handle = open(LOG_FILE, "a", encoding="utf-8")
         try:
             _sellbird_process = subprocess.Popen(
-                [sys.executable, "-m", "sellbird", "run"],
+                [sys.executable, "-m", "outreacho", "run"],
                 cwd=str(PROJECT_ROOT),
                 stdin=subprocess.DEVNULL,
                 stdout=log_handle,
@@ -1339,8 +1341,8 @@ async def start_sellbird():
             # Child holds its own copies of the fds; don't leak ours.
             log_handle.close()
     except Exception as e:
-        logger.warning("Failed to start Sellbird: %s", e)
-        return {"success": False, "message": f"Failed to start Sellbird: {e}"}
+        logger.warning("Failed to start Outreacho: %s", e)
+        return {"success": False, "message": f"Failed to start Outreacho: {e}"}
     _sellbird_started_at = datetime.now()
     # The loop writes its own PID file once it holds the loop lock. Writing
     # the child's PID here would overwrite a running loop's record if this
@@ -1348,14 +1350,15 @@ async def start_sellbird():
     return {"success": True, "pid": _sellbird_process.pid}
 
 
+@app.post("/api/outreacho/stop")
 @app.post("/api/sellbird/stop")
 async def stop_sellbird():
-    """Stop the Sellbird subprocess."""
+    """Stop the Outreacho subprocess."""
     global _sellbird_process, _sellbird_started_at
 
     pid = _check_sellbird_pid()
     if not pid:
-        return {"success": False, "message": "Sellbird is not running."}
+        return {"success": False, "message": "Outreacho is not running."}
 
     own = _sellbird_process if _sellbird_process and _sellbird_process.pid == pid else None
 
@@ -1382,12 +1385,12 @@ async def stop_sellbird():
                 pass
             await asyncio.sleep(0.5)
     except OSError as e:
-        logger.warning("Couldn't signal Sellbird (pid %s): %s", pid, e)
+        logger.warning("Couldn't signal Outreacho (pid %s): %s", pid, e)
 
     if alive():
         # Started by another user, or from an elevated terminal on Windows.
         return {"success": False,
-                "message": f"Couldn't stop Sellbird (pid {pid}). Stop it where it was started."}
+                "message": f"Couldn't stop Outreacho (pid {pid}). Stop it where it was started."}
 
     _sellbird_process = None
     _sellbird_started_at = None
@@ -1396,6 +1399,7 @@ async def stop_sellbird():
     return {"success": True}
 
 
+@app.get("/api/outreacho/logs")
 @app.get("/api/sellbird/logs")
 async def get_sellbird_logs():
     """Get recent log lines."""

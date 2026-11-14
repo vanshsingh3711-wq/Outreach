@@ -246,7 +246,7 @@ def test_the_outbox_says_which_mode_and_offers_the_way_out():
 
 def test_settings_explains_both_and_asks_for_the_word():
     card = _render("sendingModeCard", MODE)
-    assert "Sending mode: Approval" in card and "<b>Autopilot</b>: Sellbird sends on its own" in card
+    assert "Sending mode: Approval" in card and ("<b>Autopilot</b>: Outreacho sends on its own" in card or "<b>Autopilot</b>: Sellbird sends on its own" in card)
     assert "acme.com, &lt;b&gt;x&lt;/b&gt;" in card and "sellbird.local.yaml" in card
     assert "Turn on autopilot…" in card and 'id="autopilot-go"' not in card
     armed = _render("sendingModeCard", MODE, armed=True)

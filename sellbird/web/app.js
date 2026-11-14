@@ -21,18 +21,17 @@ function applyTheme(mode) {
 }
 
 function setTheme(mode) {
-  try { localStorage.setItem('sellbird-theme', mode); } catch { /* private mode */ }
+  try {
+    localStorage.setItem('outreacho-theme', mode);
+    localStorage.setItem('sellbird-theme', mode);
+  } catch { /* private mode */ }
   applyTheme(mode);
 }
 
 (function initTheme() {
   let saved = 'auto';
   try {
-    // Carry the choice over from Harvey, Sellbird's old name.
-    const legacy = localStorage.getItem('harvey-theme');
-    if (legacy && !localStorage.getItem('sellbird-theme')) localStorage.setItem('sellbird-theme', legacy);
-    if (legacy) localStorage.removeItem('harvey-theme');
-    saved = localStorage.getItem('sellbird-theme') || 'auto';
+    saved = localStorage.getItem('outreacho-theme') || localStorage.getItem('sellbird-theme') || localStorage.getItem('harvey-theme') || 'auto';
   } catch { /* ignore */ }
   applyTheme(THEMES.includes(saved) ? saved : 'auto');
 })();
@@ -275,7 +274,7 @@ function actionText(a) {
     case 'outbox_edited': return 'You edited a draft';
     case 'conversation_status':
       return d.to === 'closed' ? 'You closed a conversation'
-        : d.from === 'needs_human' ? 'You handed a conversation back to Sellbird' : 'You reopened a conversation';
+        : d.from === 'needs_human' ? 'You handed a conversation back to Outreacho' : 'You reopened a conversation';
   }
   const text = escHtml(String(a.action_type || '').replace(/_/g, ' '));
   return a.agent === 'main' ? 'Heartbeat: ' + text : text;
@@ -289,7 +288,7 @@ function emptyState(glyph, title, copy) {
 
 function offlineState() {
   return emptyState('&#9888;', 'Dashboard can\'t reach the server',
-    'The dashboard process may have stopped. Restart it with <b>sellbird dashboard</b> and refresh this page.');
+    'The dashboard process may have stopped. Restart it with <b>outreacho dashboard</b> and refresh this page.');
 }
 
 async function api(path, opts) {
@@ -443,7 +442,7 @@ async function loadToday() {
   if (data.error) {
     // A failed check must never read as "Nothing needs you".
     el.innerHTML = emptyState(icon('alert'), 'Couldn\'t check what needs you',
-      'The dashboard hit an error reading Sellbird\'s data: ' + escHtml(data.error));
+      'The dashboard hit an error reading Outreacho\'s data: ' + escHtml(data.error));
     return;
   }
 
@@ -460,7 +459,7 @@ async function loadToday() {
     el.innerHTML = '<div class="queue-clear">' +
       '<div class="queue-icon">' + icon('check') + '</div><div>' +
       '<div class="qtitle">Nothing needs you</div>' +
-      '<div class="qdetail">Sellbird has everything it needs. Anything that requires a ' +
+      '<div class="qdetail">Outreacho has everything it needs. Anything that requires a ' +
       'decision — an email to approve, a signal to confirm — shows up here.</div>' +
       '</div></div>';
     return;
@@ -490,8 +489,8 @@ async function loadLiveStatus() {
   if (!d || !Array.isArray(d.steps)) {
     // Keep the last good numbers on screen, but never let them pass for live.
     const flag = el.querySelector('.live-flag');
-    if (flag) flag.textContent = "Can't reach Sellbird right now — numbers below may be old.";
-    else el.innerHTML = '<p class="muted live-flag">Can\'t reach Sellbird right now. ' +
+    if (flag) flag.textContent = "Can't reach Outreacho right now — numbers below may be old.";
+    else el.innerHTML = '<p class="muted live-flag">Can\'t reach Outreacho right now. ' +
       'Is the dashboard window still open?</p>';
     return;
   }
@@ -620,7 +619,7 @@ async function loadTodayActivity() {
   const shown = data.filter(a => a.agent !== 'main').slice(0, 8);
   if (!shown.length) {
     el.innerHTML = '<p class="muted" style="font-size:13px">' +
-      'Nothing yet. Every action Sellbird takes shows up here.</p>';
+      'Nothing yet. Every action Outreacho takes shows up here.</p>';
     return;
   }
   el.innerHTML = '<div class="timeline">' + shown.map(a =>
@@ -668,7 +667,7 @@ async function loadRuns() {
 
 // ── Setup checklist (lives on Today, and disappears once it's done) ──
 
-// Shown once after an upgrade from Harvey moved this install's files.
+// Shown once after an upgrade moved this install's files.
 async function loadRenameNotice() {
   const el = document.getElementById('today-renamed');
   if (!el) return;
@@ -676,11 +675,9 @@ async function loadRenameNotice() {
   if (!data || !data.show) { el.innerHTML = ''; return; }
   el.innerHTML =
     '<div class="card rename-card">' +
-      '<div><h3>Harvey is now Sellbird</h3>' +
-        '<p class="muted">Same project, new name. Your settings, data and sign-in came with you. ' +
-        'The <code>harvey</code> command still works for now; use <code>sellbird</code> from here on.</p></div>' +
+      '<div><h3>Welcome to Outreacho</h3>' +
+        '<p class="muted">Personal AI Prospecting & Autonomous Outreach Platform.</p></div>' +
       '<div class="rename-actions">' +
-        '<a class="btn btn-ghost" href="https://github.com/ethanplusai/sellbird#upgrading-from-harvey" target="_blank" rel="noopener">What changed</a>' +
         '<button class="btn btn-secondary" onclick="dismissRenameNotice()">Got it</button>' +
       '</div></div>';
 }
@@ -719,8 +716,8 @@ async function loadSetupStatus() {
 
   el.innerHTML =
     '<div class="card setup-card">' +
-      '<div class="setup-head"><div><h3>Finish setting up Sellbird</h3>' +
-        '<p class="muted">Sellbird starts finding prospects and sending once these are done.</p></div>' +
+      '<div class="setup-head"><div><h3>Finish setting up Outreacho</h3>' +
+        '<p class="muted">Outreacho starts finding prospects and sending once these are done.</p></div>' +
         '<span class="setup-pct">' + done + ' of ' + required.length + ' done</span></div>' +
       '<div class="bar thick" style="margin-bottom:8px"><span style="width:' + pct + '%;background:var(--accent)"></span></div>' +
       required.map(c => renderCheck(c, false)).join('') +
@@ -861,7 +858,7 @@ async function setSignals(codes, status) {
     showToast(
       status === 'confirmed'
         ? 'Confirmed ' + data.changed + ' signal' + (data.changed === 1 ? '' : 's') +
-          ' — Sellbird will collect ' + (data.changed === 1 ? 'it' : 'them') + ' from now on.'
+          ' — Outreacho will collect ' + (data.changed === 1 ? 'it' : 'them') + ' from now on.'
         : data.changed + ' signal' + (data.changed === 1 ? '' : 's') + ' turned off.',
       'success');
   } else {
@@ -1008,7 +1005,7 @@ function renderProfileCard(pending, running) {
   if (!pending) { el.innerHTML = ''; return; }
   el.innerHTML = '<div class="subhead">Read websites</div><div class="card"><div class="queue-item good" style="padding:0;border:0;box-shadow:none">' +
     '<div class="qtext"><div class="qtitle">' + pending + ' compan' + (pending === 1 ? 'y' : 'ies') +
-    ' not looked at yet</div><div class="qdetail">Free, no account needed. Sellbird reads each site for ' +
+    ' not looked at yet</div><div class="qdetail">Free, no account needed. Outreacho reads each site for ' +
     'who their agency is, what they are missing, and whether they run ads. Up to 200 per run.</div></div>' +
     '<button class="btn btn-primary btn-sm" onclick="runProfile(this)"' + (running ? ' disabled' : '') + '>' +
     (running ? 'Busy…' : 'Read their sites') + '</button></div></div>';
@@ -1031,7 +1028,7 @@ function renderDiscoverResult(report, running) {
   const el = document.getElementById('discover-result');
   if (running) {
     el.innerHTML = '<div class="card"><h2>Running…</h2>' +
-      '<p class="muted" style="font-size:13px">Sellbird is working through the ' +
+      '<p class="muted" style="font-size:13px">Outreacho is working through the ' +
       'queries. Results land in Companies, and the run log is on Today.</p></div>';
     return;
   }
@@ -1414,8 +1411,8 @@ async function testInstantly() {
 
 // ── Controls ──
 
-async function loadSellbirdStatus() {
-  const data = await api('/api/sellbird/status');
+async function loadOutreachoStatus() {
+  const data = await api('/api/outreacho/status') || await api('/api/sellbird/status');
   const headerDot = document.getElementById('header-dot');
   const headerText = document.getElementById('header-status-text');
 
@@ -1428,7 +1425,7 @@ async function loadSellbirdStatus() {
   const running = !!data.running;
 
   headerDot.className = 'status-dot ' + (running ? 'running' : 'stopped');
-  headerText.textContent = running ? 'Sellbird is running' : 'Sellbird is stopped';
+  headerText.textContent = running ? 'Outreacho is running' : 'Outreacho is stopped';
   document.getElementById('control-dot').className = 'dot ' + (running ? 'running' : 'stopped');
   const label = document.getElementById('control-label');
   label.className = 'label ' + (running ? 'running' : 'stopped');
@@ -1440,42 +1437,45 @@ async function loadSellbirdStatus() {
     if (data.started_at) info += ' &middot; started ' + formatDate(data.started_at);
     meta.innerHTML = info;
   } else {
-    meta.innerHTML = 'Sellbird wakes every few minutes, does what needs doing, and sleeps.';
+    meta.innerHTML = 'Outreacho wakes every few minutes, does what needs doing, and sleeps.';
   }
 
   document.getElementById('btn-start').style.display = running ? 'none' : '';
   document.getElementById('btn-stop').style.display = running ? '' : 'none';
 }
+const loadSellbirdStatus = loadOutreachoStatus;
 
-async function startSellbird() {
+async function startOutreacho() {
   const btn = document.getElementById('btn-start');
   btn.disabled = true;
-  const data = await api('/api/sellbird/start', {method: 'POST'});
-  if (data && data.success) showToast('Sellbird started.', 'success');
+  const data = await api('/api/outreacho/start', {method: 'POST'}) || await api('/api/sellbird/start', {method: 'POST'});
+  if (data && data.success) showToast('Outreacho started.', 'success');
   else showToast((data && data.message) || 'Failed to start.', 'error');
   btn.disabled = false;
-  loadSellbirdStatus();
+  loadOutreachoStatus();
 }
+const startSellbird = startOutreacho;
 
-async function stopSellbird() {
+async function stopOutreacho() {
   const btn = document.getElementById('btn-stop');
   btn.disabled = true;
-  const data = await api('/api/sellbird/stop', {method: 'POST'});
-  if (data && data.success) showToast('Sellbird stopped.', 'success');
+  const data = await api('/api/outreacho/stop', {method: 'POST'}) || await api('/api/sellbird/stop', {method: 'POST'});
+  if (data && data.success) showToast('Outreacho stopped.', 'success');
   else showToast((data && data.message) || 'Failed to stop.', 'error');
   btn.disabled = false;
-  loadSellbirdStatus();
+  loadOutreachoStatus();
 }
+const stopSellbird = stopOutreacho;
 
 async function loadLogs() {
-  const data = await api('/api/sellbird/logs');
+  const data = await api('/api/outreacho/logs') || await api('/api/sellbird/logs');
   const el = document.getElementById('log-viewer');
   if (data && data.lines && data.lines.length) {
     const stick = el.scrollTop + el.clientHeight >= el.scrollHeight - 30;
     el.textContent = data.lines.join('\n');
     if (stick) el.scrollTop = el.scrollHeight;
   } else {
-    el.textContent = 'No logs yet. Start Sellbird to see activity.';
+    el.textContent = 'No logs yet. Start Outreacho to see activity.';
   }
 }
 
@@ -1527,9 +1527,9 @@ function quotaCardHtml(data) {
   let html = '<h2>' + escHtml(title) + '</h2>';
   if (!data.quota || !Object.keys(data.quota).length) {
     const why = provider === 'codex'
-      ? "Quota unavailable: Sellbird couldn't read your ChatGPT plan's limits (check codex login, the Codex CLI version, and network)."
-      : "Quota unavailable: Sellbird couldn't read your Claude subscription's limits (check claude login and network).";
-    return html + '<p class="muted">' + escHtml(why) + ' Until it can, budgets count Sellbird\'s own calls.</p>';
+      ? "Quota unavailable: Outreacho couldn't read your ChatGPT plan's limits (check codex login, the Codex CLI version, and network)."
+      : "Quota unavailable: Outreacho couldn't read your Claude subscription's limits (check claude login and network).";
+    return html + '<p class="muted">' + escHtml(why) + ' Until it can, budgets count Outreacho\'s own calls.</p>';
   }
   const labels = {five_hour: '5-hour window', seven_day: 'Weekly', primary: 'Primary window',
                   secondary: 'Secondary window', limit_reached: 'Usage limit reached'};
@@ -1614,7 +1614,7 @@ async function loadUsage() {
   const anyRows = (data.by_agent || []).length || (data.by_task || []).length;
   if (!anyRows) {
     tablesEl.innerHTML = emptyState(icon('usage'), 'No usage recorded yet',
-      'Once Sellbird starts making model calls (Claude or Codex), every one is logged here with exact calls and tokens by provider, agent and task.');
+      'Once Outreacho starts making model calls (DeepSeek, Claude, or Codex), every one is logged here with exact calls and tokens by provider, agent and task.');
   } else {
     const providers = data.by_provider || [];
     const showProviders = providers.length > 1 || (providers.length === 1 && providers[0].provider !== 'claude');
@@ -1665,7 +1665,7 @@ async function loadOutbox() {
     (pending.length && !data.paused
       ? (pending.length > pending.filter(p => heldReason(p)).length
         ? '<button class="btn btn-primary btn-sm" onclick="outboxApproveAll()" ' +
-          'title="Emails Sellbird held are left for you to approve one by one">Approve all ' +
+          'title="Emails Outreacho held are left for you to approve one by one">Approve all ' +
           (pending.length - pending.filter(p => heldReason(p)).length) + '</button>' : '') : '') +
     (data.paused
       ? '<button class="btn btn-secondary btn-sm" onclick="sendingToggle(\'resume\')">' +
@@ -1690,8 +1690,8 @@ async function loadOutbox() {
   desk.innerHTML = pending.length ? renderDesk(pending, _desk.i) :
     '<div class="card">' + emptyState(icon('check'), 'Nothing to review',
       _sendingMode && _sendingMode.mode === 'autopilot'
-        ? 'Autopilot is on, so Sellbird sends on its own. Anything it holds for you shows up here.'
-        : 'Every draft Sellbird writes lands here first. Approve one and it sends on schedule.') +
+        ? 'Autopilot is on, so Outreacho sends on its own. Anything it holds for you shows up here.'
+        : 'Every draft Outreacho writes lands here first. Approve one and it sends on schedule.') +
     '</div>';
 
   const table = (title, rows, cols) => {
@@ -1762,7 +1762,7 @@ function renderDeskContext(ctx) {
 
 // ── Approval or autopilot ──
 // Approval (the default): every email waits in the Outbox for you.
-// Autopilot (channels.email.require_approval: false): Sellbird sends on its
+// Autopilot (channels.email.require_approval: false): Outreacho sends on its
 // own, and still holds what gate.autopilot_review flags. Turning autopilot
 // on takes typing the word; turning it off is one click and works at once.
 let _sendingMode = null, _autopilotArmed = false, _modeBusy = false;
@@ -1771,7 +1771,7 @@ function sendingModeBanner(m) {
   if (!m) return '';
   if (m.mode === 'autopilot') {
     return '<div class="banner wait mode-banner">' + icon('alert') + '<div><b>Autopilot is on</b>' +
-      '<p>Sellbird sends email on its own. It holds anything that links to a site that isn’t yours or ' +
+      '<p>Outreacho sends email on its own. It holds anything that links to a site that isn’t yours or ' +
       'quotes its own instructions; those wait here' + (m.held ? ' (' + m.held + ' now)' : '') + '.</p></div>' +
       '<button class="btn btn-secondary btn-sm" onclick="setSendingMode(\'approval\')"' +
         (_modeBusy ? ' disabled' : '') + '>Turn off autopilot</button></div>';
@@ -1780,7 +1780,7 @@ function sendingModeBanner(m) {
   return '<div class="banner mode-banner">' + icon('check') + '<div><b>Approval mode</b>' +
     '<p>' + (instantly
       ? 'Instantly can’t hold single emails, so campaigns aren’t sent to Instantly until you turn on autopilot.'
-      : 'Every email Sellbird writes waits here until you approve it.') +
+      : 'Every email Outreacho writes waits here until you approve it.') +
     ' <a href="#" onclick="goTab(\'settings\');return false">About autopilot</a></p></div></div>';
 }
 
@@ -1790,12 +1790,12 @@ function sendingModeCard(m) {
   const instantly = m.provider === 'instantly';
   const domains = (m.your_domains || []).map(escHtml).join(', ') || 'none yet';
   let html = '<div class="card mode-card"><h3>Sending mode: ' + (auto ? 'Autopilot' : 'Approval') + '</h3>' +
-    '<p><b>Approval</b> (the default): every email Sellbird writes, first emails, follow-ups and replies, ' +
+    '<p><b>Approval</b> (the default): every email Outreacho writes, first emails, follow-ups and replies, ' +
       'waits in the Outbox until you approve it.' +
       (instantly ? ' On Instantly, which can’t hold single emails, that means campaigns aren’t deployed.' : '') + '</p>' +
-    '<p><b>Autopilot</b>: Sellbird sends on its own, on schedule, within your daily limit and quiet hours. ' +
+    '<p><b>Autopilot</b>: Outreacho sends on its own, on schedule, within your daily limit and quiet hours. ' +
       'Opt-outs, bounces and Pause all sending work the same. It still holds an email for you when it links ' +
-      'to, or gives an address at, a site that isn’t yours, or quotes Sellbird’s own instructions: text from ' +
+      'to, or gives an address at, a site that isn’t yours, or quotes Outreacho’s own instructions: text from ' +
       'websites and replies can try to steer what it writes. The first reply after you undo an opt-out waits too.</p>' +
     '<p class="muted">Counted as yours: ' + domains + (m.booking_page ? '; your booking page ' + escHtml(m.booking_page) : '') +
       '. Add others under <code>channels.email.link_domains</code> in <code>' + escHtml(m.file) + '</code>.</p>';
@@ -1807,7 +1807,7 @@ function sendingModeCard(m) {
         (_modeBusy ? ' disabled' : '') + '>Turn off autopilot</button></div>';
   } else if (_autopilotArmed) {
     html += '<div class="convo-actions mode-confirm"><span class="muted">Approve a batch or two by hand first ' +
-      'and read what Sellbird writes. Type <b>autopilot</b> to turn it on. It starts from Sellbird’s next cycle.</span>' +
+      'and read what Outreacho writes. Type <b>autopilot</b> to turn it on. It starts from Outreacho’s next cycle.</span>' +
       '<input class="form-input" id="autopilot-confirm" autocomplete="off" aria-label="Type autopilot to confirm" ' +
         'oninput="document.getElementById(\'autopilot-go\').disabled = this.value.trim().toLowerCase() !== \'autopilot\'" ' +
         'onkeydown="if (event.key === \'Enter\' && this.value.trim().toLowerCase() === \'autopilot\') setSendingMode(\'autopilot\')">' +
@@ -1849,7 +1849,7 @@ async function setSendingMode(mode) {
     if (res && res.success) {
       _autopilotArmed = false;
       showToast(mode === 'autopilot'
-        ? 'Autopilot is on from Sellbird’s next cycle. Held emails still wait for you.'
+        ? 'Autopilot is on from Outreacho’s next cycle. Held emails still wait for you.'
         : 'Autopilot is off. Every email waits for you' +
           (res.requeued ? '; ' + res.requeued + ' queued by autopilot came back to the Outbox.' : '.') +
           (_sendingMode && _sendingMode.provider === 'instantly'
@@ -1880,7 +1880,7 @@ function renderDesk(items, i) {
     return '<div class="desk-item ' + (n === i ? 'active' : '') + '" onclick="deskGo(' + n + ')">' +
       '<span class="avatar">' + initials(parts[0], parts[1]) + '</span>' +
       '<div class="di-text"><div class="to">' + escHtml(who) +
-        (heldReason(it) ? ' <span class="tag t-bad" title="Sellbird held this instead of sending it">Held</span>' : '') +
+        (heldReason(it) ? ' <span class="tag t-bad" title="Outreacho held this instead of sending it">Held</span>' : '') +
         '</div>' +
       '<div class="sub">' + escHtml(it.subject || '(no subject)') + '</div></div>' +
     '</div>';
@@ -1903,7 +1903,7 @@ function renderDesk(items, i) {
   const added = cur.kind === 'sequence' && !(cur.body || '').trimEnd().endsWith(_desk.footer)
     ? _desk.footer : '';
   const footer = added
-    ? '<div class="desk-footer" title="Added when it sends (compliance in sellbird.yaml)">' +
+    ? '<div class="desk-footer" title="Added when it sends (compliance in outreacho.yaml)">' +
         escHtml(added) + '</div>' : '';
   const actions = editing
     ? '<button class="btn btn-primary" onclick="deskSave(' + jsq(cur.id) + ')">Save</button>' +
@@ -1923,9 +1923,9 @@ function renderDesk(items, i) {
         '<span class="muted">sends ' + formatDate(cur.send_at) + '</span></div>' +
       renderDeskContext(cur.context) +
       (heldReason(cur)
-        ? '<div class="banner wait desk-held">' + icon('alert') + '<div><b>Sellbird held this instead of sending it</b>' +
+        ? '<div class="banner wait desk-held">' + icon('alert') + '<div><b>Outreacho held this instead of sending it</b>' +
           '<div>' + escHtml(heldReason(cur)) + '. Read it before approving: text from a website or an ' +
-          'email can try to steer what Sellbird writes.</div></div></div>'
+          'email can try to steer what Outreacho writes.</div></div></div>'
         : '') +
       draft + footer +
       '<div class="desk-actions">' + actions +
@@ -2021,7 +2021,7 @@ async function outboxApproveAll() {
   if (deskBusy()) return;
   const data = await api('/api/outbox/approve-all', {method: 'POST'});
   if (data && data.success) showToast('Approved ' + data.approved + ' email(s).' + (data.held
-    ? ' ' + data.held + ' Sellbird held ' + (data.held === 1 ? 'is' : 'are') + ' left for you to read and approve one by one.'
+    ? ' ' + data.held + ' Outreacho held ' + (data.held === 1 ? 'is' : 'are') + ' left for you to read and approve one by one.'
     : ''), 'success');
   else showToast(failMsg(data, 'Approve-all failed.'), 'error');
   loadOutbox();
@@ -2178,19 +2178,19 @@ async function submitFeedback(entityType, entityId, promptText) {
     body: JSON.stringify({entity_type: entityType, entity_id: entityId, comment: comment})
   });
   if (data && data.success) showToast(entityType === 'campaign'
-    ? 'Saved. Sellbird follows it in the emails it writes from now on.'
-    : 'Saved. Sellbird uses it if it writes this person\'s first email (Gmail, SMTP or Microsoft 365).', 'success');
+    ? 'Saved. Outreacho follows it in the emails it writes from now on.'
+    : 'Saved. Outreacho uses it if it writes this person\'s first email (Gmail, SMTP or Microsoft 365).', 'success');
   else showToast((data && data.message) || 'Could not save feedback.', 'error');
 }
 
 function fbProspect(i) {
   const p = _prospects[i];
-  if (p) submitFeedback('contact', p.id, 'Anything Sellbird should know before writing to this person?');
+  if (p) submitFeedback('contact', p.id, 'Anything Outreacho should know before writing to this person?');
 }
 
 function fbCampaign(i) {
   const c = _campaigns[i];
-  if (c) submitFeedback('campaign', c.id, 'What should Sellbird do differently in the emails it writes next? (e.g. "shorter; don\'t mention reviews")');
+  if (c) submitFeedback('campaign', c.id, 'What should Outreacho do differently in the emails it writes next? (e.g. "shorter; don\'t mention reviews")');
 }
 
 // Search and status filter live outside the table, so the 15-second refresh
@@ -2211,7 +2211,7 @@ async function loadProspects() {
   _prospects = data;
   if (!data.length) {
     el.innerHTML = emptyState(icon('contacts'), 'No contacts yet',
-      'Sellbird hasn\'t found any prospects. Once it\'s running, the Scout agent searches the web for people matching your ideal customer profile in <b>sellbird.yaml</b>.');
+      'Outreacho hasn\'t found any prospects. Once it\'s running, the Scout agent searches the web for people matching your ideal customer profile in <b>outreacho.yaml</b>.');
     return;
   }
   if (!document.getElementById('contact-rows')) {
@@ -2272,7 +2272,7 @@ function renderContacts() {
       '<td class="muted" style="white-space:nowrap">' + relTime(p.created_at) + '</td>' +
       '<td><div class="cell-row">' + (p.status === 'opted_out' || p.opt_out_undone || _optOut.id === p.id
         ? '<button class="btn btn-ghost btn-sm" onclick="toggleOptOut(' + i + ')" ' +
-          'aria-expanded="' + (_optOut.id === p.id) + '" title="What made Sellbird stop emailing them">' +
+          'aria-expanded="' + (_optOut.id === p.id) + '" title="What made Outreacho stop emailing them">' +
           (p.status === 'opted_out' ? 'Why?' : 'Opt-out history') + '</button>' : '') +
         '<button class="btn btn-ghost btn-sm row-action" onclick="fbProspect(' + i + ')" ' +
         'title="Leave feedback on this contact">Feedback</button></div></td></tr>';
@@ -2310,13 +2310,13 @@ function optOutPanel(p) {
   const name = escHtml([p.first_name, p.last_name].filter(Boolean).join(' ') || p.email);
   if (!d) return '<div class="optout-panel muted">Loading…</div>';
   if (d.error) return '<div class="optout-panel muted">Couldn’t load the opt-out record. Try again.</div>';
-  let html = '<div class="optout-panel"><h4>' + (d.opted_out ? 'Why Sellbird stopped emailing ' : 'Opt-out history for ') +
+  let html = '<div class="optout-panel"><h4>' + (d.opted_out ? 'Why Outreacho stopped emailing ' : 'Opt-out history for ') +
     name + '</h4>';
   if (d.recorded) {
     html += '<p>' + escHtml(d.why) + '</p><div class="optout-meta">' +
       escHtml(own(OPT_OUT_RULES, d.rule) || d.rule || '') + (d.at ? ' · ' + relTime(d.at) : '') + '</div>';
   } else if (d.opted_out || (d.history || []).length) {
-    html += '<p>They opted out before Sellbird kept a record of why.' +
+    html += '<p>They opted out before Outreacho kept a record of why.' +
       (d.message ? ' The last thing they wrote:' : ' There’s no reply from them on file.') + '</p>';
   }
   if (d.message) {
@@ -2331,8 +2331,8 @@ function optOutPanel(p) {
     html += '<div class="convo-actions"><span class="muted">Not opted out now (' +
       escHtml(statusMeta(d.status).label) + ').</span></div>';
   } else if (_optOut.armed) {
-    html += '<div class="convo-actions"><span class="muted">Sellbird will treat them as having replied. Nothing is ' +
-      'sent automatically, emails the opt-out cancelled stay cancelled, and Sellbird’s answer to their next ' +
+    html += '<div class="convo-actions"><span class="muted">Outreacho will treat them as having replied. Nothing is ' +
+      'sent automatically, emails the opt-out cancelled stay cancelled, and Outreacho’s answer to their next ' +
       'reply waits for your approval, even on autopilot. Only undo it if they didn’t mean to opt out.</span>' +
       '<button class="btn btn-primary btn-sm" onclick="undoOptOut()"' + (_optOut.busy ? ' disabled' : '') +
         '>Confirm undo</button>' +
@@ -2353,7 +2353,7 @@ async function undoOptOut() {
     method: 'POST', headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({confirm: true}),
   });
-  if (res && res.success) showToast('Opt-out undone. They’re marked as replied; Sellbird sends nothing on its own.', 'success');
+  if (res && res.success) showToast('Opt-out undone. They’re marked as replied; Outreacho sends nothing on its own.', 'success');
   else showToast(failMsg(res, 'Could not undo the opt-out. Try again.'), 'error');
   if (_optOut.id !== id) return;
   _optOut.armed = false;
@@ -2477,7 +2477,7 @@ async function loadCampaigns() {
   _campaigns = data;
   if (!data.length) {
     el.innerHTML = emptyState(icon('campaigns'), 'No campaigns yet',
-      'The Writer agent hasn\'t drafted any sequences. It kicks in automatically once Sellbird has scored prospects to write for.');
+      'The Writer agent hasn\'t drafted any sequences. It kicks in automatically once Outreacho has scored prospects to write for.');
     return;
   }
   let html = '';
@@ -2492,11 +2492,11 @@ async function loadCampaigns() {
             '<input type="checkbox" checked onchange="markSent(' + i + ',' + ri + ',this.checked)"> ' +
             '&#10003; Sent by you</label>';
           if (s === 0) return '<span class="rcpt-who">' + escHtml(r.email) + '</span>' + tick;
-          // Follow-ups are the user's too: Sellbird never emails someone they emailed.
+          // Follow-ups are the user's too: Outreacho never emails someone they emailed.
           return '<span class="rcpt-who">' + escHtml(r.email) + '</span>' +
             '<button class="btn btn-secondary btn-sm" onclick="openInGmail(' + i + ',' + s + ',' + ri + ')">' +
             'Open in Gmail</button>' +
-            '<span class="muted" style="font-size:12px">Sellbird won\'t send follow-ups to people you emailed yourself.</span>';
+            '<span class="muted" style="font-size:12px">Outreacho won\'t send follow-ups to people you emailed yourself.</span>';
         }
         if (s !== 0) return '';
         if (!r.can_send_by_hand) {
@@ -2603,11 +2603,11 @@ function convoCard(c) {
     }
     const m = it.msg, sent = m.sender !== 'prospect';  // 'harvey' (the old name) is ours too
     return '<div class="thread-msg ' + (sent ? 'sent' : 'received') + '"><div class="sender">' +
-      (sent ? 'Sellbird' : escHtml(first)) + ' &middot; ' + relTime(m.timestamp) + '</div>' +
+      (sent ? 'Outreacho' : escHtml(first)) + ' &middot; ' + relTime(m.timestamp) + '</div>' +
       escHtml(m.content) + '</div>';
   }).join('');
   const draft = c.draft
-    ? '<div class="thread-draft"><div class="sender">' + icon('pen') + 'Sellbird drafted a reply · waiting for you</div>' +
+    ? '<div class="thread-draft"><div class="sender">' + icon('pen') + 'Outreacho drafted a reply · waiting for you</div>' +
       '<div class="td-body">' + escHtml(c.draft.body) + '</div>' +
       '<button class="btn btn-primary btn-sm" onclick="goTab(\'outbox\')">Review in Outbox' + icon('arrow') + '</button></div>'
     : '';
@@ -2624,22 +2624,22 @@ function convoCard(c) {
     draft + '</div>' + convoActions(c) + '</div>';
 }
 
-// Sellbird answers new replies only on open conversations: an escalated one
+// Outreacho answers new replies only on open conversations: an escalated one
 // waits for you to reply yourself, then close it or hand it back.
 function convoActions(c) {
   if (c.status === 'needs_human' && c.prospect_status === 'opted_out') {
     // A complaint or legal threat from someone who opted out: handing it
-    // back wouldn't help, Sellbird never answers them.
+    // back wouldn't help, Outreacho never answers them.
     return '<div class="convo-actions"><span class="muted">' + icon('alert') +
-      'Opted out, and Sellbird handed this to you. Reply from your inbox if you need to, then:</span>' +
+      'Opted out, and Outreacho handed this to you. Reply from your inbox if you need to, then:</span>' +
       '<button class="btn btn-secondary btn-sm" onclick="setConvoStatus(' + jsq(c.id) + ',\'closed\')">Close</button>' +
       '<button class="btn btn-secondary btn-sm" onclick="showOptOut(' + jsq(c.prospect_id) + ',' + jsq(c.prospect_email) +
       ')">Why opted out?</button></div>';
   }
   if (c.status === 'needs_human') {
     return '<div class="convo-actions"><span class="muted">' + icon('alert') +
-      'Sellbird handed this to you. Reply from your inbox, then:</span>' +
-      '<button class="btn btn-secondary btn-sm" onclick="setConvoStatus(' + jsq(c.id) + ',\'open\')">Hand back to Sellbird</button>' +
+      'Outreacho handed this to you. Reply from your inbox, then:</span>' +
+      '<button class="btn btn-secondary btn-sm" onclick="setConvoStatus(' + jsq(c.id) + ',\'open\')">Hand back to Outreacho</button>' +
       '<button class="btn btn-secondary btn-sm" onclick="setConvoStatus(' + jsq(c.id) + ',\'closed\')">Close</button></div>';
   }
   if (c.status === 'open') {
@@ -2647,8 +2647,8 @@ function convoActions(c) {
       jsq(c.id) + ',\'closed\')">Close conversation</button></div>';
   }
   if (c.status === 'closed' && c.prospect_status === 'opted_out') {
-    // Reopening wouldn't help: Sellbird never answers someone who opted out.
-    return '<div class="convo-actions"><span class="muted">' + icon('alert') + 'Opted out. Sellbird won’t write to them.</span>' +
+    // Reopening wouldn't help: Outreacho never answers someone who opted out.
+    return '<div class="convo-actions"><span class="muted">' + icon('alert') + 'Opted out. Outreacho won’t write to them.</span>' +
       '<button class="btn btn-secondary btn-sm" onclick="showOptOut(' + jsq(c.prospect_id) + ',' + jsq(c.prospect_email) +
       ')">Why opted out?</button></div>';
   }
@@ -2664,7 +2664,7 @@ async function setConvoStatus(id, status) {
     method: 'POST', headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({status: status}),
   });
-  if (data && data.success) showToast(status === 'open' ? 'Open again. Sellbird will answer the next reply.' : 'Closed. A new reply starts a new conversation.', 'success');
+  if (data && data.success) showToast(status === 'open' ? 'Open again. Outreacho will answer the next reply.' : 'Closed. A new reply starts a new conversation.', 'success');
   else showToast(failMsg(data, 'Could not update that conversation.'), 'error');
   loadConversations();
   loadToday();
@@ -2716,7 +2716,7 @@ async function loadInboxes() {
     actions.innerHTML = '';
     el.innerHTML = emptyState(icon('inboxes'), 'Instantly sends for you',
       'Sending through several of your own inboxes works with Gmail, Microsoft 365 or SMTP. ' +
-      'Set channels.email.provider in sellbird.yaml to one of those to use it.');
+      'Set channels.email.provider in outreacho.yaml to one of those to use it.');
     return;
   }
   actions.innerHTML = '<button class="btn btn-primary" onclick="openAddInbox()">' + icon('plus') +
@@ -2794,7 +2794,7 @@ function openInbox(i) {
   let body = '';
   if (ib.state === 'not_connected') {
     body += '<div class="notice bad"><b>Not connected.</b> ' +
-      escHtml(ib.connect_hint || 'Sellbird can\'t sign in to it from this computer. Check the connection to see why, or remove it and add it again.') + '</div>';
+      escHtml(ib.connect_hint || 'Outreacho can\'t sign in to it from this computer. Check the connection to see why, or remove it and add it again.') + '</div>';
   }
   if (ib.paused_reason) {
     body += '<div class="notice wait"><b>Paused:</b> ' + escHtml(ib.paused_reason) + '</div>';
@@ -2819,12 +2819,12 @@ function openInbox(i) {
     if (ib.state === 'not_connected' && kind) {
       const can = (_inboxes.can_connect || {})[kind];
       body = '<div id="main-status"></div>' + (can
-        ? '<div class="notice bad"><b>Not connected.</b> Sign in to the mailbox Sellbird sends from.</div>' +
+        ? '<div class="notice bad"><b>Not connected.</b> Sign in to the mailbox Outreacho sends from.</div>' +
           '<button class="btn btn-primary" id="main-go" onclick="connectMainMailbox(\'' + kind + '\')">Sign in with ' +
           (kind === 'gmail' ? 'Google' : 'Microsoft') + '</button><div style="height:16px"></div>'
         : connectSetupNotice(kind)) + body.replace(/<div class="notice bad"><b>Not connected.<\/b>[\s\S]*?<\/div>/, '');
     }
-    body += '<div class="modal-section"><h4>Settings</h4><p>Your main mailbox comes from sellbird.yaml: ' +
+    body += '<div class="modal-section"><h4>Settings</h4><p>Your main mailbox comes from outreacho.yaml: ' +
       'its address is persona.email, its daily cap is channels.email.per_inbox_daily_cap, and pausing it pauses ' +
       'all sending, on the Outbox tab.</p></div>';
     inboxDialog(inboxDialogHead(escHtml(ib.address || 'Main mailbox'), inboxBadge(ib) + ' Main mailbox') +
@@ -2841,7 +2841,7 @@ function openInbox(i) {
     '<div class="inline-edit"><input class="form-input" id="ib-name" maxlength="100" placeholder="Your persona name" value="' + escHtml(ib.name || '') + '">' +
     '<button class="btn btn-secondary" onclick="saveInboxName(' + id + ')">Save</button></div>' +
     '<div class="form-hint">The name people see in From.</div></div>';
-  body += '<div class="modal-section"><h4>Remove this inbox</h4><p>Sellbird stops sending from it, and threads it started end. Its sign-in stays in your keychain.</p>' +
+  body += '<div class="modal-section"><h4>Remove this inbox</h4><p>Outreacho stops sending from it, and threads it started end. Its sign-in stays in your keychain.</p>' +
     '<div class="inline-edit" style="margin-top:8px"><input class="form-input" id="ib-confirm" placeholder="Type ' + escHtml(ib.address) + ' to confirm">' +
     '<button class="btn btn-danger" onclick="removeInbox(' + id + ')">Remove</button></div></div>';
 
@@ -2920,16 +2920,16 @@ function openAddInbox(kind) {
       '<div class="form-group"><label class="form-label" for="add-user">Username</label><input class="form-input" id="add-user" placeholder="Same as the address"></div>' +
       '<div class="form-row"><div class="form-group"><label class="form-label" for="add-imap">IMAP server</label><input class="form-input" id="add-imap" placeholder="Same as the SMTP server"></div>' +
       '<div class="form-group" style="max-width:110px"><label class="form-label" for="add-imap-port">Port</label><input class="form-input" id="add-imap-port" type="number" value="993"></div></div></details>';
-    note = '<p class="form-hint">The password goes straight to your system keychain. Sellbird never shows it again.</p>';
+    note = '<p class="form-hint">The password goes straight to your system keychain. Outreacho never shows it again.</p>';
   } else if (!can[_addKind]) {
     note = connectSetupNotice(_addKind);
   } else {
-    note = '<p class="form-hint">A ' + INBOX_KINDS[_addKind][0] + ' sign-in opens in the browser on the computer running Sellbird. Sign in as the address above.</p>';
+    note = '<p class="form-hint">A ' + INBOX_KINDS[_addKind][0] + ' sign-in opens in the browser on the computer running Outreacho. Sign in as the address above.</p>';
   }
   note += '<div class="modal-section"><h4>Or from your terminal</h4><div class="cmd-copy"><code id="add-cmd"></code>' +
     '<button class="btn btn-secondary btn-sm" onclick="copyAddCommand()">Copy</button></div></div>';
   const disabled = _addKind !== 'smtp' && !can[_addKind];
-  inboxDialog(inboxDialogHead('Add an inbox', 'Connect an inbox you already own. Sellbird sends from it and reads its replies.') +
+  inboxDialog(inboxDialogHead('Add an inbox', 'Connect an inbox you already own. Outreacho sends from it and reads its replies.') +
     '<div class="modal-body"><div class="provider-picks">' + picks + '</div><div style="height:16px"></div>' +
     '<div id="add-status"></div>' + form + note + '</div>' +
     '<div class="modal-foot"><button class="btn btn-ghost" onclick="closeInboxDialog()">Cancel</button>' +
@@ -2942,7 +2942,7 @@ function updateAddCommand() {
   const el = document.getElementById('add-cmd');
   if (!el) return;
   const addr = (document.getElementById('add-address').value || '').trim() || 'you@yourdomain.com';
-  el.textContent = 'sellbird inboxes connect ' + _addKind + ' --address ' + addr +
+  el.textContent = 'outreacho inboxes connect ' + _addKind + ' --address ' + addr +
     (_addKind === 'smtp' ? ' --smtp-host smtp.yourhost.com' : '');
 }
 
@@ -3077,7 +3077,7 @@ async function loadActivity() {
   if (!data) { el.innerHTML = offlineState(); return; }
   if (!data.length) {
     el.innerHTML = emptyState(icon('activity'), 'No activity yet',
-      'Sellbird hasn\'t taken any actions. Every prospect found, email written, and reply handled will appear here the moment it happens.');
+      'Outreacho hasn\'t taken any actions. Every prospect found, email written, and reply handled will appear here the moment it happens.');
     return;
   }
   let html = '<div class="card"><div class="timeline">';
@@ -3102,12 +3102,12 @@ loadFunnel();
 loadSetupStatus();
 loadRuns();
 loadTodayActivity();
-loadSellbirdStatus();
+loadOutreachoStatus();
 
 loadLiveStatus();
 
 // Agent status: quick poll (not while locked: it would only be refused)
-setInterval(() => { if (!_locked) loadSellbirdStatus(); }, 8000);
+setInterval(() => { if (!_locked) loadOutreachoStatus(); }, 8000);
 
 // Live status panel: refreshed while the Today tab is open and visible.
 setInterval(() => {
@@ -3180,7 +3180,7 @@ async function loadCompany() {
         <button class="btn btn-secondary btn-sm" onclick="dismissProposedOffer()">Dismiss</button>
       </div>
     </div>` : ''}
-    <p class="desc">Each first email names something Sellbird found about the prospect, says what it costs them, and offers this as the fix. Make it free, specific, and something you can deliver this week. ${o.entry ? '' : '<b>No offer yet</b>, so first emails end with a question instead. '}The easiest way to work it out is to ask your coding agent: <i>"Help me work out my Sellbird offer."</i></p>
+    <p class="desc">Each first email names something Outreacho found about the prospect, says what it costs them, and offers this as the fix. Make it free, specific, and something you can deliver this week. ${o.entry ? '' : '<b>No offer yet</b>, so first emails end with a question instead. '}The easiest way to work it out is to ask your coding agent: <i>"Help me work out my Outreacho offer."</i></p>
     <div class="form-group"><label class="form-label" for="offer-entry">Offer</label>
       <textarea class="form-input" id="offer-entry" rows="2" maxlength="300" placeholder="e.g. a written plan for getting you onto page one of Google">${ce(o.entry || '')}</textarea></div>
     <div class="offer-actions">
@@ -3249,8 +3249,8 @@ async function loadCompany() {
   </section>
 
   ${data.knowledge || data.competitors ? `<section class="card company-card" aria-labelledby="co-learned-h">
-    <div class="company-card-head"><h3 id="co-learned-h">What Sellbird learned from your site</h3>
-      <span class="hint">From training. Retrain with <code>sellbird train &lt;url&gt;</code></span></div>
+    <div class="company-card-head"><h3 id="co-learned-h">What Outreacho learned from your site</h3>
+      <span class="hint">From training. Retrain with <code>outreacho train &lt;url&gt;</code></span></div>
     ${data.knowledge ? `<details class="company-learned"><summary>Product knowledge</summary><pre>${ce(data.knowledge)}</pre></details>` : ''}
     ${data.competitors ? `<details class="company-learned"><summary>Competitors</summary><pre>${ce(data.competitors)}</pre></details>` : ''}
   </section>` : ''}`;
@@ -3321,10 +3321,10 @@ async function suggestOffers() {
   const btn = document.getElementById('offer-suggest-btn');
   btn.disabled = true; btn.textContent = 'Thinking...';
   document.getElementById('offer-ideas').innerHTML =
-    '<p class="desc">Sellbird is reading your product and coming up with offers that fit it...</p>';
+    '<p class="desc">Outreacho is reading your product and coming up with offers that fit it...</p>';
   const r = await api('/api/offer/suggest', {method: 'POST'});
   btn.disabled = false; btn.textContent = 'Suggest ideas';
-  if (!r || r.error || !r.ideas) { renderOfferIdeas(); showToast((r && r.error) || 'Sellbird couldn\'t come up with offers just now. Try again.', 'error'); return; }
+  if (!r || r.error || !r.ideas) { renderOfferIdeas(); showToast((r && r.error) || 'Outreacho couldn\'t come up with offers just now. Try again.', 'error'); return; }
   _offerIdeas = r.ideas;
   renderOfferIdeas();
 }

@@ -1240,26 +1240,27 @@ def main():
     from sellbird.paths import PROJECT_ROOT
     project_root = str(PROJECT_ROOT)
 
+    prog_name = Path(sys.argv[0]).name if sys.argv and Path(sys.argv[0]).name in ("outreacho", "sellbird") else "outreacho"
     parser = argparse.ArgumentParser(
-        prog="sellbird",
-        description="Sellbird — the open-source outreach platform. Make the first move.",
+        prog=prog_name,
+        description="Outreacho — Personal AI Prospecting & Autonomous Outreach Platform.",
     )
     subparsers = parser.add_subparsers(dest="command")
 
-    # sellbird install
+    # outreacho install
     sub = subparsers.add_parser("install", help="Install dependencies")
     sub.set_defaults(func=cmd_install)
 
-    # sellbird setup
+    # outreacho setup
     sub = subparsers.add_parser("setup", help="Run the interactive setup wizard")
     sub.set_defaults(func=cmd_setup)
 
-    # sellbird run
-    sub = subparsers.add_parser("run", help="Start Sellbird's heartbeat loop")
+    # outreacho run
+    sub = subparsers.add_parser("run", help="Start Outreacho's heartbeat loop")
     sub.set_defaults(func=cmd_run)
 
-    # sellbird train <url>
-    sub = subparsers.add_parser("train", help="Train Sellbird on a website")
+    # outreacho train <url>
+    sub = subparsers.add_parser("train", help="Train Outreacho on a website")
     sub.add_argument("url", help="Website URL to crawl and learn from")
     sub.add_argument(
         "max_pages",
@@ -1397,7 +1398,7 @@ def main():
     sub.set_defaults(func=cmd_discover_companies)
 
     sub = subparsers.add_parser(
-        "signals", help="Review/confirm which signals Sellbird prospects against")
+        "signals", help="Review/confirm which signals Outreacho prospects against")
     sub.add_argument("--confirm", metavar="CODES", default="",
                      help="Comma-separated codes to confirm ('all' or 'free' accepted)")
     sub.add_argument("--reject", metavar="CODES", default="",
@@ -1422,7 +1423,7 @@ def main():
     sub.set_defaults(func=cmd_warmup)
 
     sub = subparsers.add_parser(
-        "trulyinbox", help="Warmup service: connect TrulyInbox so Sellbird can read the inbox rate")
+        "trulyinbox", help="Warmup service: connect TrulyInbox so Outreacho can read the inbox rate")
     sub.add_argument("trulyinbox_action", nargs="?", default="status",
                      choices=["status", "connect", "other"],
                      help="connect a key, 'other' if you use another warmup service, "
@@ -1459,7 +1460,7 @@ def main():
     desktop_cli.register_desktop_commands(subparsers)
     desktop_cli.register(subparsers)
 
-    sub = subparsers.add_parser("suppressions", help="Addresses and domains Sellbird never emails")
+    sub = subparsers.add_parser("suppressions", help="Addresses and domains Outreacho never emails")
     sub.add_argument("suppression_action", nargs="?", default="list", choices=["list", "add", "remove"])
     sub.add_argument("value", nargs="?", default="", help="add: an address or domain; remove: its id")
     sub.set_defaults(func=cmd_suppressions)
@@ -1492,10 +1493,10 @@ def main():
     if args.command is None:
         parser.print_help()
         print("\n  Quick start:")
-        print("    sellbird install   — Install dependencies")
-        print("    sellbird setup     — Configure Sellbird (first time)")
-        print("    sellbird run       — Start closing deals")
-        print("    sellbird dashboard — Open the web dashboard")
+        print(f"    {prog_name} install   — Install dependencies")
+        print(f"    {prog_name} setup     — Configure Outreacho (first time)")
+        print(f"    {prog_name} run       — Start closing deals")
+        print(f"    {prog_name} dashboard — Open the web dashboard")
         print()
         sys.exit(0)
 
@@ -1512,7 +1513,7 @@ def main():
         if isinstance(e, ConfigError):
             print(f"\n  Configuration problem:\n  {e}\n")
         else:
-            print(f"\n  Error running 'sellbird {args.command}': {e}\n")
+            print(f"\n  Error running '{prog_name} {args.command}': {e}\n")
         sys.exit(1)
 
 

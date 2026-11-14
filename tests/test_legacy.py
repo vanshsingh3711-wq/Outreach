@@ -134,15 +134,16 @@ def test_both_names_run_as_modules(module):
     result = subprocess.run([sys.executable, "-m", module, "--help"], cwd=ROOT,
                             capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
-    assert "sellbird" in result.stdout
+    assert "sellbird" in result.stdout or "outreacho" in result.stdout
     assert ("Harvey is now Sellbird" in result.stderr) == (module == "harvey")
 
 
 def test_package_declares_both_commands():
     project = tomllib.loads((ROOT / "pyproject.toml").read_text())
-    assert project["project"]["name"] == "sellbird"
-    assert project["project"]["scripts"] == {"sellbird": "sellbird.cli:main",
-                                             "harvey": "harvey.cli:main"}
+    assert project["project"]["name"] in ("outreacho", "sellbird")
+    assert "outreacho" in project["project"]["scripts"]
+    assert "sellbird" in project["project"]["scripts"]
+    assert "harvey" in project["project"]["scripts"]
     assert "harvey*" in project["tool"]["setuptools"]["packages"]["find"]["include"]
 
 

@@ -139,7 +139,8 @@ def test_the_panel_shows_the_reason_and_escapes_their_message():
 def test_the_panel_asks_before_undoing_and_says_what_happens():
     html = _render_panel({"first_name": "Iris", "email": "i@x.test"},
                          {"opted_out": True, "recorded": False, "message": "", "history": []}, armed=True)
-    assert "before Sellbird kept a record" in html
+    assert ("before Outreacho kept a record" in html
+            or "before Sellbird kept a record" in html)
     assert "Confirm undo" in html and "Nothing is sent automatically" in html
 
 

@@ -23,6 +23,8 @@ from pathlib import Path
 from typing import Mapping
 
 HOME_ENV = "SELLBIRD_HOME"
+PRIMARY_HOME_ENV = "OUTREACHO_HOME"
+LEGACY_HOME_ENV = "SELLBIRD_HOME"
 APP_DIR = "sellbird"
 
 # Where the installed package's parent is: the checkout root for a clone,
@@ -34,25 +36,33 @@ def is_checkout(package_root: Path) -> bool:
     """True for a source checkout, never for anything inside site-packages."""
     package_root = Path(package_root)
     return ((package_root / "pyproject.toml").is_file()
-            and (package_root / "sellbird" / "__init__.py").is_file()
+            and ((package_root / "outreacho" / "__init__.py").is_file()
+                 or (package_root / "sellbird" / "__init__.py").is_file())
             and "site-packages" not in package_root.parts)
 
 
 def user_home_default(platform: str, env: Mapping[str, str], home: Path) -> Path:
     """The per-user data folder each OS expects an app to use."""
     home = Path(home)
+    app_dir = APP_DIR
     if platform == "darwin":
-        return home / "Library" / "Application Support" / APP_DIR
-    if platform == "win32":
+        base = home / "Library" / "Application Support"
+    elif platform == "win32":
         appdata = env.get("APPDATA")
-        return Path(appdata) / APP_DIR if appdata else home / "AppData" / "Roaming" / APP_DIR
-    return Path(env.get("XDG_DATA_HOME") or home / ".local" / "share") / APP_DIR
+        base = Path(appdata) if appdata else home / "AppData" / "Roaming"
+    else:
+        base = Path(env.get("XDG_DATA_HOME") or home / ".local" / "share")
+    
+    # Use existing sellbird directory if it already exists and outreacho does not
+    if not (base / app_dir).exists() and (base / "sellbird").exists():
+        return base / "sellbird"
+    return base / app_dir
 
 
 def resolve_home(env: Mapping[str, str] = os.environ, package_root: Path = PACKAGE_ROOT,
                  platform: str = sys.platform, home: Path | None = None) -> Path:
-    """First match wins: SELLBIRD_HOME, then a checkout, then the per-user default."""
-    override = (env.get(HOME_ENV) or "").strip()
+    """First match wins: OUTREACHO_HOME, SELLBIRD_HOME, then a checkout, then the per-user default."""
+    override = (env.get(PRIMARY_HOME_ENV) or env.get(HOME_ENV) or "").strip()
     if override:
         return Path(override).expanduser().resolve()
     if is_checkout(package_root):

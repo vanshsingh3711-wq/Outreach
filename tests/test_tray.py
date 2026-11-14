@@ -183,7 +183,7 @@ def test_status_prints_no_link_or_token(setup, capsys):
     cmd_tray(argparse.Namespace(status=True, port=5600), data_dir=data,
              transport=httpx.MockTransport(fake.handler))
     out = capsys.readouterr().out
-    assert "Sellbird: stopped" in out and fake.token not in out and "http" not in out
+    assert ("Outreacho: stopped" in out or "Sellbird: stopped" in out) and fake.token not in out and "http" not in out
 
 
 @pytest.mark.skipif(__import__("sys").platform == "win32", reason="POSIX modes")

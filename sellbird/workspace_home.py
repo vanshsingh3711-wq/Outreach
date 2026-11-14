@@ -52,7 +52,7 @@ class Home:
             gmail_token_file=data / "gmail_token.json",
             dashboard_token_file=data / "dashboard-token",
             agent_token_file=data / "agent-token",
-            config_file=root / "sellbird.yaml",
+            config_file=(root / "outreacho.yaml") if (root / "outreacho.yaml").exists() else (root / "sellbird.yaml"),
             mode=mode,
             secret_backend=secret_backend,
         )

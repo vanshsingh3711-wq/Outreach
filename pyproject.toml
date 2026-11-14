@@ -3,13 +3,13 @@ requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "sellbird"
-version = "0.4.0"
-description = "Sellbird: the open-source outreach platform. Finds companies and the people who decide, writes personal cold email, sends it and handles replies."
+name = "outreacho"
+version = "0.5.0"
+description = "Outreacho: The personal AI prospecting & autonomous outreach platform. Discovers target companies and decision-makers, enriches emails & social profiles, crafts hyper-personalized outreach, and automates deliverability."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "AGPL-3.0-only"
-keywords = ["sales", "outreach", "ai-agent", "cold-email", "prospecting", "autonomous-agent", "claude"]
+keywords = ["sales", "outreach", "ai-agent", "cold-email", "prospecting", "autonomous-agent", "deepseek", "claude"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -46,24 +46,29 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/ethanplusai/sellbird"
-Issues = "https://github.com/ethanplusai/sellbird/issues"
-Changelog = "https://github.com/ethanplusai/sellbird/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/vanshsingh3711-wq/Outreacho"
+Issues = "https://github.com/vanshsingh3711-wq/Outreacho/issues"
 
 [project.scripts]
+outreacho = "sellbird.cli:main"
 sellbird = "sellbird.cli:main"
-# The old name, kept for a while so existing installs keep working (harvey/).
 harvey = "harvey.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["sellbird*", "harvey*"]
+include = ["outreacho*", "sellbird*", "harvey*"]
 
 # The editable defaults an installed app seeds its home folder from
 # (sellbird/home.py). They land in <prefix>/share/sellbird.
-[tool.setuptools]
-data-files = {"share/sellbird" = ["sellbird.yaml", ".env.example"], "share/sellbird/prompts" = ["prompts/*.md"], "share/sellbird/skills" = ["skills/*.md"]}
+[tool.setuptools.data-files]
+"share/sellbird" = ["sellbird.yaml", ".env.example"]
+"share/sellbird/prompts" = ["prompts/*.md"]
+"share/sellbird/skills" = ["skills/*.md"]
+"share/outreacho" = ["outreacho.yaml", ".env.example"]
+"share/outreacho/prompts" = ["prompts/*.md"]
+"share/outreacho/skills" = ["skills/*.md"]
 
 # The dashboard's HTML/CSS/JS are real files served from disk, and its fonts
 # are vendored so a local tool renders correctly with the network off.
 [tool.setuptools.package-data]
 sellbird = ["web/*", "web/fonts/*"]
+outreacho = ["web/*", "web/fonts/*"]
