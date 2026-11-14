@@ -1443,7 +1443,6 @@ async function loadOutreachStatus() {
   document.getElementById('btn-start').style.display = running ? 'none' : '';
   document.getElementById('btn-stop').style.display = running ? '' : 'none';
 }
-const loadOutreachStatus = loadOutreachStatus;
 
 async function startOutreach() {
   const btn = document.getElementById('btn-start');
@@ -1454,7 +1453,6 @@ async function startOutreach() {
   btn.disabled = false;
   loadOutreachStatus();
 }
-const startOutreach = startOutreach;
 
 async function stopOutreach() {
   const btn = document.getElementById('btn-stop');
@@ -1465,7 +1463,6 @@ async function stopOutreach() {
   btn.disabled = false;
   loadOutreachStatus();
 }
-const stopOutreach = stopOutreach;
 
 async function loadLogs() {
   const data = await api('/api/outreach/logs') || await api('/api/outreach/logs');
