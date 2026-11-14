@@ -677,6 +677,51 @@ def cmd_enrich(args):
     asyncio.run(_enrich())
 
 
+def cmd_discover_companies(args):
+    """Find target companies using firmographic, role, and tech filters."""
+    from sellbird.discovery_engine import DiscoveryCriteria, FilteredDiscoveryEngine
+    from sellbird.state import StateManager
+
+    async def _run():
+        state = StateManager()
+        await state.init_db()
+
+        criteria = DiscoveryCriteria(
+            industries=[i.strip() for i in args.industry.split(",")] if args.industry else [],
+            roles=[r.strip() for r in args.role.split(",")] if args.role else [],
+            tech_stack=[t.strip() for t in args.tech.split(",")] if args.tech else [],
+            locations=[l.strip() for l in args.location.split(",")] if args.location else [],
+            funding_stage=args.funding or "",
+            business_model=args.model or "",
+            company_size_tier=args.size or "",
+            custom_query=args.query or "",
+            limit=args.limit,
+            auto_enrich=args.enrich,
+        )
+
+        engine = FilteredDiscoveryEngine(state)
+        print("\n  Searching for matching prospective companies...")
+        cands = await engine.discover_companies(criteria)
+
+        if not cands:
+            print("  No companies found matching criteria.\n")
+            return
+
+        print(f"\n  Discovered {len(cands)} companies:")
+        for c in cands:
+            status = "Existing" if c.is_existing else "New"
+            enrich_info = ""
+            if c.enrichment_result:
+                co = c.enrichment_result.company
+                enrich_info = f" | {co.industry} | {co.company_size or 'Size unknown'} | {len(c.enrichment_result.people)} decision-makers"
+            print(f"    [{status}] {c.name} ({c.domain}) - {c.website}{enrich_info}")
+            if c.snippet:
+                print(f"         Snippet: {c.snippet[:90]}...")
+        print()
+
+    asyncio.run(_run())
+
+
 def cmd_discover(args):
     """Find businesses. The only stage that spends money, so it estimates first."""
     from sellbird.state import StateManager
@@ -1335,6 +1380,21 @@ def main():
         "enrich", help="Enrich a company website URL with SSRF protection")
     sub.add_argument("url", help="Company website URL to enrich (e.g. https://example.com)")
     sub.set_defaults(func=cmd_enrich)
+
+    sub = subparsers.add_parser(
+        "discover-companies", help="Find companies using firmographic, role, and tech filters"
+    )
+    sub.add_argument("--industry", help="Industry filter (e.g. 'Artificial Intelligence, SaaS')")
+    sub.add_argument("--role", help="Target hiring role (e.g. 'Applied AI Engineer, Python Backend')")
+    sub.add_argument("--tech", help="Tech stack (e.g. 'LangGraph, FastAPI')")
+    sub.add_argument("--location", help="Location (e.g. 'Germany', 'United States', 'remote')")
+    sub.add_argument("--funding", help="Funding stage (e.g. 'Seed', 'Series A', 'Bootstrapped')")
+    sub.add_argument("--model", help="Business model ('agency', 'product')")
+    sub.add_argument("--size", help="Size tier ('1-10', '11-50', '51-200')")
+    sub.add_argument("--query", help="Custom search query override")
+    sub.add_argument("--limit", type=int, default=10, help="Max companies to discover (default: 10)")
+    sub.add_argument("--enrich", action="store_true", help="Auto-enrich discovered companies immediately")
+    sub.set_defaults(func=cmd_discover_companies)
 
     sub = subparsers.add_parser(
         "signals", help="Review/confirm which signals Sellbird prospects against")

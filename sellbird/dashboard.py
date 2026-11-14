@@ -819,11 +819,58 @@ async def enrich_company_url(request: Request):
                 "evidence_snippet": p.evidence_snippet,
                 "source_url": p.source_url,
                 "confidence": p.confidence,
+                "linkedin_url": getattr(p, "linkedin_url", ""),
+                "primary_email": getattr(p, "primary_email", ""),
+                "email_status": getattr(p, "email_status", ""),
+                "email_match_confidence": getattr(p, "email_match_confidence", 0.0),
+                "email_candidates": getattr(p, "email_candidates", []),
             }
             for p in result.people
         ],
         "emails": result.emails,
         "hiring_detected": result.hiring_detected,
+        "firmographics": getattr(result, "firmographics", {}),
+    }
+
+
+@app.post("/api/prospecting/discover")
+async def discover_companies_endpoint(request: Request):
+    """Find prospective companies matching firmographic and hiring filters."""
+    from sellbird.discovery_engine import DiscoveryCriteria, FilteredDiscoveryEngine
+    from sellbird.state import StateManager
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
+
+    criteria = DiscoveryCriteria(
+        industries=body.get("industries") or [],
+        roles=body.get("roles") or [],
+        tech_stack=body.get("tech_stack") or [],
+        locations=body.get("locations") or [],
+        funding_stage=body.get("funding_stage") or "",
+        business_model=body.get("business_model") or "",
+        company_size_tier=body.get("company_size_tier") or "",
+        custom_query=body.get("custom_query") or "",
+        limit=min(int(body.get("limit") or 15), 50),
+        auto_enrich=bool(body.get("auto_enrich", False)),
+    )
+
+    state = StateManager()
+    await state.init_db()
+    engine = FilteredDiscoveryEngine(state)
+
+    try:
+        candidates = await engine.discover_companies(criteria)
+    except Exception as exc:
+        logger.exception("Company discovery error: %s", exc)
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+    return {
+        "success": True,
+        "count": len(candidates),
+        "companies": [c.to_dict() for c in candidates],
     }
 
 

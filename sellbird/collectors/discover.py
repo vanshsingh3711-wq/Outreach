@@ -1607,6 +1607,48 @@ PRESETS = {
                  "-site:prnewswire.com -site:businesswire.com -site:globenewswire.com"),
         "local": False,
     },
+    # AI and Generative AI Startups building AI models, products, and applications
+    "ai_startups": {
+        "label": "AI & GenAI Startups",
+        "kinds": ("serp",),
+        "term": ('{industry} ("AI startup" OR "generative AI" OR "building AI agents" OR "LLM") '
+                 "-site:linkedin.com -site:crunchbase.com -site:producthunt.com -site:github.com"),
+        "local": False,
+    },
+    # Software agencies, digital studios, and AI automation consultancies
+    "software_agencies": {
+        "label": "Software & AI Agencies",
+        "kinds": ("serp",),
+        "term": ('{industry} ("software development agency" OR "AI automation agency" OR "custom software development") '
+                 '("our clients" OR "case studies" OR "services") '
+                 "-site:clutch.co -site:upwork.com -site:fiverr.com -site:goodfirms.co -site:linkedin.com"),
+        "local": True,
+    },
+    # Companies hiring technical AI/engineering roles
+    "ai_hiring": {
+        "label": "Companies hiring AI Engineers",
+        "kinds": ("serp",),
+        "term": ('("{role}" OR "Applied AI Engineer" OR "Python Backend Engineer") '
+                 '("careers" OR "we are hiring" OR "open positions") {industry} '
+                 "-site:linkedin.com -site:indeed.com -site:greenhouse.io -site:lever.co -site:ashbyhq.com"),
+        "local": False,
+    },
+    # Companies building AI agent products, LangGraph workflows, or RAG platforms
+    "agent_products": {
+        "label": "Agent & LangGraph Products",
+        "kinds": ("serp",),
+        "term": ('("LangGraph" OR "AI agent" OR "agentic workflow" OR "RAG") '
+                 '("our product" OR "platform" OR "pricing") -site:github.com -site:medium.com -site:substack.com'),
+        "local": False,
+    },
+    # Contract, freelance, and junior AI engineering developer opportunities
+    "ai_contracts": {
+        "label": "Contract & Freelance AI Dev",
+        "kinds": ("serp",),
+        "term": ('("contract developer" OR "freelance engineer" OR "seeking AI engineer" OR "hiring contractor") '
+                 '{industry} -site:upwork.com -site:freelancer.com -site:fiverr.com -site:linkedin.com'),
+        "local": False,
+    },
 }
 FUNDING_LOOKBACK_DAYS = 548       # ~18 months: older raises aren't news
 
