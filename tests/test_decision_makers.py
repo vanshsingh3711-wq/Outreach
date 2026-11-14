@@ -166,3 +166,4 @@ def test_build_search_queries():
     assert any('myagent.ai CTO' in q for q in queries)
     assert any('myagent.ai "Chief Technology Officer"' in q for q in queries)
     assert any('myagent.ai "Head of Engineering"' in q for q in queries)
+

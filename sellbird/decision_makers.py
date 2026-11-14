@@ -108,6 +108,10 @@ class DecisionMaker:
     source_url: str = ""
     confidence: float = 0.8
     seniority: str = ""
+    primary_email: str = ""
+    email_status: str = ""
+    email_match_confidence: float = 0.0
+    email_candidates: list[Any] = field(default_factory=list)
     discovered_at: datetime = field(
         default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None)
     )

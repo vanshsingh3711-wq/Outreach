@@ -646,7 +646,10 @@ def cmd_enrich(args):
             print(f"\n  Discovered Decision-Makers ({len(result.people)}):")
             for p in result.people:
                 li = f" | {p.linkedin_url}" if getattr(p, "linkedin_url", "") else ""
-                print(f"    - {p.first_name} {p.last_name} | {p.title} (Priority {p.role_priority}){li}")
+                em = ""
+                if getattr(p, "primary_email", ""):
+                    em = f" | {p.primary_email} [{p.email_status}, match: {p.email_match_confidence:.2f}]"
+                print(f"    - {p.first_name} {p.last_name} | {p.title} (Priority {p.role_priority}){li}{em}")
 
         if result.emails:
             print(f"\n  Discovered Email Candidates ({len(result.emails)}):")

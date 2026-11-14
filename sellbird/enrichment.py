@@ -27,6 +27,7 @@ from sellbird.collectors.discover import (
 )
 from sellbird.collectors import people as people_mod
 from sellbird.decision_makers import DecisionMakerExtractor
+from sellbird.email_intelligence import EmailIntelligenceService
 from sellbird.integrations.tech_detect import detect_tech
 from sellbird.models.company import Company
 from sellbird.models.prospect import Prospect
@@ -215,6 +216,10 @@ class DiscoveredPerson:
     source_url: str = ""
     linkedin_url: str = ""
     confidence: float = 0.8
+    primary_email: str = ""
+    email_status: str = ""
+    email_match_confidence: float = 0.0
+    email_candidates: list[dict] = field(default_factory=list)
 
 
 @dataclass
@@ -408,6 +413,33 @@ class CompanyEnricher:
                 if email not in discovered_emails:
                     discovered_emails.append(email)
 
+        # 5b. Person-Specific Email Discovery & Verification (Dual Scoring)
+        email_service = EmailIntelligenceService(state=self.state)
+        for dp in discovered_people:
+            cands = await email_service.discover_candidates_for_person(
+                first_name=dp.first_name,
+                last_name=dp.last_name,
+                domain=domain,
+                published_emails=discovered_emails,
+                source_url=dp.source_url,
+                verify=True,
+            )
+            dp.email_candidates = [
+                {
+                    "email": c.email,
+                    "match_confidence": c.match_confidence,
+                    "deliverability_status": c.deliverability_status,
+                    "discovery_method": c.discovery_method,
+                    "verification_provider": c.verification_provider,
+                }
+                for c in cands
+            ]
+            if cands:
+                best = cands[0]
+                dp.primary_email = best.email
+                dp.email_status = best.deliverability_status
+                dp.email_match_confidence = best.match_confidence
+
         # 6. Save or Update in Database
         company.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
         if is_new:
@@ -420,16 +452,22 @@ class CompanyEnricher:
         # Save discovered people as Prospects if valid
         for dp in discovered_people:
             if dp.first_name and dp.last_name and dp.title:
+                notes = dp.evidence_snippet
+                if dp.email_match_confidence > 0:
+                    notes = f"{notes} | match_confidence: {dp.email_match_confidence:.2f}"
                 prospect = Prospect(
                     company_id=company.id,
                     first_name=dp.first_name,
                     last_name=dp.last_name,
+                    email=dp.primary_email,
+                    email_status=dp.email_status,
+                    email_verified=(dp.email_status == "verified"),
                     title=dp.title,
                     company=company.name,
                     linkedin_url=dp.linkedin_url,
                     source="url_enrichment",
                     source_url=dp.source_url,
-                    personalization_notes=dp.evidence_snippet,
+                    personalization_notes=notes,
                     score=95 if dp.role_priority == 1 else (85 if dp.role_priority == 2 else (75 if dp.role_priority == 3 else 65)),
                 )
                 await self.state.add_prospect(prospect)

@@ -153,6 +153,11 @@ async def test_enrich_company_success(monkeypatch, tmp_path):
             return careers_html
         return home_html
 
+    import sellbird.email_intelligence as ei_mod
+    async def mock_mx(domain):
+        return "aspmx.l.google.com"
+    monkeypatch.setattr(ei_mod, "get_mx_host", mock_mx)
+
     enricher = CompanyEnricher(state)
     monkeypatch.setattr(enricher, "_safe_fetch", mock_get)
 
@@ -220,6 +225,11 @@ async def test_enrich_existing_company_updates_record(monkeypatch, tmp_path):
 
     async def mock_get(client, url):
         return updated_home_html
+
+    import sellbird.email_intelligence as ei_mod
+    async def mock_mx(domain):
+        return "aspmx.l.google.com"
+    monkeypatch.setattr(ei_mod, "get_mx_host", mock_mx)
 
     enricher = CompanyEnricher(state)
     monkeypatch.setattr(enricher, "_safe_fetch", mock_get)
