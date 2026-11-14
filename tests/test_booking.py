@@ -15,12 +15,12 @@ from types import SimpleNamespace
 import pytest
 import pytest_asyncio
 
-from sellbird import brain as brain_mod
-from sellbird.booking import booking_instruction
-from sellbird.config import SendWindowConfig
-from sellbird.models.conversation import Conversation, Message
-from sellbird.models.prospect import Prospect
-from sellbird.state import StateManager
+from outreach import brain as brain_mod
+from outreach.booking import booking_instruction
+from outreach.config import SendWindowConfig
+from outreach.models.conversation import Conversation, Message
+from outreach.models.prospect import Prospect
+from outreach.state import StateManager
 from tests.test_outbox_native import Cfg, Env
 from tests.test_prompt_injection import RecordingBrain
 
@@ -48,10 +48,10 @@ def _cfg(**offer) -> SimpleNamespace:
 
 def test_a_configured_calendar_link_is_offered_verbatim():
     text = booking_instruction(
-        _cfg(booking_url="https://cal.com/sellbird/15", meeting_owner="Sam"),
+        _cfg(booking_url="https://cal.com/outreach/15", meeting_owner="Sam"),
         NOW,
     )
-    assert "https://cal.com/sellbird/15" in text
+    assert "https://cal.com/outreach/15" in text
     assert "Sam" in text
     assert "15 minutes" in text
     assert "Propose these times" not in text
@@ -65,7 +65,7 @@ def test_a_link_that_cannot_be_sent_falls_back_to_real_times():
 
 
 def test_the_default_offer_suggests_times_when_no_link_is_set():
-    """A fresh sellbird.yaml defaults to calendar_link with an empty URL.
+    """A fresh outreach.yaml defaults to calendar_link with an empty URL.
     That must not leave the reply with nothing to offer."""
     text = booking_instruction(_cfg(), NOW)
     assert "Propose these times:" in text
@@ -147,10 +147,10 @@ def test_start_trial_without_an_entry_still_offers_a_next_step():
 
 def test_get_reply_does_not_push_a_meeting():
     text = booking_instruction(
-        _cfg(goal="get_reply", booking_url="https://cal.com/sellbird/15"), NOW,
+        _cfg(goal="get_reply", booking_url="https://cal.com/outreach/15"), NOW,
     )
     assert "Do not propose a call" in text
-    assert "https://cal.com/sellbird/15" not in text
+    assert "https://cal.com/outreach/15" not in text
 
 
 # ── the reply prompt ──
@@ -172,7 +172,7 @@ class OfferCfg(Cfg):
         class offer:
             goal = "book_call"
             booking_method = "calendar_link"
-            booking_url = "https://cal.example/sellbird/15"
+            booking_url = "https://cal.example/outreach/15"
             entry = ""
             meeting_duration = "20 minutes"
             meeting_owner = "Sam"
@@ -186,7 +186,7 @@ async def state(tmp_path):
 
 
 async def _handler(state, config=None):
-    from sellbird.agents.handler import Handler
+    from outreach.agents.handler import Handler
 
     brain = PromptBrain(text_reply="Happy to. Tuesday works?")
     handler = Handler(brain=brain, state=state, config=config or OfferCfg(), env=Env())
@@ -216,7 +216,7 @@ async def test_an_interested_reply_gets_the_configured_booking_link(state):
         "interested", "Let's talk.", prospect, _convo(prospect),
     )
     prompt = brain.prompts[0]
-    assert "https://cal.example/sellbird/15" in prompt
+    assert "https://cal.example/outreach/15" in prompt
     assert "20 minutes" in prompt and "Sam" in prompt
     assert "{{" not in prompt
 
@@ -230,7 +230,7 @@ async def test_a_question_does_not_get_a_pitch(state):
     )
     prompt = brain.prompts[0]
     assert "Do not offer a meeting, a call, a trial, or a booking link" in prompt
-    assert "https://cal.example/sellbird/15" not in prompt
+    assert "https://cal.example/outreach/15" not in prompt
 
 
 @pytest.mark.asyncio
@@ -240,4 +240,4 @@ async def test_a_closing_thread_gets_the_next_step_whatever_the_intent(state):
     await handler._generate_response(
         "question", "Send the details.", prospect, _convo(prospect, stage="closing"),
     )
-    assert "https://cal.example/sellbird/15" in brain.prompts[0]
+    assert "https://cal.example/outreach/15" in brain.prompts[0]

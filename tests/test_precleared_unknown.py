@@ -19,15 +19,15 @@ import httpx
 import pytest
 import pytest_asyncio
 
-from sellbird.agents.sender import ADDRESS_RETRY_AFTER
-from sellbird.integrations.precleared import (
+from outreach.agents.sender import ADDRESS_RETRY_AFTER
+from outreach.integrations.precleared import (
     SETTINGS_PREFIX,
     UNKNOWN_ATTEMPTS,
     UNKNOWN_PREFIX,
     UNKNOWN_RETRY_AFTER,
     PreclearedClient,
 )
-from sellbird.state import MOVED_BACK_PREFIXES, RECHECK_PREFIX, UNKNOWN_HOLD_PREFIX, StateManager
+from outreach.state import MOVED_BACK_PREFIXES, RECHECK_PREFIX, UNKNOWN_HOLD_PREFIX, StateManager
 from tests.test_outbox_native import FakeProvider, make_sender, seed_prospect
 from tests.test_precleared import CONSENT_BODY, OK_BODY, mock_status, queue, with_check
 from tests.test_precleared_pause import make_due_again, people, send_at
@@ -44,7 +44,7 @@ UNKNOWN_BODY = {
                 "the domain or Companies House, so no rule can be applied.",
     }],
     "next_step": "Pass recipient_country, or default_recipient_country if all your "
-                 "prospects are in one country (prospect_country in Sellbird), or a "
+                 "prospects are in one country (prospect_country in Outreach), or a "
                  "company number, and check again. Until then treat as consent needed.",
     "receipt": {"id": "cc_rcpt_UN0000000001"},
 }
@@ -103,7 +103,7 @@ async def test_an_unknown_answer_holds_the_email_with_what_would_settle_it(state
     item = await the_item(state, JANE)
     assert item["status"] == "approved"
     assert item["error"].startswith(UNKNOWN_HOLD_PREFIX)
-    assert "prospect_country in Sellbird" in item["error"]
+    assert "prospect_country in Outreach" in item["error"]
     # Soon the first time, in case the problem was passing.
     assert before + ADDRESS_RETRY_AFTER - timedelta(minutes=1) <= await send_at(state, JANE)
     assert await send_at(state, JANE) <= before + ADDRESS_RETRY_AFTER + timedelta(minutes=1)

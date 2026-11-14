@@ -1,12 +1,12 @@
-# Contributing to Sellbird
+# Contributing to Outreach
 
 For anyone changing this repository and opening pull requests, and above all
 for coding agents (Claude Code, Codex, Cursor, Aider). `CLAUDE.md` is different:
-it guides someone *using* Sellbird. This file is about contributing to it.
+it guides someone *using* Outreach. This file is about contributing to it.
 
 ## No real contact data, anywhere it gets published
 
-This repository is public. Sellbird's job is finding real people at real businesses,
+This repository is public. Outreach's job is finding real people at real businesses,
 so testing it turns up real names, addresses and phone numbers. Those stay on
 your machine. A pull request once listed thirteen real people's work addresses,
 with their names and employers, in its description and test fixtures, and
@@ -19,7 +19,7 @@ issue:**
 - a real person's name, email address, phone number or street address;
 - a real business found while testing: its name, domain, website URL or
   location, including inside HTML copied from its site;
-- anything taken from `data/sellbird.db`, a user's export, an Outbox item, a reply,
+- anything taken from `data/outreach.db`, a user's export, an Outbox item, a reply,
   or a live test run.
 
 **Do this instead:**
@@ -61,7 +61,7 @@ Tests never send real email: use the fake providers in `tests/`.
 
 ## License and sign-off
 
-Sellbird is licensed under the GNU Affero General Public License v3.0 only
+Outreach is licensed under the GNU Affero General Public License v3.0 only
 (see `LICENSE`). Code from the MIT-licensed Harvey releases (0.3.x and
 earlier) keeps its MIT notice in `NOTICE`.
 

@@ -1,4 +1,4 @@
-"""Tests for the optional Precleared step in `sellbird setup`: off unless the
+"""Tests for the optional Precleared step in `outreach setup`: off unless the
 user says yes, saved answers are the defaults when setup is re-run, a free key
 can be had for an email address, a pasted key is read with hidden input, no
 key is ever printed, and other settings are kept. No network: the free-key
@@ -11,10 +11,10 @@ from types import SimpleNamespace
 import pytest
 import yaml
 
-import sellbird.setup as setup
-from sellbird.config import load_config
-from sellbird.integrations.precleared import NewKey, PreclearedClient
-from sellbird.paths import PROJECT_ROOT
+import outreach.setup as setup
+from outreach.config import load_config
+from outreach.integrations.precleared import NewKey, PreclearedClient
+from outreach.paths import PROJECT_ROOT
 
 FAKE_KEY = "pc_live_example_not_a_real_key"
 
@@ -43,9 +43,9 @@ def free_key(monkeypatch, *results):
 
 @pytest.fixture
 def files(tmp_path, monkeypatch):
-    """A copy of the shipped sellbird.yaml and an empty .env, in a temp folder."""
-    config = tmp_path / "sellbird.yaml"
-    shutil.copy(PROJECT_ROOT / "sellbird.yaml", config)
+    """A copy of the shipped outreach.yaml and an empty .env, in a temp folder."""
+    config = tmp_path / "outreach.yaml"
+    shutil.copy(PROJECT_ROOT / "outreach.yaml", config)
     env = tmp_path / ".env"
     monkeypatch.setattr(setup, "CONFIG_FILE", config)
     monkeypatch.setattr(setup, "ENV_FILE", env)
@@ -86,7 +86,7 @@ def saved(path) -> dict:
 
 
 def finish(wizard):
-    """Write .env and sellbird.yaml the way the end of `sellbird setup` does."""
+    """Write .env and outreach.yaml the way the end of `outreach setup` does."""
     if not wizard.config:
         wizard.config = {"channels": {"email": {"max_daily_sends": 50}}}
     wizard._write_env()
@@ -297,7 +297,7 @@ def test_turning_it_on_without_a_key_leaves_a_placeholder(files, monkeypatch, ca
 
 
 def test_a_new_config_file_gets_the_check(tmp_path, monkeypatch):
-    config = tmp_path / "sellbird.yaml"  # not created yet
+    config = tmp_path / "outreach.yaml"  # not created yet
     monkeypatch.setattr(setup, "CONFIG_FILE", config)
     monkeypatch.setattr(setup, "ENV_FILE", tmp_path / ".env")
     monkeypatch.delenv("PRECLEARED_API_KEY", raising=False)
@@ -423,23 +423,23 @@ def test_a_blank_address_skips_to_pasting_a_key(files, monkeypatch, capsys):
     finish(wizard)
 
     assert asked.questions[-1].secret is True  # the paste question came next
-    assert "sellbird precleared-key" in capsys.readouterr().out
+    assert "outreach precleared-key" in capsys.readouterr().out
     assert saved(files.config)["enabled"] is True
 
 
-# ── setup saves to the file Sellbird reads, and says when it couldn't ──
+# ── setup saves to the file Outreach reads, and says when it couldn't ──
 
 @pytest.fixture
 def trained(files):
-    """`sellbird train` wrote sellbird.local.yaml, which wins over sellbird.yaml."""
-    local = files.config.with_name("sellbird.local.yaml")
+    """`outreach train` wrote outreach.local.yaml, which wins over outreach.yaml."""
+    local = files.config.with_name("outreach.local.yaml")
     shutil.copy(files.config, local)
     files.local = local
     files.template = files.config.read_bytes()
     return files
 
 
-def test_after_sellbird_train_setup_saves_to_sellbird_local_yaml(trained, monkeypatch):
+def test_after_outreach_train_setup_saves_to_outreach_local_yaml(trained, monkeypatch):
     script(monkeypatch, yes_no=[True, False], answers=["GB", "", ""])
     wizard = setup.SetupWizard()
     wizard._setup_compliance()
@@ -449,7 +449,7 @@ def test_after_sellbird_train_setup_saves_to_sellbird_local_yaml(trained, monkey
     assert trained.config.read_bytes() == trained.template  # template untouched
 
 
-def test_rerunning_setup_after_sellbird_train_offers_the_saved_answers(trained, monkeypatch):
+def test_rerunning_setup_after_outreach_train_offers_the_saved_answers(trained, monkeypatch):
     set_precleared(trained.local, enabled=True, sender_country="US")
     asked = script(monkeypatch, yes_no=[None, False], answers=["", "", ""])
     wizard = setup.SetupWizard()
@@ -461,9 +461,9 @@ def test_rerunning_setup_after_sellbird_train_offers_the_saved_answers(trained, 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("has_local", [False, True])
-async def test_setup_trains_into_the_file_sellbird_reads(files, monkeypatch, has_local):
+async def test_setup_trains_into_the_file_outreach_reads(files, monkeypatch, has_local):
     if has_local:
-        shutil.copy(files.config, files.config.with_name("sellbird.local.yaml"))
+        shutil.copy(files.config, files.config.with_name("outreach.local.yaml"))
     outputs = []
 
     class FakeTrainer:
@@ -474,11 +474,11 @@ async def test_setup_trains_into_the_file_sellbird_reads(files, monkeypatch, has
             outputs.append(output_path)
             return {"persona": {}}
 
-    monkeypatch.setattr("sellbird.trainer.Trainer", FakeTrainer)
+    monkeypatch.setattr("outreach.trainer.Trainer", FakeTrainer)
     script(monkeypatch, yes_no=[], answers=["url", "https://example.test"])
     await setup.SetupWizard()._setup_product()
 
-    name = "sellbird.local.yaml" if has_local else "sellbird.yaml"
+    name = "outreach.local.yaml" if has_local else "outreach.yaml"
     assert outputs == [str(files.config.with_name(name))]
 
 

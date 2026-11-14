@@ -7,9 +7,9 @@ import os
 import pytest
 import pytest_asyncio
 
-from sellbird.state import StateManager
-from sellbird.models.prospect import Prospect
-from sellbird.models.company import Company
+from outreach.state import StateManager
+from outreach.models.prospect import Prospect
+from outreach.models.company import Company
 
 
 @pytest_asyncio.fixture

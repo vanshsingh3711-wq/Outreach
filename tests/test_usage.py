@@ -8,9 +8,9 @@ from pathlib import Path
 import pytest
 import pytest_asyncio
 
-from sellbird.brain import Brain
-from sellbird.state import StateManager
-from sellbird.integrations.quota import _parse_window, _token_from_json_blob
+from outreach.brain import Brain
+from outreach.state import StateManager
+from outreach.integrations.quota import _parse_window, _token_from_json_blob
 
 
 @pytest_asyncio.fixture
@@ -125,11 +125,11 @@ def test_parse_result_payload_plain_text_fallback():
 async def test_brain_records_usage_from_payload(state):
     brain = Brain(state)
     await brain._record_usage(
-        SAMPLE_RESULT, agent="", task="", label="sellbird-scout-score"
+        SAMPLE_RESULT, agent="", task="", label="outreach-scout-score"
     )
     rows = await state.usage_by_agent(days=1)
     assert len(rows) == 1
-    assert rows[0]["agent"] == "scout"  # derived from the sellbird-* label
+    assert rows[0]["agent"] == "scout"  # derived from the outreach-* label
     assert rows[0]["output_tokens"] == 51
     assert rows[0]["cost_usd"] == pytest.approx(0.0182948, abs=1e-4)
 
@@ -138,10 +138,10 @@ async def test_brain_records_usage_from_payload(state):
 
 
 @pytest.mark.asyncio
-async def test_usage_is_sellbird_only(state):
-    """Sanity: the ledger only contains rows Sellbird's Brain wrote. There is
+async def test_usage_is_outreach_only(state):
+    """Sanity: the ledger only contains rows Outreach's Brain wrote. There is
     no transcript scan to pull in other projects' Claude sessions."""
-    import sellbird.usage as usage_mod
+    import outreach.usage as usage_mod
     assert not hasattr(usage_mod, "reconcile_transcripts")
     assert not hasattr(usage_mod, "parse_transcript_events")
 

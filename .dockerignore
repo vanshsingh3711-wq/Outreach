@@ -3,9 +3,9 @@
 **
 !Dockerfile
 !requirements.txt
-!sellbird.yaml
-!sellbird/
-!sellbird/**
+!outreach.yaml
+!outreach/
+!outreach/**
 !prompts/
 !prompts/**
 !skills/

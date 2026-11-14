@@ -1,7 +1,7 @@
 """Deterministic soak and fault injection through the real Brain and Codex
 adapter against the scripted CLI (tests/fake_codex.py).
 
-Many calls from concurrent clients, mixed with every failure class Sellbird
+Many calls from concurrent clients, mixed with every failure class Outreach
 must survive: crashes, partial/malformed/oversized output, hangs, attempted
 tool calls, usage limits, auth/isolation/version denial and cancellation.
 Afterwards: every call ended within its bound, no runtime process or temp
@@ -19,15 +19,15 @@ from pathlib import Path
 
 import pytest
 
-import sellbird.brain as brain_mod
-import sellbird.codex as hc
+import outreach.brain as brain_mod
+import outreach.codex as hc
 
-# The Codex provider supports macOS and Linux only (see sellbird.codex).
+# The Codex provider supports macOS and Linux only (see outreach.codex).
 pytestmark = pytest.mark.skipif(sys.platform == "win32",
                                 reason="the Codex provider isn't supported on Windows")
-from sellbird.brain import Brain
-from sellbird.config import BrainConfig
-from sellbird.state import StateManager
+from outreach.brain import Brain
+from outreach.config import BrainConfig
+from outreach.state import StateManager
 from tests.test_codex import _write_login
 
 FAKE = str(Path(__file__).with_name("fake_codex.py"))

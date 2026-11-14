@@ -4,11 +4,11 @@ from types import SimpleNamespace
 
 import pytest
 
-import sellbird.agents.scout as scout_mod
-import sellbird.integrations.email_finder as ef
-from sellbird.agents.scout import Scout
-from sellbird.agents.sender import Sender
-from sellbird.models.prospect import COMPANY_INBOX_SOURCE, Prospect
+import outreach.agents.scout as scout_mod
+import outreach.integrations.email_finder as ef
+from outreach.agents.scout import Scout
+from outreach.agents.sender import Sender
+from outreach.models.prospect import COMPANY_INBOX_SOURCE, Prospect
 
 
 def inbox(**kw):
@@ -248,7 +248,7 @@ async def test_no_inbox_without_a_company_record():
 # ── writer ──
 
 def test_inbox_prospects_get_their_own_campaign():
-    from sellbird.agents.writer import Writer
+    from outreach.agents.writer import Writer
     writer = Writer.__new__(Writer)
     writer.config = SimpleNamespace(channels=SimpleNamespace(email=SimpleNamespace(provider="gmail")))
     named = Prospect(first_name="Jo", last_name="Li", title="Owner", industry="Roofing", email="jo@a.com")
@@ -268,7 +268,7 @@ class SequenceBrain:
 
 
 def sequence_writer(steps):
-    from sellbird.agents.writer import Writer
+    from outreach.agents.writer import Writer
     writer = Writer.__new__(Writer)
     writer.brain = SequenceBrain(steps)
     writer.skills = ""
@@ -299,5 +299,5 @@ async def test_inbox_sequence_with_company_only_is_kept():
         {"step": 1, "subject": "quick one", "body": "Hi there, who answers at {{company}}?", "delay_days": 0},
     ]
     out = await sequence_writer(steps)._write_sequence([inbox(industry="Roofing")])
-    # Sellbird signs it with the persona's first name.
+    # Outreach signs it with the persona's first name.
     assert [s.body for s in out] == ["Hi there, who answers at {{company}}?\n\nS"]

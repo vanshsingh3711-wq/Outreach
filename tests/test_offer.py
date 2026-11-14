@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 import yaml
 
-from sellbird.offer import save_offer, suggest_offers
+from outreach.offer import save_offer, suggest_offers
 
 
 def _config():
@@ -40,11 +40,11 @@ async def test_suggestions_survive_a_wrapped_answer():
 
 
 def test_saving_writes_the_offer_and_keeps_everything_else(tmp_path):
-    f = tmp_path / "sellbird.local.yaml"
+    f = tmp_path / "outreach.local.yaml"
     f.write_text("persona:\n  name: Maya\nproduct:\n  name: Brightline\n  offer:\n    goal: book_call\n")
     save_offer(f, "  a written plan   for page one ", ["a plan", "", "a mockup"])
     data = yaml.safe_load(f.read_text())
     assert data["product"]["offer"] == {"goal": "book_call", "entry": "a written plan for page one",
                                         "entry_ideas": ["a plan", "a mockup"]}
     assert data["persona"]["name"] == "Maya"
-    assert (tmp_path / "sellbird.local.yaml.bak").read_text().startswith("persona:")
+    assert (tmp_path / "outreach.local.yaml.bak").read_text().startswith("persona:")

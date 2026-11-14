@@ -1,9 +1,9 @@
 """Tests for data models."""
 
-from sellbird.models.prospect import Prospect
-from sellbird.models.campaign import Campaign, EmailStep
-from sellbird.models.company import Company
-from sellbird.models.conversation import Conversation, Message
+from outreach.models.prospect import Prospect
+from outreach.models.campaign import Campaign, EmailStep
+from outreach.models.company import Company
+from outreach.models.conversation import Conversation, Message
 
 
 def test_prospect_is_valid():
@@ -48,7 +48,7 @@ def test_company_defaults():
 
 def test_conversation_thread_json_round_trip():
     msgs = [
-        Message(sender="sellbird", content="Hi there"),
+        Message(sender="outreach", content="Hi there"),
         Message(sender="prospect", content="Interested!"),
     ]
     convo = Conversation(
@@ -58,5 +58,5 @@ def test_conversation_thread_json_round_trip():
     json_str = convo.thread_json()
     restored = Conversation.thread_from_json(json_str)
     assert len(restored) == 2
-    assert restored[0].sender == "sellbird"
+    assert restored[0].sender == "outreach"
     assert restored[1].content == "Interested!"

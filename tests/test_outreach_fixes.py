@@ -2,7 +2,7 @@
 
 from types import SimpleNamespace
 
-from sellbird.agents.sender import Sender
+from outreach.agents.sender import Sender
 
 
 def _render(text, company):

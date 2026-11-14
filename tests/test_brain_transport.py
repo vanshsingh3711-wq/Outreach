@@ -1,4 +1,4 @@
-"""A server running Sellbird for others plugs its own model calls in through
+"""A server running Outreach for others plugs its own model calls in through
 ``Brain(transport=...)``, and a home with no prompts folder still gets the
 shipped prompts and skills."""
 
@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from sellbird.brain import Brain
-from sellbird.workspace_home import Home, use_home
+from outreach.brain import Brain
+from outreach.workspace_home import Home, use_home
 
 
 class Transport:

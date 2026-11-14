@@ -1,7 +1,7 @@
 """Unit tests for firmographic intelligence, company filtering, and hiring signals."""
 
 import pytest
-from sellbird.firmographics import (
+from outreach.firmographics import (
     FirmographicExtractor,
     FirmographicFilter,
     FirmographicProfile,

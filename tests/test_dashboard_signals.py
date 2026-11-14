@@ -1,6 +1,6 @@
 """Dashboard API for the signal-confirmation gate, cohorts, and Today.
 
-These cover the contract the UI depends on: Sellbird proposes signals, nothing
+These cover the contract the UI depends on: Outreach proposes signals, nothing
 is collected until a human confirms, and a confirmed set becomes a cohort
 query rather than a static list.
 """
@@ -11,9 +11,9 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-import sellbird.dashboard as dash
-from sellbird.signals import SIGNAL_CATALOG
-from sellbird.state import StateManager
+import outreach.dashboard as dash
+from outreach.signals import SIGNAL_CATALOG
+from outreach.state import StateManager
 
 
 @pytest.fixture
@@ -22,9 +22,9 @@ def client(monkeypatch):
     uses it: same origin, with the token (tests/test_dashboard_auth.py covers
     everyone else)."""
     with tempfile.TemporaryDirectory() as tmp:
-        db = Path(tmp) / "sellbird.db"
+        db = Path(tmp) / "outreach.db"
         monkeypatch.setattr(dash, "DB_PATH", db)
-        monkeypatch.setattr(dash, "WEB_DIR", Path(__file__).resolve().parent.parent / "sellbird" / "web")
+        monkeypatch.setattr(dash, "WEB_DIR", Path(__file__).resolve().parent.parent / "outreach" / "web")
         dash.token_store.configure(Path(tmp) / "data" / "dashboard-token")
         token = dash.token_store.get()
         with TestClient(dash.app, base_url="http://127.0.0.1:5555",
@@ -37,7 +37,7 @@ def client(monkeypatch):
 
 
 def test_signals_seed_as_proposed_not_confirmed(client):
-    """Sellbird proposes. Nothing is live until a human says so."""
+    """Outreach proposes. Nothing is live until a human says so."""
     data = client.get("/api/signals").json()
     assert data["total"] == len(SIGNAL_CATALOG)
     assert data["summary"]["proposed"] == len(SIGNAL_CATALOG)
@@ -111,9 +111,9 @@ def test_invalid_status_is_rejected(client):
 async def _seed_observations(db_path):
     state = StateManager(str(db_path))
     await state.init_db()
-    from sellbird.signals import seed_signal_catalog
+    from outreach.signals import seed_signal_catalog
     await seed_signal_catalog(state)
-    from sellbird.models import Company
+    from outreach.models import Company
 
     ids = []
     for n, name in enumerate(["Alpha Roofing", "Beta Roofing", "Gamma Roofing"]):
@@ -151,9 +151,9 @@ def test_cohort_is_a_set_intersection(client):
 async def _seed_large_cohort(db_path, n):
     state = StateManager(str(db_path))
     await state.init_db()
-    from sellbird.signals import seed_signal_catalog
+    from outreach.signals import seed_signal_catalog
     await seed_signal_catalog(state)
-    from sellbird.models import Company
+    from outreach.models import Company
 
     ids = [await state.add_company(Company(name=f"Co {i:03d}", domain=f"co{i:03d}.com"))
            for i in range(n)]
@@ -284,7 +284,7 @@ def test_dashboard_text_is_utf8_with_windows_default_encoding(
 
 
 def test_static_route_refuses_to_escape_the_web_directory(client):
-    assert client.get("/static/..%2f..%2fsellbird.yaml").status_code == 404
+    assert client.get("/static/..%2f..%2foutreach.yaml").status_code == 404
     assert client.get("/static/nope.css").status_code == 404
 
 
@@ -292,7 +292,7 @@ def test_static_route_refuses_to_escape_the_web_directory(client):
 
 
 def test_cost_notes_are_machine_classifiable():
-    """`sellbird signals --confirm free` and the dashboard's green/amber cost
+    """`outreach signals --confirm free` and the dashboard's green/amber cost
     chip both key off the cost note. A signal that costs credits must not
     read as free — that is how someone accidentally turns on paid collection.
     """
@@ -310,7 +310,7 @@ def test_cost_notes_are_machine_classifiable():
 
 
 def test_every_signal_has_a_category_the_ui_renders():
-    from sellbird.dashboard import CATEGORY_ORDER
+    from outreach.dashboard import CATEGORY_ORDER
     for sig in SIGNAL_CATALOG:
         assert sig["category"] in CATEGORY_ORDER, (
             f"{sig['code']} is in category {sig['category']!r}, which the "
@@ -349,7 +349,7 @@ def test_cohort_over_previous_cap_and_stable_ties(client):
     async def initialize():
         state = StateManager(str(client.db_path))
         await state.init_db()
-        from sellbird.signals import seed_signal_catalog
+        from outreach.signals import seed_signal_catalog
         await seed_signal_catalog(state)
     asyncio.run(initialize())
     # Bulk seed rather than opening 10,001 individual connections.
@@ -403,7 +403,7 @@ def test_cohort_browser_export_uses_auth_and_handles_failures():
     node = shutil.which('node')
     if not node:
         pytest.skip('node unavailable')
-    web = Path(__file__).resolve().parent.parent / 'sellbird' / 'web'
+    web = Path(__file__).resolve().parent.parent / 'outreach' / 'web'
     script = r'''
 const fs = require('fs'), vm = require('vm');
 const calls = [], revoked = [], links = [];
@@ -465,7 +465,7 @@ def test_cohort_browser_ignores_superseded_pages_and_cleared_filters():
     node = shutil.which('node')
     if not node:
         pytest.skip('node unavailable')
-    app = Path(__file__).resolve().parent.parent / 'sellbird' / 'web' / 'app.js'
+    app = Path(__file__).resolve().parent.parent / 'outreach' / 'web' / 'app.js'
     script = r'''
 const fs = require('fs'), vm = require('vm');
 const app = fs.readFileSync(process.argv[1], 'utf8');
@@ -511,9 +511,9 @@ const page = (name, offset) => ({size: 100, offset, companies: [{name}]});
 async def _seed_ranks(db_path):
     state = StateManager(str(db_path))
     await state.init_db()
-    from sellbird.signals import seed_signal_catalog
+    from outreach.signals import seed_signal_catalog
     await seed_signal_catalog(state)
-    from sellbird.models import Company
+    from outreach.models import Company
     for name, rank in (("Top", 3), ("Mid", 14), ("Deep", 45)):
         cid = await state.add_company(Company(name=name, domain=f"{name.lower()}.com"))
         await state.add_observation("SERP_RANK", company_id=cid, collector="discover",
@@ -557,7 +557,7 @@ def test_signals_api_marks_numeric_signals_for_the_range_ui(client):
 async def test_reseeding_writes_only_what_changed(tmp_path, monkeypatch):
     """Today seeds on every load: once the catalog is stored, seeding again writes nothing.
     A catalog text change is still written, and a user's decision is still kept."""
-    from sellbird.signals import seed_signal_catalog
+    from outreach.signals import seed_signal_catalog
     state = StateManager(db_path=str(tmp_path / "s.db"))
     await state.init_db()
     await seed_signal_catalog(state)

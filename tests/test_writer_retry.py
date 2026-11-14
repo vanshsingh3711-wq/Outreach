@@ -13,10 +13,10 @@ from types import SimpleNamespace
 import pytest
 import pytest_asyncio
 
-from sellbird.agents.writer import MAX_WRITE_ATTEMPTS, Writer
-from sellbird.main import decide_next_action
-from sellbird.models.prospect import Prospect
-from sellbird.state import StateManager
+from outreach.agents.writer import MAX_WRITE_ATTEMPTS, Writer
+from outreach.main import decide_next_action
+from outreach.models.prospect import Prospect
+from outreach.state import StateManager
 
 GOOD = [{"step": 1, "subject": "quick one", "body": "Hi {{first_name}}, who answers at {{company}}?",
          "delay_days": 0}]
@@ -130,8 +130,8 @@ async def test_an_empty_reply_is_an_outage_not_a_bad_draft(state):
 
 @pytest.mark.asyncio
 async def test_the_real_brain_reports_whether_the_model_replied(state, monkeypatch):
-    from sellbird.brain import Brain
-    from sellbird.config import BrainConfig
+    from outreach.brain import Brain
+    from outreach.config import BrainConfig
     brain = Brain(state, BrainConfig())
 
     async def silent(*a, **kw):
@@ -176,8 +176,8 @@ async def test_a_cli_reported_api_error_is_no_reply_not_model_text(state, monkey
     # The CLI can report an API error (overloaded, rate limited) inside a
     # successful exit. That text is not the model's answer: no caller should
     # treat it as a draft, and the Writer must not count it as a bad one.
-    import sellbird.brain as brain_mod
-    from sellbird.brain import Brain
+    import outreach.brain as brain_mod
+    from outreach.brain import Brain
 
     payloads = []
 

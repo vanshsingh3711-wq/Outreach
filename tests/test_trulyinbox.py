@@ -1,7 +1,7 @@
-"""TrulyInbox: the warmup service Sellbird recommends, and reads.
+"""TrulyInbox: the warmup service Outreach recommends, and reads.
 
-Sellbird only reads from TrulyInbox (is the sending mailbox enrolled, is warmup
-on, how much of its warmup mail lands in spam), so `sellbird warmup` can say
+Outreach only reads from TrulyInbox (is the sending mailbox enrolled, is warmup
+on, how much of its warmup mail lands in spam), so `outreach warmup` can say
 whether a mailbox is actually warmed instead of counting days from a date.
 """
 
@@ -11,9 +11,9 @@ from datetime import date, timedelta
 import httpx
 import pytest
 
-from sellbird import deliverability as d
-from sellbird.config import WarmupConfig
-from sellbird.integrations import trulyinbox as ti
+from outreach import deliverability as d
+from outreach.config import WarmupConfig
+from outreach.integrations import trulyinbox as ti
 
 KEY = "ti_ws_test_key_123"
 ADDR = "sales@getacme.example"
@@ -161,7 +161,7 @@ def test_a_key_that_cant_go_in_a_header_is_refused():
         ti.TrulyInbox("bad\nkey")
 
 
-# ── What `sellbird warmup` says ──
+# ── What `outreach warmup` says ──
 
 TODAY = date(2026, 10, 25)
 
@@ -175,7 +175,7 @@ def _health(**kw):
 
 def test_not_connected_recommends_trulyinbox_with_the_link():
     c = d.check_warmup_service(None, today=TODAY)
-    assert ti.AFFILIATE_URL in c.detail and "sellbird trulyinbox connect" in c.detail
+    assert ti.AFFILIATE_URL in c.detail and "outreach trulyinbox connect" in c.detail
     assert c.status == d.INFO
 
 
@@ -222,10 +222,10 @@ def test_another_warmup_service_is_respected():
 # ── The link is defined once ──
 
 def test_the_link_lives_in_one_constant():
-    from sellbird.paths import PROJECT_ROOT
-    src = [p for p in (PROJECT_ROOT / "sellbird").rglob("*") if p.suffix in (".py", ".js", ".html")]
+    from outreach.paths import PROJECT_ROOT
+    src = [p for p in (PROJECT_ROOT / "outreach").rglob("*") if p.suffix in (".py", ".js", ".html")]
     assert [p.name for p in src if "trulyinbox.com/?via" in p.read_text(encoding="utf-8")] == ["trulyinbox.py"]
-    for name in ("README.md", "CLAUDE.md", "sellbird.yaml"):
+    for name in ("README.md", "CLAUDE.md", "outreach.yaml"):
         text = (PROJECT_ROOT / name).read_text(encoding="utf-8")
         assert ti.AFFILIATE_URL in text, name
         # every link to the site carries the referral
@@ -237,7 +237,7 @@ def test_the_link_lives_in_one_constant():
 
 @pytest.mark.asyncio
 async def test_the_choice_is_remembered(tmp_path):
-    from sellbird.state import StateManager
+    from outreach.state import StateManager
     state = StateManager(str(tmp_path / "h.db"))
     await state.init_db()
     assert await ti.get_choice(state) == ""

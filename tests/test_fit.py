@@ -2,7 +2,7 @@
 
 from types import SimpleNamespace
 
-from sellbird.fit import company_fit
+from outreach.fit import company_fit
 
 
 def config(dnc=()):

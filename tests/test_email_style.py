@@ -1,11 +1,11 @@
-"""Sellbird's hard writing rules: what they catch, what they leave alone,
+"""Outreach's hard writing rules: what they catch, what they leave alone,
 and that the Writer, the Sender and the Outbox editor all enforce them."""
 
 from types import SimpleNamespace
 
 import pytest
 
-from sellbird.email_style import (
+from outreach.email_style import (
     BREAKUP_MAX_WORDS, FIRST_EMAIL_MAX_WORDS, style_problems, tidy, with_sign_off,
 )
 
@@ -114,7 +114,7 @@ class FixingBrain:
 
 
 def _writer(brain, rules=""):
-    from sellbird.agents.writer import Writer
+    from outreach.agents.writer import Writer
     w = Writer.__new__(Writer)
     w.brain = brain
     w.email_rules = rules
@@ -166,8 +166,8 @@ async def test_with_operator_rules_there_is_no_added_sign_off():
 
 @pytest.mark.asyncio
 async def test_sender_holds_an_email_with_a_dash_for_review(tmp_path):
-    from sellbird.agents.sender import Sender
-    from sellbird.state import HELD_FOR_REVIEW
+    from outreach.agents.sender import Sender
+    from outreach.state import HELD_FOR_REVIEW
     sender = Sender.__new__(Sender)
     sender.config = SimpleNamespace()
 
@@ -176,7 +176,7 @@ async def test_sender_holds_an_email_with_a_dash_for_review(tmp_path):
             return ""
 
     sender.state = State()
-    import sellbird.agents.sender as mod
+    import outreach.agents.sender as mod
 
     async def no_sync(*a, **k):
         return None
@@ -234,7 +234,7 @@ def test_signal_guide_without_a_signal_gives_the_fallback():
 
 def test_writer_no_longer_reads_the_long_playbooks():
     import inspect
-    from sellbird.brain import Brain
+    from outreach.brain import Brain
     src = inspect.getsource(Brain.load_skills_for_agent)
     assert '"writer": ["product_knowledge", "competitive_intel"]' in src
 
@@ -242,7 +242,7 @@ def test_writer_no_longer_reads_the_long_playbooks():
 # ── Email 1 is built around your offer ────────────────────────────────────
 
 def test_offer_block_uses_your_entry_offer():
-    from sellbird.agents.writer import offer_block
+    from outreach.agents.writer import offer_block
     cfg = SimpleNamespace(product=SimpleNamespace(offer=SimpleNamespace(entry="a mockup of your homepage")))
     block = offer_block(cfg)
     assert "YOUR OFFER for a first email: a mockup of your homepage" in block
@@ -250,13 +250,13 @@ def test_offer_block_uses_your_entry_offer():
 
 
 def test_without_an_offer_the_writer_asks_a_question():
-    from sellbird.agents.writer import offer_block
+    from outreach.agents.writer import offer_block
     cfg = SimpleNamespace(product=SimpleNamespace(offer=SimpleNamespace(entry="")))
     assert "none set" in offer_block(cfg)
 
 
 def test_training_suggests_offers_and_never_picks_or_replaces_yours():
-    from sellbird.trainer import _offer_from, merge_trained_config
+    from outreach.trainer import _offer_from, merge_trained_config
     offer = _offer_from({"entry_offer_ideas": ["a homepage mockup", "a ranking report", ""]})
     assert offer == {"entry_ideas": ["a homepage mockup", "a ranking report"]}
     learned = {"persona": {"company": "C"}, "product": {"name": "P", "offer": offer}}

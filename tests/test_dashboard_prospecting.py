@@ -1,4 +1,4 @@
-"""Tests for AI Prospecting endpoints in Sellbird Dashboard."""
+"""Tests for AI Prospecting endpoints in Outreach Dashboard."""
 
 import asyncio
 import sqlite3
@@ -7,10 +7,10 @@ from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 
-import sellbird.config as sellbird_config
-import sellbird.dashboard as dash
-from sellbird.signals import seed_signal_catalog
-from sellbird.state import StateManager
+import outreach.config as outreach_config
+import outreach.dashboard as dash
+from outreach.signals import seed_signal_catalog
+from outreach.state import StateManager
 
 ORIGIN = "http://127.0.0.1:5555"
 CONFIG = SimpleNamespace(
@@ -23,12 +23,12 @@ CONFIG = SimpleNamespace(
 @pytest.fixture
 def env(tmp_path, monkeypatch):
     (tmp_path / "data").mkdir()
-    db = tmp_path / "data" / "sellbird.db"
+    db = tmp_path / "data" / "outreach.db"
     monkeypatch.setattr(dash, "ENV_FILE", tmp_path / ".env")
     monkeypatch.setattr(dash, "DB_PATH", db)
-    monkeypatch.setattr(dash, "PID_FILE", tmp_path / "data" / "sellbird.pid")
-    monkeypatch.setattr(dash, "LOG_FILE", tmp_path / "data" / "sellbird.log")
-    monkeypatch.setattr(sellbird_config, "load_config", lambda *a, **k: CONFIG)
+    monkeypatch.setattr(dash, "PID_FILE", tmp_path / "data" / "outreach.pid")
+    monkeypatch.setattr(dash, "LOG_FILE", tmp_path / "data" / "outreach.log")
+    monkeypatch.setattr(outreach_config, "load_config", lambda *a, **k: CONFIG)
     dash.token_store.configure(tmp_path / "data" / "dashboard-token")
 
     async def _init():

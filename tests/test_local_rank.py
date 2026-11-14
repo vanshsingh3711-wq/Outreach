@@ -13,11 +13,11 @@ import httpx
 import pytest
 import pytest_asyncio
 
-from sellbird.collectors import discover as D
-from sellbird.config import EnvConfig, load_config
-from sellbird.models import Company
-from sellbird.signals import SIGNAL_CATALOG, seed_signal_catalog
-from sellbird.state import StateManager
+from outreach.collectors import discover as D
+from outreach.config import EnvConfig, load_config
+from outreach.models import Company
+from outreach.signals import SIGNAL_CATALOG, seed_signal_catalog
+from outreach.state import StateManager
 
 ENV = {"dataforseo_login": "u", "dataforseo_password": "p"}
 REAL_CLIENT = httpx.AsyncClient
@@ -298,7 +298,7 @@ def _install(monkeypatch, handler):
     real = REAL_CLIENT
     monkeypatch.setattr(D.httpx, "AsyncClient", lambda **kw: real(
         transport=httpx.MockTransport(handler), **kw))
-    monkeypatch.setattr("sellbird.config.load_env", lambda: EnvConfig(
+    monkeypatch.setattr("outreach.config.load_env", lambda: EnvConfig(
         dataforseo_login="dummy", dataforseo_password="dummy"))
 
 

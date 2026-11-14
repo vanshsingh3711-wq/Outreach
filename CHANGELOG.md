@@ -1,6 +1,6 @@
 # Changelog
 
-Notable changes to Sellbird, called Harvey until 0.4.0. Dates are release dates; the format follows
+Notable changes to Outreach, called Harvey until 0.4.0. Dates are release dates; the format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) loosely and versions
 follow [semver](https://semver.org/), with the caveat that Harvey is pre-1.0 and
 minor versions can still change behaviour.
@@ -15,8 +15,8 @@ minor versions can still change behaviour.
   advice. With the option on, the Writer writes only for a prospect with a site
   finding, a startup fact, a signal or the Scout's notes, and marks the others
   `no_tip` (not left `new`, which makes the heartbeat retry them every cycle).
-  The dashboard shows them as "Nothing to write about yet", `sellbird status`
-  counts them, and `sellbird retry-writes --no-tip` puts them back in line. Off by default. The company's location
+  The dashboard shows them as "Nothing to write about yet", `outreach status`
+  counts them, and `outreach retry-writes --no-tip` puts them back in line. Off by default. The company's location
   is also in the Writer's facts now.
 - **An Italian `compliance.opt_out_line` passes validation.** "Non ti
   interessa? Rispondi pure e non ti scriverò più." is accepted, like the
@@ -30,7 +30,7 @@ minor versions can still change behaviour.
 
 ### Changed
 
-- **The writer sees what Sellbird read off a company's own site.** The free
+- **The writer sees what Outreach read off a company's own site.** The free
   homepage signals (no structured data, a site untouched for six months, a very
   small sitemap, AI crawlers blocked) were collected but
   never reached the writer's prompt, so an email asked to name one concrete
@@ -46,7 +46,7 @@ minor versions can still change behaviour.
 - **The cold-email check takes a sender based in any of Precleared's
   fourteen countries.** `compliance.precleared.sender_country` accepts GB, US,
   CA, DE, FR, AU, IE, NL, ES, IT, LV, AE, EG and QA (`UK`, `USA` and `UAE` are
-  read as their codes), where it took only GB or US; `sellbird setup` asks for
+  read as their codes), where it took only GB or US; `outreach setup` asks for
   a two-letter code and lists them when the answer isn't one. A sender whose
   timezone is Europe/London is told the check is recommended for them and
   offered GB as their country; it still waits for their yes. The docs say a
@@ -76,7 +76,7 @@ minor versions can still change behaviour.
   asks the reader to send money (wire or bank transfer, IBAN, crypto, gift
   cards and the like), as it already did for links to domains that aren't
   yours. A planted "call this number instead" can't go out on its own.
-- **Training reads your website as data.** The pages `sellbird train` crawls
+- **Training reads your website as data.** The pages `outreach train` crawls
   are fenced as untrusted text, like replies and research already were, so
   a comment or review on your site can't steer what training writes into
   every later email.
@@ -94,14 +94,14 @@ minor versions can still change behaviour.
   names, and the site's "Équipe", "À propos" and "Nous joindre" pages are
   followed. Before, these sites fell back to the published info@ address.
 - **French opt-outs.** `compliance.opt_out_line` accepts French wording ("Pas intéressé? Répondez-moi simplement et je ne vous écrirai plus."), with or without accents; before, a French line failed validation and the whole config wouldn't load. Replies saying "non merci", "ARRÊT", "désabonnez-moi", "ne m'écrivez plus" or "pas intéressé" are caught by rule like the English, Hebrew and Spanish ones, and "Envoyé de mon iPhone" no longer hides a bare opt-out.
-- **A menu-bar app.** `sellbird tray` (macOS menu bar, Windows tray)
-  starts the dashboard when needed, starts and stops Sellbird, pauses and
-  resumes sending and opens the dashboard unlocked. `sellbird autostart
+- **A menu-bar app.** `outreach tray` (macOS menu bar, Windows tray)
+  starts the dashboard when needed, starts and stops Outreach, pauses and
+  resumes sending and opens the dashboard unlocked. `outreach autostart
   install` starts it at login. See "The menu-bar app" in
   [docs/configuration.md](docs/configuration.md).
 - **Several sending inboxes.** Besides the main mailbox, connect Gmail,
   Microsoft 365 or SMTP inboxes you already own with
-  `sellbird inboxes connect`. Their sign-ins and passwords live in the
+  `outreach inboxes connect`. Their sign-ins and passwords live in the
   system keychain. Each new thread goes to the inbox with the most room;
   follow-ups and replies leave from the thread's own inbox. Each inbox has
   its own daily cold cap (`channels.email.per_inbox_daily_cap`, or your own
@@ -113,22 +113,22 @@ minor versions can still change behaviour.
   keychain). Your coding agent can list them and pause one, never add or
   remove one. See "Several sending inboxes" in
   [docs/configuration.md](docs/configuration.md).
-- **An MCP server for your coding agent.** `sellbird mcp install` adds
-  Sellbird to Claude Code (or Codex), showing the change first. The agent
-  reads everything Sellbird knows, estimates discovery costs and can pause
+- **An MCP server for your coding agent.** `outreach mcp install` adds
+  Outreach to Claude Code (or Codex), showing the change first. The agent
+  reads everything Outreach knows, estimates discovery costs and can pause
   sending, through the running dashboard with its own token
   (`data/agent-token`). Every approval, setting, key, purchase and resume
   stays yours: the agent's token reaches only a short allowlist of routes.
   An extension can add tools and open its own routes to the agent. See
   "Your coding agent (MCP)" in [docs/configuration.md](docs/configuration.md).
-- **Suppressions.** Addresses and whole domains Sellbird never emails,
+- **Suppressions.** Addresses and whole domains Outreach never emails,
   kept in the database: an opt-out or a bounce adds the address, and
-  `sellbird suppressions` lists, adds and removes them. A suppressed domain
+  `outreach suppressions` lists, adds and removes them. A suppressed domain
   covers its subdomains. Nothing suppressed is staged, sent, or uploaded to
   Instantly. Undoing someone's opt-out lifts its suppression too.
-  `compliance.do_not_contact` stays the hand-kept list in `sellbird.yaml`.
+  `compliance.do_not_contact` stays the hand-kept list in `outreach.yaml`.
 - **Send rules and headers for extensions.** An extension can hold or cancel
-  an email after Sellbird's own checks, and add headers such as
+  an email after Outreach's own checks, and add headers such as
   `List-Unsubscribe`. An email that needs headers its inbox can't carry
   waits rather than going out without them. See [docs/extensions.md](docs/extensions.md).
 - **Mail providers take who they send as, and where their sign-in lives.**
@@ -138,40 +138,40 @@ minor versions can still change behaviour.
   caller can connect more than one inbox. Signing in as a different account
   than the inbox being connected saves nothing.
 - **Extensions.** A separate package can add dashboard routes, steps that
-  run each heartbeat cycle and `sellbird` subcommands through the
-  `sellbird.extensions` entry point, without patching Sellbird. A failing
-  extension stops Sellbird with its name; a failing step is logged and
-  skipped. `sellbird.dashboard.build_app(guard=, routers=)` serves the
+  run each heartbeat cycle and `outreach` subcommands through the
+  `outreach.extensions` entry point, without patching Outreach. A failing
+  extension stops Outreach with its name; a failing step is logged and
+  skipped. `outreach.dashboard.build_app(guard=, routers=)` serves the
   dashboard for someone else, with its own sign-in and a per-request home.
   See [docs/extensions.md](docs/extensions.md).
 - **Storage and settings seams.** Every database open goes through
-  `sellbird.storage`: SQLite paths as before, or `<prefix>:<name>` for a
-  backend an extension registers (in code or through the `sellbird.storage`
-  entry point), which owns and checks its own schema. `sellbird.config.use_config`
+  `outreach.storage`: SQLite paths as before, or `<prefix>:<name>` for a
+  backend an extension registers (in code or through the `outreach.storage`
+  entry point), which owns and checks its own schema. `outreach.config.use_config`
   sets the config `load_config()` returns for a task and its threads, for
-  settings kept somewhere other than `sellbird.yaml`. A self-hosted install
+  settings kept somewhere other than `outreach.yaml`. A self-hosted install
   behaves exactly as before.
 - **Runs from a home folder, not only from a checkout.** Installed with `pip`
-  or `pipx`, Sellbird used to look for its config, prompts and skills inside
-  site-packages. Now one home folder holds them: `SELLBIRD_HOME` if set, else
+  or `pipx`, Outreach used to look for its config, prompts and skills inside
+  site-packages. Now one home folder holds them: `OUTREACH_HOME` if set, else
   the checkout (unchanged), else the per-user data folder. The package ships
   the defaults and copies in what's missing on first run, never overwriting
-  your edits. The Docker image sets `SELLBIRD_HOME=/app`. See "Where your
+  your edits. The Docker image sets `OUTREACH_HOME=/app`. See "Where your
   files live" in the README.
 - **Verifier API keys stay out of logs** (from #185 by @techity-mushtaque).
   Hunter's key now goes in the `X-API-KEY` header; Reoon and ZeroBounce only
   take it in the URL, so the `httpx` and `httpcore` loggers stay at WARNING and
-  Sellbird's own debug lines blank the key out of error text.
+  Outreach's own debug lines blank the key out of error text.
 - **`channels.email.min_write_score`** (default 0): the writer skips prospects
   scored below it. Scout also checks `compliance.do_not_contact` before
   reading a listed company's site or spending verification credits on it.
 - **A free Precleared key in one step** (from #121 by @gabrielaoimevbore-beep).
-  `sellbird setup` now offers to get a free key for the cold-email check with
+  `outreach setup` now offers to get a free key for the cold-email check with
   just an email address, instead of sending people to a web page and back, and
-  `sellbird precleared-key` does the same later (`--email` asks nothing, for a
-  coding agent setting Sellbird up). The key is saved in `.env` as
+  `outreach precleared-key` does the same later (`--email` asks nothing, for a
+  coding agent setting Outreach up). The key is saved in `.env` as
   `PRECLEARED_API_KEY` and never printed. When the keyless allowance (10 checks
-  a day) runs out, the Today page, `sellbird status` and the Outbox reason point
+  a day) runs out, the Today page, `outreach status` and the Outbox reason point
   to the command. Free keys now give 100 checks a day for their first 14 days,
   then 25, and the docs say so.
 
@@ -196,27 +196,27 @@ minor versions can still change behaviour.
 
 ### Changed
 
-- **Harvey is now Sellbird.** The package, the `sellbird` command,
-  `sellbird.yaml` and `sellbird.local.yaml`, `data/sellbird.db`, `SELLBIRD_*`
+- **Harvey is now Outreach.** The package, the `outreach` command,
+  `outreach.yaml` and `outreach.local.yaml`, `data/outreach.db`, `OUTREACH_*`
   settings and the Docker service all carry the new name. An existing clone
-  upgrades with `git pull && pip install -e .`. On first run Sellbird moves
+  upgrades with `git pull && pip install -e .`. On first run Outreach moves
   `harvey.local.yaml` and `data/harvey.*` to the new names. It never
   overwrites, and waits while a Harvey process is still running.
   `HARVEY_*` settings still apply. `harvey` and `python -m harvey` keep
   working for now and say they moved. See "Upgrading from Harvey" in the
   README. After an upgrade moves files, the dashboard's Today screen says
-  "Harvey is now Sellbird" once, until you dismiss it.
+  "Harvey is now Outreach" once, until you dismiss it.
 - **The agent no longer calls itself by the product's name.** The prompts
   described the model as Harvey ("like Harvey Specter"), and the default and
   trained sender was Harvey at harvey@your-domain. The default sender is now
   Alex. Messages saved before the rename still count as ours in reply
   history.
-- **Logo.** The dashboard shows the Sellbird swallow and favicon.
-- **License: AGPL-3.0.** From 0.4.0 Sellbird is licensed under the GNU
+- **Logo.** The dashboard shows the Outreach swallow and favicon.
+- **License: AGPL-3.0.** From 0.4.0 Outreach is licensed under the GNU
   Affero General Public License v3.0 only. Releases up to 0.3.x stay MIT, and
   that code keeps its MIT notice in `NOTICE`. New commits are signed off
   under the Developer Certificate of Origin (see `CONTRIBUTING.md`).
-- **A shorter README.** The front page covers what Sellbird does, the quick
+- **A shorter README.** The front page covers what Outreach does, the quick
   start and upgrading from Harvey. The detailed sections moved unchanged into
   `docs/`, with a new dashboard recording and screenshots. Added
   `SECURITY.md`, `CODE_OF_CONDUCT.md`, `SUPPORT.md` and issue and pull

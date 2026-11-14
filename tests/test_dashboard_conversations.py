@@ -6,7 +6,7 @@ import json
 import sqlite3
 
 from tests.test_dashboard_signals import client  # noqa: F401  (fixture)
-from sellbird.state import StateManager
+from outreach.state import StateManager
 
 
 def _sql(db, query, params=()):
@@ -201,7 +201,7 @@ def _render_actions(convo):
     node = shutil.which("node")
     if not node:
         pytest.skip("node is not installed")
-    source = (Path(__file__).resolve().parent.parent / "sellbird" / "web" / "app.js").read_text(encoding="utf-8")
+    source = (Path(__file__).resolve().parent.parent / "outreach" / "web" / "app.js").read_text(encoding="utf-8")
     parts = []
     for pattern in (r"^function escHtml\(.*?^}\n", r"^function jsq\(.*?^}\n",
                     r"^function icon\(.*?^}\n", r"^function convoActions\(.*?^}\n"):
@@ -216,13 +216,13 @@ def _render_actions(convo):
 def test_an_escalation_from_someone_who_opted_out_cant_be_handed_back():
     html = _render_actions({"id": "c1", "status": "needs_human", "prospect_status": "opted_out",
                             "prospect_id": "p1", "prospect_email": "i@x.test"})
-    assert ("Opted out, and Outreacho handed this to you" in html
-            or "Opted out, and Sellbird handed this to you" in html)
-    assert ("Hand back to Outreacho" not in html
-            and "Hand back to Sellbird" not in html)
+    assert ("Opted out, and Outreach handed this to you" in html
+            or "Opted out, and Outreach handed this to you" in html)
+    assert ("Hand back to Outreach" not in html
+            and "Hand back to Outreach" not in html)
     assert "Close</button>" in html and "Why opted out?" in html
     # Anyone else's escalation can still go back.
     html = _render_actions({"id": "c2", "status": "needs_human", "prospect_status": "replied",
                             "prospect_id": "p2", "prospect_email": "b@x.test"})
-    assert (("Hand back to Outreacho" in html or "Hand back to Sellbird" in html)
+    assert (("Hand back to Outreach" in html or "Hand back to Outreach" in html)
             and "Why opted out?" not in html)

@@ -6,15 +6,15 @@ import pytest_asyncio
 import httpx
 from starlette.testclient import TestClient
 
-from sellbird.enrichment import (
+from outreach.enrichment import (
     CompanyEnricher,
     EnrichmentResult,
     SSRFValidationError,
     validate_and_normalize_url,
     _check_ip_address_safety,
 )
-from sellbird.models.company import Company
-from sellbird.state import StateManager
+from outreach.models.company import Company
+from outreach.state import StateManager
 
 
 # ── SSRF Validation Tests ─────────────────────────────────────────────
@@ -153,7 +153,7 @@ async def test_enrich_company_success(monkeypatch, tmp_path):
             return careers_html
         return home_html
 
-    import sellbird.email_intelligence as ei_mod
+    import outreach.email_intelligence as ei_mod
     async def mock_mx(domain):
         return "aspmx.l.google.com"
     monkeypatch.setattr(ei_mod, "get_mx_host", mock_mx)
@@ -226,7 +226,7 @@ async def test_enrich_existing_company_updates_record(monkeypatch, tmp_path):
     async def mock_get(client, url):
         return updated_home_html
 
-    import sellbird.email_intelligence as ei_mod
+    import outreach.email_intelligence as ei_mod
     async def mock_mx(domain):
         return "aspmx.l.google.com"
     monkeypatch.setattr(ei_mod, "get_mx_host", mock_mx)
@@ -250,7 +250,7 @@ async def test_enrich_existing_company_updates_record(monkeypatch, tmp_path):
 # ── Dashboard API Route Tests ─────────────────────────────────────────
 
 def test_api_enrich_url_route(tmp_path, monkeypatch):
-    from sellbird.dashboard import app, token_store
+    from outreach.dashboard import app, token_store
 
     async def mock_fetch(self, client, url):
         return """
@@ -287,8 +287,8 @@ def test_api_enrich_url_route(tmp_path, monkeypatch):
 
 def test_cli_enrich_command(capsys, monkeypatch):
     import argparse
-    from sellbird.cli import cmd_enrich
-    from sellbird.enrichment import DiscoveredPerson
+    from outreach.cli import cmd_enrich
+    from outreach.enrichment import DiscoveredPerson
 
     async def mock_enrich(self, raw_url):
         return EnrichmentResult(

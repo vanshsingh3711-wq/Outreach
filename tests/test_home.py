@@ -1,9 +1,9 @@
 """The home folder: where config, knowledge and state live for each install.
 
 A checkout stays in place, a pipx install gets a per-user folder seeded from
-the wheel's shared data, Docker pins /app, and SELLBIRD_HOME beats them all.
+the wheel's shared data, Docker pins /app, and OUTREACH_HOME beats them all.
 The config lookup and the setup check must follow the home, not whatever
-sellbird.yaml happens to sit in the working directory.
+outreach.yaml happens to sit in the working directory.
 """
 
 import sys
@@ -11,12 +11,12 @@ from pathlib import Path
 
 import pytest
 
-import sellbird.config as config_mod
-import sellbird.home as home_mod
-import sellbird.main as main_mod
-from sellbird import paths
-from sellbird.home import bundled_defaults, seed_home
-from sellbird.paths import resolve_home, user_home_default
+import outreach.config as config_mod
+import outreach.home as home_mod
+import outreach.main as main_mod
+from outreach import paths
+from outreach.home import bundled_defaults, seed_home
+from outreach.paths import resolve_home, user_home_default
 
 ROOT = Path(__file__).resolve().parent.parent
 REAL_SEED = seed_home
@@ -26,33 +26,33 @@ UNTRAINED = "persona:\n  company: Your Company\n"
 
 
 def _make_checkout(root: Path) -> Path:
-    (root / "sellbird").mkdir(parents=True)
-    (root / "sellbird" / "__init__.py").write_text("", encoding="utf-8")
+    (root / "outreach").mkdir(parents=True)
+    (root / "outreach" / "__init__.py").write_text("", encoding="utf-8")
     (root / "pyproject.toml").write_text("", encoding="utf-8")
     return root
 
 
 # ── resolve_home ──
 
-def test_sellbird_home_env_wins(tmp_path):
-    assert resolve_home(env={"SELLBIRD_HOME": str(tmp_path)},
+def test_outreach_home_env_wins(tmp_path):
+    assert resolve_home(env={"OUTREACH_HOME": str(tmp_path)},
                         package_root=tmp_path / "x") == tmp_path.resolve()
 
 
-def test_sellbird_home_beats_a_checkout(tmp_path):
+def test_outreach_home_beats_a_checkout(tmp_path):
     checkout = _make_checkout(tmp_path / "repo")
     home = tmp_path / "home"
-    assert resolve_home(env={"SELLBIRD_HOME": str(home)}, package_root=checkout) == home.resolve()
+    assert resolve_home(env={"OUTREACH_HOME": str(home)}, package_root=checkout) == home.resolve()
 
 
-def test_blank_sellbird_home_is_ignored(tmp_path):
+def test_blank_outreach_home_is_ignored(tmp_path):
     checkout = _make_checkout(tmp_path / "repo")
-    assert resolve_home(env={"SELLBIRD_HOME": "  "}, package_root=checkout) == checkout
+    assert resolve_home(env={"OUTREACH_HOME": "  "}, package_root=checkout) == checkout
 
 
 def test_checkout_stays_in_place(tmp_path):
-    (tmp_path / "sellbird").mkdir()
-    (tmp_path / "sellbird" / "__init__.py").write_text("", encoding="utf-8")
+    (tmp_path / "outreach").mkdir()
+    (tmp_path / "outreach" / "__init__.py").write_text("", encoding="utf-8")
     (tmp_path / "pyproject.toml").write_text("", encoding="utf-8")
     assert resolve_home(env={}, package_root=tmp_path) == tmp_path
 
@@ -61,13 +61,13 @@ def test_site_packages_is_never_home(tmp_path):
     root = _make_checkout(tmp_path / "lib" / "site-packages")
     got = resolve_home(env={}, package_root=root, platform="linux", home=tmp_path / "u")
     assert got != root
-    assert got == tmp_path / "u" / ".local" / "share" / "sellbird"
+    assert got == tmp_path / "u" / ".local" / "share" / "outreach"
 
 
 @pytest.mark.parametrize("platform,expected_tail", [
-    ("darwin", ("Library", "Application Support", "sellbird")),
-    ("win32", ("Roaming", "sellbird")),
-    ("linux", (".local", "share", "sellbird")),
+    ("darwin", ("Library", "Application Support", "outreach")),
+    ("win32", ("Roaming", "outreach")),
+    ("linux", (".local", "share", "outreach")),
 ])
 def test_user_home_default_per_platform(platform, expected_tail, tmp_path):
     env = {"APPDATA": str(tmp_path / "AppData" / "Roaming")} if platform == "win32" else {}
@@ -78,23 +78,23 @@ def test_user_home_default_per_platform(platform, expected_tail, tmp_path):
 
 def test_windows_without_appdata_falls_back_under_home(tmp_path):
     assert (user_home_default("win32", {}, tmp_path)
-            == tmp_path / "AppData" / "Roaming" / "sellbird")
+            == tmp_path / "AppData" / "Roaming" / "outreach")
 
 
 def test_windows_home_from_injected_env(tmp_path):
     appdata = tmp_path / "Users" / "e" / "AppData" / "Roaming"
     got = resolve_home(env={"APPDATA": str(appdata)}, package_root=tmp_path / "site-packages",
                        platform="win32", home=tmp_path / "ignored")
-    assert got == appdata / "sellbird"
+    assert got == appdata / "outreach"
 
 
 def test_linux_honours_xdg_data_home(tmp_path):
     xdg = tmp_path / "xdg"
-    assert user_home_default("linux", {"XDG_DATA_HOME": str(xdg)}, tmp_path) == xdg / "sellbird"
+    assert user_home_default("linux", {"XDG_DATA_HOME": str(xdg)}, tmp_path) == xdg / "outreach"
 
 
 def test_the_test_run_uses_the_checkout():
-    # conftest drops an exported SELLBIRD_HOME before sellbird is imported .
+    # conftest drops an exported OUTREACH_HOME before outreach is imported .
     assert paths.PROJECT_ROOT == paths.PACKAGE_ROOT == ROOT
 
 
@@ -102,16 +102,16 @@ def test_the_test_run_uses_the_checkout():
 
 def test_dockerfile_pins_home():
     text = (ROOT / "Dockerfile").read_text(encoding="utf-8")
-    assert "SELLBIRD_HOME=/app" in text
+    assert "OUTREACH_HOME=/app" in text
 
 
 def test_docker_app_is_not_a_checkout_but_pinned_home_wins(tmp_path):
-    app = tmp_path / "app"      # sellbird/, prompts/, skills/, sellbird.yaml; no pyproject.toml
-    (app / "sellbird").mkdir(parents=True)
-    (app / "sellbird" / "__init__.py").write_text("", encoding="utf-8")
+    app = tmp_path / "app"      # outreach/, prompts/, skills/, outreach.yaml; no pyproject.toml
+    (app / "outreach").mkdir(parents=True)
+    (app / "outreach" / "__init__.py").write_text("", encoding="utf-8")
     assert not paths.is_checkout(app)
     assert resolve_home(env={}, package_root=app, platform="linux", home=tmp_path) != app
-    assert resolve_home(env={"SELLBIRD_HOME": str(app)}, package_root=app) == app.resolve()
+    assert resolve_home(env={"OUTREACH_HOME": str(app)}, package_root=app) == app.resolve()
 
 
 # ── seeding ──
@@ -121,7 +121,7 @@ def _source(root: Path) -> Path:
     (root / "skills").mkdir()
     (root / "prompts" / "writer.md").write_text("w", encoding="utf-8")
     (root / "skills" / "a.md").write_text("a", encoding="utf-8")
-    (root / "sellbird.yaml").write_text("template", encoding="utf-8")
+    (root / "outreach.yaml").write_text("template", encoding="utf-8")
     (root / ".env.example").write_text("X=", encoding="utf-8")
     return root
 
@@ -130,11 +130,11 @@ def test_seed_copies_missing_and_never_overwrites(tmp_path):
     source = _source(tmp_path / "share")
     home = tmp_path / "home"
     home.mkdir()
-    (home / "sellbird.yaml").write_text("mine", encoding="utf-8")
+    (home / "outreach.yaml").write_text("mine", encoding="utf-8")
     created = seed_home(home, source)
-    assert "prompts/writer.md" in created and "sellbird.yaml" not in created
+    assert "prompts/writer.md" in created and "outreach.yaml" not in created
     assert set(created) == {"prompts/writer.md", "skills/a.md", ".env.example"}
-    assert (home / "sellbird.yaml").read_text(encoding="utf-8") == "mine" and (home / "data").is_dir()
+    assert (home / "outreach.yaml").read_text(encoding="utf-8") == "mine" and (home / "data").is_dir()
     assert (home / "skills" / "a.md").read_text(encoding="utf-8") == "a"
     # A second run (an upgrade) changes nothing the user edited.
     (home / "prompts" / "writer.md").write_text("edited", encoding="utf-8")
@@ -147,7 +147,7 @@ def test_seed_into_itself_only_makes_data(tmp_path):
     assert seed_home(home, home) == []
     assert (home / "data").is_dir()
     assert sorted(p.name for p in home.iterdir()) == sorted(
-        ["prompts", "skills", "sellbird.yaml", ".env.example", "data"])
+        ["prompts", "skills", "outreach.yaml", ".env.example", "data"])
 
 
 def test_seed_without_a_source_only_makes_data(tmp_path):
@@ -165,12 +165,12 @@ def test_bundled_defaults(tmp_path, monkeypatch):
     monkeypatch.setattr(paths, "PROJECT_ROOT", tmp_path / "home")
     monkeypatch.setattr(sys, "prefix", str(tmp_path / "venv"))
     assert bundled_defaults() is None
-    (tmp_path / "venv" / "share" / "sellbird").mkdir(parents=True)
-    assert bundled_defaults() == tmp_path / "venv" / "share" / "sellbird"
+    (tmp_path / "venv" / "share" / "outreach").mkdir(parents=True)
+    assert bundled_defaults() == tmp_path / "venv" / "share" / "outreach"
 
 
-def test_checkout_with_sellbird_home_seeds_from_the_checkout(tmp_path, monkeypatch):
-    # A checkout run with SELLBIRD_HOME=<scratch>/home: the home is elsewhere,
+def test_checkout_with_outreach_home_seeds_from_the_checkout(tmp_path, monkeypatch):
+    # A checkout run with OUTREACH_HOME=<scratch>/home: the home is elsewhere,
     # but the defaults still come from the checkout.
     checkout = _source(_make_checkout(tmp_path / "repo"))
     (checkout / ".env").write_text("SECRET=x", encoding="utf-8")
@@ -179,7 +179,7 @@ def test_checkout_with_sellbird_home_seeds_from_the_checkout(tmp_path, monkeypat
     monkeypatch.setattr(paths, "PROJECT_ROOT", home)
     assert bundled_defaults() == checkout
     created = seed_home(home, bundled_defaults())
-    assert set(created) == {"prompts/writer.md", "skills/a.md", "sellbird.yaml", ".env.example"}
+    assert set(created) == {"prompts/writer.md", "skills/a.md", "outreach.yaml", ".env.example"}
     assert not (home / ".env").exists()
 
 
@@ -188,15 +188,15 @@ def test_seed_never_writes_through_a_dangling_symlink(tmp_path):
     source = _source(tmp_path / "share")
     home = tmp_path / "home"
     home.mkdir()
-    target = tmp_path / "outside" / "sellbird.yaml"
-    (home / "sellbird.yaml").symlink_to(target)
+    target = tmp_path / "outside" / "outreach.yaml"
+    (home / "outreach.yaml").symlink_to(target)
     created = seed_home(home, source)
-    assert "sellbird.yaml" not in created
-    assert not target.exists() and (home / "sellbird.yaml").is_symlink()
+    assert "outreach.yaml" not in created
+    assert not target.exists() and (home / "outreach.yaml").is_symlink()
 
 
 def test_cli_seeding_error_is_one_stderr_line_and_the_command_runs(capsys, tmp_path, monkeypatch):
-    import sellbird.cli as cli
+    import outreach.cli as cli
 
     def broken(home, source):
         raise PermissionError(13, "Permission denied", str(home / "data"))
@@ -206,7 +206,7 @@ def test_cli_seeding_error_is_one_stderr_line_and_the_command_runs(capsys, tmp_p
     monkeypatch.setattr(home_mod, "bundled_defaults", lambda: None)
     ran = []
     monkeypatch.setattr(cli, "cmd_status", lambda args: ran.append(True))
-    monkeypatch.setattr(sys, "argv", ["sellbird", "status"])
+    monkeypatch.setattr(sys, "argv", ["outreach", "status"])
     try:
         cli.main()
     except SystemExit as e:
@@ -220,7 +220,7 @@ def test_cli_seeding_error_is_one_stderr_line_and_the_command_runs(capsys, tmp_p
 
 
 def test_cli_seeding_prints_nothing(capsys, tmp_path, monkeypatch):
-    import sellbird.cli as cli
+    import outreach.cli as cli
 
     source = _source(tmp_path / "share")
     home = tmp_path / "home"
@@ -229,7 +229,7 @@ def test_cli_seeding_prints_nothing(capsys, tmp_path, monkeypatch):
     monkeypatch.setattr(home_mod, "bundled_defaults", lambda: source)
     ran = []
     monkeypatch.setattr(cli, "cmd_status", lambda args: ran.append(True))
-    monkeypatch.setattr(sys, "argv", ["sellbird", "status"])
+    monkeypatch.setattr(sys, "argv", ["outreach", "status"])
     try:
         cli.main()
     except SystemExit as e:
@@ -244,39 +244,39 @@ def test_cli_seeding_prints_nothing(capsys, tmp_path, monkeypatch):
 def _cwd_with_config(tmp_path, monkeypatch) -> Path:
     elsewhere = tmp_path / "some-other-checkout"
     elsewhere.mkdir()
-    (elsewhere / "sellbird.yaml").write_text(UNTRAINED, encoding="utf-8")
-    (elsewhere / "sellbird.local.yaml").write_text(UNTRAINED, encoding="utf-8")
+    (elsewhere / "outreach.yaml").write_text(UNTRAINED, encoding="utf-8")
+    (elsewhere / "outreach.local.yaml").write_text(UNTRAINED, encoding="utf-8")
     monkeypatch.chdir(elsewhere)
     return elsewhere
 
 
-def test_sellbird_home_config_beats_the_working_directory(tmp_path, monkeypatch):
+def test_outreach_home_config_beats_the_working_directory(tmp_path, monkeypatch):
     home = tmp_path / "home"
     home.mkdir()
-    (home / "sellbird.yaml").write_text(TRAINED, encoding="utf-8")
+    (home / "outreach.yaml").write_text(TRAINED, encoding="utf-8")
     _cwd_with_config(tmp_path, monkeypatch)
-    monkeypatch.setenv("SELLBIRD_HOME", str(home))
+    monkeypatch.setenv("OUTREACH_HOME", str(home))
     monkeypatch.setattr(config_mod, "PROJECT_ROOT", home)
-    assert Path(config_mod._find_config_file()) == home / "sellbird.yaml"
-    (home / "sellbird.local.yaml").write_text(TRAINED, encoding="utf-8")
-    assert Path(config_mod._find_config_file()) == home / "sellbird.local.yaml"
+    assert Path(config_mod._find_config_file()) == home / "outreach.yaml"
+    (home / "outreach.local.yaml").write_text(TRAINED, encoding="utf-8")
+    assert Path(config_mod._find_config_file()) == home / "outreach.local.yaml"
 
 
 def test_pipx_home_config_beats_the_working_directory(tmp_path, monkeypatch):
-    home = tmp_path / "Application Support" / "sellbird"   # not a checkout, no env
+    home = tmp_path / "Application Support" / "outreach"   # not a checkout, no env
     home.mkdir(parents=True)
-    (home / "sellbird.yaml").write_text(TRAINED, encoding="utf-8")
+    (home / "outreach.yaml").write_text(TRAINED, encoding="utf-8")
     _cwd_with_config(tmp_path, monkeypatch)
-    monkeypatch.delenv("SELLBIRD_HOME", raising=False)
+    monkeypatch.delenv("OUTREACH_HOME", raising=False)
     monkeypatch.setattr(config_mod, "PROJECT_ROOT", home)
-    assert Path(config_mod._find_config_file()) == home / "sellbird.yaml"
+    assert Path(config_mod._find_config_file()) == home / "outreach.yaml"
 
 
 def test_missing_home_config_never_falls_back_to_the_working_directory(tmp_path, monkeypatch):
     home = tmp_path / "home"
     home.mkdir()
     _cwd_with_config(tmp_path, monkeypatch)
-    monkeypatch.setenv("SELLBIRD_HOME", str(home))
+    monkeypatch.setenv("OUTREACH_HOME", str(home))
     monkeypatch.setattr(config_mod, "PROJECT_ROOT", home)
     with pytest.raises(config_mod.ConfigFileNotFoundError):
         config_mod._find_config_file()
@@ -284,21 +284,21 @@ def test_missing_home_config_never_falls_back_to_the_working_directory(tmp_path,
 
 def test_checkout_still_reads_the_working_directory_first(tmp_path, monkeypatch):
     checkout = _make_checkout(tmp_path / "repo")
-    (checkout / "sellbird.yaml").write_text(TRAINED, encoding="utf-8")
+    (checkout / "outreach.yaml").write_text(TRAINED, encoding="utf-8")
     cwd = _cwd_with_config(tmp_path, monkeypatch)
-    monkeypatch.delenv("SELLBIRD_HOME", raising=False)
+    monkeypatch.delenv("OUTREACH_HOME", raising=False)
     monkeypatch.setattr(config_mod, "PROJECT_ROOT", checkout)
-    assert Path(config_mod._find_config_file()) == cwd / "sellbird.local.yaml"
+    assert Path(config_mod._find_config_file()) == cwd / "outreach.local.yaml"
 
 
 def test_docker_app_finds_its_mounted_config(tmp_path, monkeypatch):
     app = tmp_path / "app"
-    (app / "sellbird").mkdir(parents=True)
-    (app / "sellbird.yaml").write_text(TRAINED, encoding="utf-8")
+    (app / "outreach").mkdir(parents=True)
+    (app / "outreach.yaml").write_text(TRAINED, encoding="utf-8")
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("SELLBIRD_HOME", str(app))
+    monkeypatch.setenv("OUTREACH_HOME", str(app))
     monkeypatch.setattr(config_mod, "PROJECT_ROOT", resolve_home(package_root=app))
-    assert Path(config_mod._find_config_file()) == (app / "sellbird.yaml").resolve()
+    assert Path(config_mod._find_config_file()) == (app / "outreach.yaml").resolve()
 
 
 # ── the setup check reads the home's config, never the working directory's ──
@@ -306,10 +306,10 @@ def test_docker_app_finds_its_mounted_config(tmp_path, monkeypatch):
 def test_trained_home_with_env_needs_no_setup(tmp_path, monkeypatch):
     home = tmp_path / "home"
     home.mkdir()
-    (home / "sellbird.yaml").write_text(TRAINED, encoding="utf-8")
+    (home / "outreach.yaml").write_text(TRAINED, encoding="utf-8")
     (home / ".env").write_text("X=1\n", encoding="utf-8")
     _cwd_with_config(tmp_path, monkeypatch)            # untrained config in cwd
-    monkeypatch.setenv("SELLBIRD_HOME", str(home))
+    monkeypatch.setenv("OUTREACH_HOME", str(home))
     monkeypatch.setattr(config_mod, "PROJECT_ROOT", home)
     monkeypatch.setattr(paths, "PROJECT_ROOT", home)
     assert main_mod._needs_setup() is False
@@ -320,11 +320,11 @@ def test_untrained_or_missing_home_config_needs_setup(tmp_path, monkeypatch):
     home.mkdir()
     (home / ".env").write_text("X=1\n", encoding="utf-8")
     _cwd_with_config(tmp_path, monkeypatch)
-    monkeypatch.setenv("SELLBIRD_HOME", str(home))
+    monkeypatch.setenv("OUTREACH_HOME", str(home))
     monkeypatch.setattr(config_mod, "PROJECT_ROOT", home)
     monkeypatch.setattr(paths, "PROJECT_ROOT", home)
     assert main_mod._needs_setup() is True
-    (home / "sellbird.yaml").write_text(UNTRAINED, encoding="utf-8")
+    (home / "outreach.yaml").write_text(UNTRAINED, encoding="utf-8")
     assert main_mod._needs_setup() is True
 
 
@@ -337,7 +337,7 @@ class _Done:
 def test_install_outside_a_checkout_skips_pip(tmp_path, monkeypatch, capsys):
     import argparse
 
-    import sellbird.cli as cli
+    import outreach.cli as cli
 
     calls = []
     monkeypatch.setattr(paths, "PACKAGE_ROOT", tmp_path / "site-packages")
@@ -351,7 +351,7 @@ def test_install_outside_a_checkout_skips_pip(tmp_path, monkeypatch, capsys):
 def test_install_in_a_checkout_still_runs_pip_there(tmp_path, monkeypatch):
     import argparse
 
-    import sellbird.cli as cli
+    import outreach.cli as cli
 
     checkout = _make_checkout(tmp_path / "repo")
     calls = []
@@ -364,7 +364,7 @@ def test_install_in_a_checkout_still_runs_pip_there(tmp_path, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_setup_status_venv_check_is_done_outside_a_checkout(tmp_path, monkeypatch):
-    import sellbird.dashboard as dash
+    import outreach.dashboard as dash
 
     async def venv_done():
         checks = (await dash.get_setup_status())["checks"]
@@ -386,9 +386,9 @@ def test_the_package_ships_every_prompt_and_skill():
 
     data_files = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))[
         "tool"]["setuptools"]["data-files"]
-    assert set(data_files["share/sellbird"]) == {"sellbird.yaml", ".env.example"}
-    assert data_files["share/sellbird/prompts"] == ["prompts/*.md"]
-    assert data_files["share/sellbird/skills"] == ["skills/*.md"]
-    assert set(home_mod.SEED_GLOBS) == {"prompts/*.md", "skills/*.md", "sellbird.yaml",
+    assert set(data_files["share/outreach"]) == {"outreach.yaml", ".env.example"}
+    assert data_files["share/outreach/prompts"] == ["prompts/*.md"]
+    assert data_files["share/outreach/skills"] == ["skills/*.md"]
+    assert set(home_mod.SEED_GLOBS) == {"prompts/*.md", "skills/*.md", "outreach.yaml",
                                         ".env.example"}
     assert list((ROOT / "prompts").glob("*.md")) and list((ROOT / "skills").glob("*.md"))

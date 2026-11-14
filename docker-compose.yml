@@ -1,18 +1,18 @@
 services:
-  sellbird:
+  outreach:
     build:
       context: .
       args:
-        SELLBIRD_UID: ${SELLBIRD_UID:-${HARVEY_UID:-1000}}
-        SELLBIRD_GID: ${SELLBIRD_GID:-${HARVEY_GID:-1000}}
+        OUTREACH_UID: ${OUTREACH_UID:-${HARVEY_UID:-1000}}
+        OUTREACH_GID: ${OUTREACH_GID:-${HARVEY_GID:-1000}}
     # Supported on native Linux. Keep the dashboard's loopback-only bind.
     network_mode: host
     command: ["dashboard"]
     volumes:
       # Mount the checkout directory, not individual config files: setup and
-      # training atomically replace files and create sellbird.local.yaml.
+      # training atomically replace files and create outreach.local.yaml.
       # Source, configuration, knowledge, and data therefore survive recreation.
-      # Sellbird reads .env itself; env_file would pin stale values at creation.
+      # Outreach reads .env itself; env_file would pin stale values at creation.
       - type: bind
         source: .
         target: /app
@@ -21,7 +21,7 @@ services:
       # The Claude CLI refreshes OAuth tokens in place.
       - type: bind
         source: ${HOME}/.claude
-        target: /home/sellbird/.claude
+        target: /home/outreach/.claude
         bind:
           create_host_path: false
     restart: unless-stopped

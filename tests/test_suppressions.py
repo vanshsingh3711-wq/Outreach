@@ -4,8 +4,8 @@ import asyncio
 from datetime import datetime, timezone
 
 import pytest
-from sellbird.integrations.mail_provider import InboundMessage
-from sellbird.state import StateManager
+from outreach.integrations.mail_provider import InboundMessage
+from outreach.state import StateManager
 from tests.test_outbox_native import (  # noqa: F401  (state is a fixture)
     FakeProvider, make_handler, make_sender, seed_campaign, seed_prospect, state,
 )
@@ -110,9 +110,9 @@ async def test_a_suppressed_domain_covers_its_subdomains(state):
 def test_cli_lists_adds_and_removes(tmp_path, monkeypatch, capsys):
     from types import SimpleNamespace
 
-    from sellbird import cli
+    from outreach import cli
     db = str(tmp_path / "cli.db")
-    monkeypatch.setattr("sellbird.state.DB_PATH", db)
+    monkeypatch.setattr("outreach.state.DB_PATH", db)
     assert cli.cmd_suppressions(SimpleNamespace(suppression_action="add", value="www.Example.org")) is None
     assert "Suppressed: example.org (domain)" in capsys.readouterr().out
     assert cli.cmd_suppressions(SimpleNamespace(suppression_action="list", value="")) is None
@@ -127,8 +127,8 @@ def test_cli_lists_adds_and_removes(tmp_path, monkeypatch, capsys):
 def test_cli_exits_nonzero_on_a_bad_value(tmp_path, monkeypatch):
     from types import SimpleNamespace
 
-    from sellbird import cli
-    monkeypatch.setattr("sellbird.state.DB_PATH", str(tmp_path / "cli.db"))
+    from outreach import cli
+    monkeypatch.setattr("outreach.state.DB_PATH", str(tmp_path / "cli.db"))
     with pytest.raises(SystemExit) as e:
         cli.cmd_suppressions(SimpleNamespace(suppression_action="add", value="not an address"))
     assert e.value.code == 1

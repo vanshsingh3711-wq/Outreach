@@ -4,7 +4,7 @@ import asyncio
 
 import pytest
 
-from sellbird.workspace_home import (
+from outreach.workspace_home import (
     Home,
     NotOnHosted,
     current_home,
@@ -18,7 +18,7 @@ def test_for_root_derives_every_path(tmp_path):
     h = Home.for_root(tmp_path)
     assert h.root == tmp_path
     assert h.data_dir == tmp_path / "data"
-    assert h.db_path == tmp_path / "data" / "sellbird.db"
+    assert h.db_path == tmp_path / "data" / "outreach.db"
     assert h.env_file == tmp_path / ".env"
     assert h.prompts_dir == tmp_path / "prompts"
     assert h.skills_dir == tmp_path / "skills"
@@ -26,7 +26,7 @@ def test_for_root_derives_every_path(tmp_path):
     assert h.gmail_token_file == tmp_path / "data" / "gmail_token.json"
     assert h.dashboard_token_file == tmp_path / "data" / "dashboard-token"
     assert h.agent_token_file == tmp_path / "data" / "agent-token"
-    assert h.config_file == tmp_path / "sellbird.yaml"
+    assert h.config_file == tmp_path / "outreach.yaml"
     assert h.mode == "self_hosted" and not h.hosted
     assert h.secret_backend is None
 
@@ -38,17 +38,17 @@ def test_for_root_hosted_and_backend(tmp_path):
 
 
 def test_default_home_follows_patched_dashboard_db_path(monkeypatch, tmp_path):
-    import sellbird.dashboard as dash
+    import outreach.dashboard as dash
 
-    monkeypatch.setattr(dash, "DB_PATH", tmp_path / "x" / "sellbird.db")
-    assert current_home().db_path == tmp_path / "x" / "sellbird.db"
+    monkeypatch.setattr(dash, "DB_PATH", tmp_path / "x" / "outreach.db")
+    assert current_home().db_path == tmp_path / "x" / "outreach.db"
     assert current_home().data_dir == tmp_path / "x"
 
 
 def test_default_home_reads_legacy_globals():
-    import sellbird.dashboard as dash
-    import sellbird.integrations.microsoft as ms
-    from sellbird.paths import PROJECT_ROOT
+    import outreach.dashboard as dash
+    import outreach.integrations.microsoft as ms
+    from outreach.paths import PROJECT_ROOT
 
     h = default_home()
     assert h.root == PROJECT_ROOT
@@ -123,14 +123,14 @@ def test_an_unknown_local_only_feature_is_a_bug(tmp_path):
 
 
 def test_every_local_only_feature_says_why():
-    from sellbird.workspace_home import HOSTED_REFUSED, LOCAL_ONLY
+    from outreach.workspace_home import HOSTED_REFUSED, LOCAL_ONLY
 
     assert HOSTED_REFUSED == tuple(LOCAL_ONLY)
     assert all(reason.strip() for reason in LOCAL_ONLY.values())
 
 
 def test_brain_reads_prompts_and_skills_from_the_current_home(tmp_path):
-    from sellbird.brain import Brain
+    from outreach.brain import Brain
 
     (tmp_path / "prompts").mkdir()
     (tmp_path / "skills").mkdir()

@@ -4,9 +4,9 @@ from datetime import datetime, timezone
 
 import pytest
 
-from sellbird import extensions
-from sellbird.integrations.mail_provider import SendResult
-from sellbird.send_hooks import (
+from outreach import extensions
+from outreach.integrations.mail_provider import SendResult
+from outreach.send_hooks import (
     NO_HEADERS_HOLD, Cancel, Hold, SendCheck, SendHookError, extra_headers, first_verdict,
 )
 from tests.test_outbox_native import (  # noqa: F401  (state is a fixture)
@@ -170,7 +170,7 @@ async def test_a_bad_header_holds_the_email(state, registry):
 async def test_microsoft_refuses_custom_headers_rather_than_dropping_them():
     from types import SimpleNamespace
 
-    from sellbird.integrations.microsoft import MicrosoftProvider
+    from outreach.integrations.microsoft import MicrosoftProvider
     provider = MicrosoftProvider(SimpleNamespace(persona=SimpleNamespace(name="", email="")),
                                  SimpleNamespace())
     assert provider.carries_headers is False
@@ -179,8 +179,8 @@ async def test_microsoft_refuses_custom_headers_rather_than_dropping_them():
 
 
 def test_gmail_and_smtp_carry_headers():
-    from sellbird.integrations.gmail import GmailProvider
-    from sellbird.integrations.smtp_mail import SmtpImapProvider
+    from outreach.integrations.gmail import GmailProvider
+    from outreach.integrations.smtp_mail import SmtpImapProvider
     assert GmailProvider.carries_headers and SmtpImapProvider.carries_headers
 
 
@@ -189,7 +189,7 @@ async def test_gmail_writes_the_headers_into_the_message():
     import base64
     import email
 
-    from sellbird.integrations import gmail
+    from outreach.integrations import gmail
     from tests.test_mail_identity import _config, _env, _gmail_transport, _Tokens
     sent = []
     provider = gmail.GmailProvider(_config(), _env(), _gmail_transport(sent),

@@ -3,18 +3,18 @@
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from sellbird.collectors.discover import PRESETS
-from sellbird.dashboard import app
-from sellbird.discovery_engine import (
+from outreach.collectors.discover import PRESETS
+from outreach.dashboard import app
+from outreach.discovery_engine import (
     DiscoveredCandidate,
     DiscoveryCriteria,
     DiscoveryQueryBuilder,
     FilteredDiscoveryEngine,
     is_junk_domain,
 )
-from sellbird.enrichment import CompanyEnricher, EnrichmentResult
-from sellbird.models.company import Company
-from sellbird.state import StateManager
+from outreach.enrichment import CompanyEnricher, EnrichmentResult
+from outreach.models.company import Company
+from outreach.state import StateManager
 
 
 def test_presets_extension():
@@ -218,7 +218,7 @@ async def test_filtered_discovery_with_auto_enrichment(monkeypatch, tmp_path):
 
 def test_api_discover_companies_endpoint(monkeypatch):
     from starlette.testclient import TestClient
-    from sellbird.dashboard import token_store
+    from outreach.dashboard import token_store
 
     mock_candidates = [
         DiscoveredCandidate(

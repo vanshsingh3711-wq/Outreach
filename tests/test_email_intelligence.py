@@ -2,7 +2,7 @@
 
 import pytest
 
-from sellbird.email_intelligence import (
+from outreach.email_intelligence import (
     CONFIDENCE_COMPANY_PATTERN,
     CONFIDENCE_DIRECT_PUBLISHED,
     CONFIDENCE_PATTERN_GUESS,
@@ -147,7 +147,7 @@ async def test_verification_caching(monkeypatch):
         call_count += 1
         return {"status": "verified"}
 
-    import sellbird.email_intelligence as mod
+    import outreach.email_intelligence as mod
     monkeypatch.setattr(mod, "verify_reoon", mock_reoon)
 
     cand1 = EmailCandidate(

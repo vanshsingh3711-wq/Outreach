@@ -1,10 +1,10 @@
-# Outreacho — Autonomous AI Prospecting & Cold Outreach Platform
+# Outreach — Autonomous AI Prospecting & Cold Outreach Platform
 
 <p align="center">
   <a href="https://github.com/vanshsingh3711-wq/Outreach">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/brand/outreacho-wordmark-white.svg">
-      <img src="docs/brand/outreacho-wordmark.svg" alt="Outreacho" width="300">
+      <source media="(prefers-color-scheme: dark)" srcset="docs/brand/outreach-wordmark-white.svg">
+      <img src="docs/brand/outreach-wordmark.svg" alt="Outreach" width="300">
     </picture>
   </a>
 </p>
@@ -12,7 +12,7 @@
 <p align="center"><strong>The open-source autonomous prospecting and cold outreach platform powered by AI.</strong></p>
 
 <p align="center">
-  Outreacho discovers target companies matching your ideal customer profile, uncovers key technical decision-makers (CTOs, VPs of Engineering, Heads of AI, Founders), reveals their verified emails and social profiles (LinkedIn, 𝕏 / Twitter, GitHub), crafts hyper-personalized email pitches using DeepSeek AI, and orchestrates deliverability.
+  Outreach discovers target companies matching your ideal customer profile, uncovers key technical decision-makers (CTOs, VPs of Engineering, Heads of AI, Founders), reveals their verified emails and social profiles (LinkedIn, 𝕏 / Twitter, GitHub), crafts hyper-personalized email pitches using DeepSeek AI, and orchestrates deliverability.
   It runs locally on your machine with a strict <strong>human-in-the-loop review desk</strong>: zero cold emails are ever sent without your explicit approval.
 </p>
 
@@ -45,16 +45,16 @@
 
 ## Core Capabilities
 
-| Capability | What Outreacho Does | CLI / Interface |
+| Capability | What Outreach Does | CLI / Interface |
 |---|---|---|
-| **High-Intent Discovery** | Finds targeted companies by industry, job postings, location, and modern AI tech stack (e.g. LangGraph, FastAPI, PyTorch, Qdrant). | `outreacho discover-companies` |
-| **SSRF-Defended URL Enrichment** | Safely crawls corporate websites (Home, About, Team, Careers) with hardened defense against loopbacks, RFC-1918 subnets, and cloud metadata (`169.254.169.254`). | `outreacho enrich <url>` |
+| **High-Intent Discovery** | Finds targeted companies by industry, job postings, location, and modern AI tech stack (e.g. LangGraph, FastAPI, PyTorch, Qdrant). | `outreach discover-companies` |
+| **SSRF-Defended URL Enrichment** | Safely crawls corporate websites (Home, About, Team, Careers) with hardened defense against loopbacks, RFC-1918 subnets, and cloud metadata (`169.254.169.254`). | `outreach enrich <url>` |
 | **Decision-Maker Intelligence** | Identifies technical leadership (CTO, VP Eng, Head of AI, Technical Co-Founders), automatically adapting seniority priorities based on company size. | ICP Scoring Engine |
 | **Social Profile Uncovering** | Discovers LinkedIn, 𝕏 (Twitter), and GitHub profiles via website semantic parsing and targeted search queries. | Leadership Contact Cards |
 | **Multi-Provider Verification** | Derives company email patterns and verifies deliverability via Reoon, ZeroBounce, Hunter, or native MX handshake checks before anything enters the queue. | Multi-tier Verification |
 | **DeepSeek AI Personalization** | Leverages DeepSeek LLMs (`deepseek-chat` / `deepseek-reasoner`) for nuanced title normalization, team extraction, and bespoke pitch tailoring (with 100% heuristic fallback). | DeepSeek Client |
 | **Human-in-the-Loop Outbox** | All drafted proposals land in `pending_review`. You approve (<kbd>A</kbd>), reject (<kbd>R</kbd>), or edit (<kbd>E</kbd>) each email. Zero automated cold sends occur without human consent. | Review Outbox |
-| **Autonomous Mailbox Loop** | Sends approved emails within configured daily limits and recipient office hours, listens for inbound replies, categorizes objections, and alerts you when a lead is interested. | `outreacho run` |
+| **Autonomous Mailbox Loop** | Sends approved emails within configured daily limits and recipient office hours, listens for inbound replies, categorizes objections, and alerts you when a lead is interested. | `outreach run` |
 
 ---
 
@@ -103,7 +103,7 @@
 
 ## 4 Specialized Outreach Archetypes
 
-Outreacho generates hyper-targeted pitches aligned with 4 distinct career and business positioning profiles:
+Outreach generates hyper-targeted pitches aligned with 4 distinct career and business positioning profiles:
 
 1. **Freelance Software Development**:
    - Focus: Overflow development bandwidth, rapid prototype execution, full-stack web and backend implementations.
@@ -133,7 +133,7 @@ cd Outreach
 python3 -m venv .venv
 source .venv/bin/activate
 
-# Install Outreacho in editable mode
+# Install Outreach in editable mode
 pip install -e .
 
 # (Optional) Install Playwright Chromium for advanced browser rendering
@@ -190,7 +190,7 @@ GMAIL_CLIENT_SECRET=...
 
 ### 3. Profile & ICP Configuration
 
-Outreacho reads your positioning, ICP criteria, and product details from `outreacho.yaml` (or `outreacho.local.yaml`):
+Outreach reads your positioning, ICP criteria, and product details from `outreach.yaml` (or `outreach.local.yaml`):
 
 ```yaml
 persona:
@@ -229,18 +229,18 @@ icp:
 
 ## CLI Command Reference
 
-Outreacho provides a complete suite of command-line tools for every phase of outreach:
+Outreach provides a complete suite of command-line tools for every phase of outreach:
 
 ### 1. Launch the Web Dashboard
 ```bash
-outreacho dashboard
+outreach dashboard
 ```
 Opens your private local web interface (`http://127.0.0.1:5555/#token=...`).
 
 ### 2. Discover Target Companies
 ```bash
 # Discover high-intent companies filtered by criteria
-outreacho discover-companies \
+outreach discover-companies \
   --industry "Artificial Intelligence" \
   --role "Applied AI Engineer" \
   --tech "LangGraph" \
@@ -251,18 +251,18 @@ outreacho discover-companies \
 ### 3. Safely Enrich a Specific Domain
 ```bash
 # Analyze website, extract tech stack, hiring signals, and decision-makers
-outreacho enrich https://agentic-solutions.io --json
+outreach enrich https://agentic-solutions.io --json
 ```
 
 ### 4. Run the Autonomous Outreach Heartbeat
 ```bash
 # Start background worker for approval queues, sending windows, and reply tracking
-outreacho run
+outreach run
 ```
 
 ### 5. Check Pipeline Health & Metrics
 ```bash
-outreacho status
+outreach status
 ```
 
 ---
@@ -272,7 +272,7 @@ outreacho status
 The local web dashboard provides an interactive mission control for your outreach operations:
 
 ```bash
-outreacho dashboard
+outreach dashboard
 ```
 
 ### Dashboard Tabs:
@@ -293,9 +293,9 @@ outreacho dashboard
 
 ## Multi-Provider Intelligence Stack
 
-Outreacho integrates with best-of-breed providers while maintaining total portability:
+Outreach integrates with best-of-breed providers while maintaining total portability:
 
-| Category | Supported Providers | Role in Outreacho |
+| Category | Supported Providers | Role in Outreach |
 |---|---|---|
 | **AI Brain** | DeepSeek (`deepseek-chat`, `deepseek-reasoner`), Anthropic Claude | Title normalization, decision-maker extraction, hyper-personalized pitch drafting. |
 | **Search & Discovery** | Serper (Google Search), DataForSEO, Scavio, OpenStreetMap | Company discovery, executive search, profile scraping. |
@@ -316,13 +316,13 @@ Outreacho integrates with best-of-breed providers while maintaining total portab
 3. **Domain Reputation & Warmup**:
    - Hard rate limits on hourly and daily email dispatch.
    - Automated quiet hours (sends only during the recipient's local business hours).
-   - Dedicated mailbox warmup integration with [TrulyInbox](https://trulyinbox.com/?via=sellbird).
+   - Dedicated mailbox warmup integration with [TrulyInbox](https://trulyinbox.com/?via=outreach).
    - Automatic bounce detection and immediate suppression.
 
 ---
 
 ## License & Credits
 
-Outreacho is open-source software licensed under the [GNU Affero General Public License v3.0](LICENSE).
+Outreach is open-source software licensed under the [GNU Affero General Public License v3.0](LICENSE).
 
-Warmup on sending mailboxes can be managed with [TrulyInbox](https://trulyinbox.com/?via=sellbird).
+Warmup on sending mailboxes can be managed with [TrulyInbox](https://trulyinbox.com/?via=outreach).

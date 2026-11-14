@@ -10,8 +10,8 @@ like team pages, and addresses hidden from scrapers.
 
 import pytest
 
-from sellbird.collectors import people
-from sellbird.collectors.profile import ProfileCollector
+from outreach.collectors import people
+from outreach.collectors.profile import ProfileCollector
 
 detect_people = ProfileCollector(state=None).detect_people
 

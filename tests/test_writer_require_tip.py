@@ -12,11 +12,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from sellbird.agents.writer import NO_TIP_STATUS, Writer
-from sellbird.config import WriterConfig
-from sellbird.models.company import Company
-from sellbird.models.prospect import Prospect
-from sellbird.signals import seed_signal_catalog
+from outreach.agents.writer import NO_TIP_STATUS, Writer
+from outreach.config import WriterConfig
+from outreach.models.company import Company
+from outreach.models.prospect import Prospect
+from outreach.signals import seed_signal_catalog
 from tests.test_writer_retry import GOOD, FakeBrain, state, status  # noqa: F401  (state is a fixture)
 
 
@@ -69,7 +69,7 @@ async def test_off_it_writes_for_a_prospect_with_nothing_to_go_on(state):
 async def test_on_a_prospect_with_nothing_concrete_is_parked_without_a_model_call(state, caplog):
     pid = await add(state, 1)
     brain = FakeBrain(reply=GOOD)
-    caplog.set_level(logging.INFO, logger="sellbird.writer")
+    caplog.set_level(logging.INFO, logger="outreach.writer")
     await Writer(brain, state, config(require_tip=True), None).run()
     assert brain.calls == 0
     assert await status(state, pid) == NO_TIP_STATUS == "no_tip"
@@ -123,7 +123,7 @@ async def test_skipped_prospects_can_be_put_back_in_line(state):
 def test_retry_writes_no_tip_only_touches_skipped_prospects(state, capsys, monkeypatch):
     import argparse
     import asyncio
-    from sellbird import cli
+    from outreach import cli
     from tests.test_writer_retry import add
 
     async def seed():
@@ -134,7 +134,7 @@ def test_retry_writes_no_tip_only_touches_skipped_prospects(state, capsys, monke
         return skipped, failed
 
     skipped, failed = asyncio.run(seed())
-    monkeypatch.setattr("sellbird.state.StateManager", lambda *a, **k: state)
+    monkeypatch.setattr("outreach.state.StateManager", lambda *a, **k: state)
     cli.cmd_retry_writes(argparse.Namespace(no_tip=True))
     assert "1 prospect(s) are back in line" in capsys.readouterr().out
     assert asyncio.run(status(state, skipped)) == "new"
@@ -143,5 +143,5 @@ def test_retry_writes_no_tip_only_touches_skipped_prospects(state, capsys, monke
 
 def test_the_dashboard_has_a_label_for_no_tip():
     from pathlib import Path
-    app = (Path(__file__).resolve().parents[1] / "sellbird" / "web" / "app.js").read_text(encoding="utf-8")
+    app = (Path(__file__).resolve().parents[1] / "outreach" / "web" / "app.js").read_text(encoding="utf-8")
     assert f"  {NO_TIP_STATUS}:" in app.split("const STATUS = {", 1)[1].split("};", 1)[0]

@@ -1,4 +1,4 @@
-"""End-to-End Hardening & Integration Test Suite for Outreacho AI Prospecting.
+"""End-to-End Hardening & Integration Test Suite for Outreach AI Prospecting.
 
 Verifies the complete pipeline from discovery to outbox queueing:
 1. Filtered Company Discovery Engine (`FilteredDiscoveryEngine`)
@@ -14,13 +14,13 @@ import asyncio
 from unittest.mock import AsyncMock, patch
 import pytest
 
-from sellbird.discovery_engine import DiscoveryCriteria, FilteredDiscoveryEngine, DiscoveryQueryBuilder
-from sellbird.enrichment import CompanyEnricher, SSRFValidationError, validate_and_normalize_url
-from sellbird.decision_makers import DecisionMakerExtractor, classify_role_priority
-from sellbird.email_intelligence import EmailCandidate, EmailIntelligenceService
-from sellbird.proposal_generator import ProposalGenerator
-from sellbird.deepseek import DeepSeekClient, DeepSeekConfig
-from sellbird.state import StateManager
+from outreach.discovery_engine import DiscoveryCriteria, FilteredDiscoveryEngine, DiscoveryQueryBuilder
+from outreach.enrichment import CompanyEnricher, SSRFValidationError, validate_and_normalize_url
+from outreach.decision_makers import DecisionMakerExtractor, classify_role_priority
+from outreach.email_intelligence import EmailCandidate, EmailIntelligenceService
+from outreach.proposal_generator import ProposalGenerator
+from outreach.deepseek import DeepSeekClient, DeepSeekConfig
+from outreach.state import StateManager
 
 
 MOCK_HOME_HTML = """
@@ -114,7 +114,7 @@ async def test_ssrf_defense_hardening():
     assert "agentic-solutions.io" in canonical
     assert domain == "agentic-solutions.io"
 
-    canonical2, domain2 = validate_and_normalize_url("http://github.com/sellbird")
+    canonical2, domain2 = validate_and_normalize_url("http://github.com/outreach")
     assert "github.com" in canonical2
     assert domain2 == "github.com"
 
@@ -295,7 +295,7 @@ async def test_deepseek_integration_with_proposal_generator_e2e():
         "custom_angle": "LangGraph expertise",
     }
 
-    with patch("sellbird.deepseek.get_deepseek_client", return_value=client):
+    with patch("outreach.deepseek.get_deepseek_client", return_value=client):
         # 1. Test when DeepSeek API succeeds
         with patch.object(client, "tailor_pitch", new_callable=AsyncMock) as mock_tailor:
             mock_tailor.return_value = mock_ai_response

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Why is Overpass failing right now? — a read-only probe of the mirrors.
 
-Sellbird's OpenStreetMap provider walks ``OpenStreetMap.ENDPOINTS`` and gives up
+Outreach's OpenStreetMap provider walks ``OpenStreetMap.ENDPOINTS`` and gives up
 with one message for every kind of failure, which is exactly the information
 you do not have when a run comes back empty. This script separates the three
 possible culprits:
@@ -9,14 +9,14 @@ possible culprits:
 * **the public servers** — a 429/5xx answer, or no answer at all;
 * **this machine's network** — DNS that does not resolve, a connection that
   never opens, a connection that opens and then hangs;
-* **Sellbird's own code** — ruled in or out by whether a minimal query, sent the
-  same way Sellbird sends its queries, succeeds here.
+* **Outreach's own code** — ruled in or out by whether a minimal query, sent the
+  same way Outreach sends its queries, succeeds here.
 
-It is deliberately inert: it never opens the Sellbird database, never writes a
+It is deliberately inert: it never opens the Outreach database, never writes a
 company or an observation, never runs a pipeline stage, and never sends mail.
-It imports ``sellbird.collectors.discover`` only to read the endpoint list and
-the retry statuses, so what is probed is what Sellbird is actually configured
-with. That import pulls in ``sellbird.models`` and nothing that connects.
+It imports ``outreach.collectors.discover`` only to read the endpoint list and
+the retry statuses, so what is probed is what Outreach is actually configured
+with. That import pulls in ``outreach.models`` and nothing that connects.
 
 Network discipline, because these are volunteer servers:
 
@@ -58,7 +58,7 @@ import httpx
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from sellbird.collectors.discover import OpenStreetMap  # noqa: E402
+from outreach.collectors.discover import OpenStreetMap  # noqa: E402
 
 # The smallest valid Overpass query there is: one node, by id, no area filter.
 QUERY = "[out:json][timeout:10];node(1);out;"
@@ -69,8 +69,8 @@ QUERY = "[out:json][timeout:10];node(1);out;"
 # so asking is cheap: a few cafes in downtown Denver, 1km radius.
 COVERAGE = ("[out:json][timeout:25];"
             "node[amenity=cafe](around:1000,39.7392,-104.9903);out count;")
-HEADERS = {"User-Agent": "Sellbird/0.1 diagnostics (one-off mirror probe; "
-                         "github.com/ethanplusai/sellbird)"}
+HEADERS = {"User-Agent": "Outreach/0.1 diagnostics (one-off mirror probe; "
+                         "github.com/ethanplusai/outreach)"}
 
 
 def resolve(host):
@@ -114,7 +114,7 @@ def classify(e):
 
 
 def query_once(client, url, query=QUERY):
-    """One minimal Overpass query. No retry — that is Sellbird's job, not ours."""
+    """One minimal Overpass query. No retry — that is Outreach's job, not ours."""
     t0 = time.perf_counter()
     try:
         r = client.post(url, content=query.encode(), headers=HEADERS)
@@ -126,8 +126,8 @@ def query_once(client, url, query=QUERY):
 def describe(r):
     """What the answer tells us, beyond the number."""
     retryable = r.status_code in OpenStreetMap.RETRY_STATUSES
-    verdict = ("Sellbird treats this as transient and walks to the next mirror"
-               if retryable else "Sellbird fails the query here, by design")
+    verdict = ("Outreach treats this as transient and walks to the next mirror"
+               if retryable else "Outreach fails the query here, by design")
     if r.status_code == 200:
         try:
             body = r.json()

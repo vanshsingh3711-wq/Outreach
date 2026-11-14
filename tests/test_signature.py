@@ -1,4 +1,4 @@
-"""A logo under every email: loading it safely, the HTML around Sellbird's
+"""A logo under every email: loading it safely, the HTML around Outreach's
 text, the MIME layout for Gmail/SMTP, and the outbox holding when the logo
 can't be used. Microsoft's Graph calls are tested in test_microsoft.py."""
 
@@ -12,9 +12,9 @@ from unittest.mock import AsyncMock
 import pytest
 from pydantic import ValidationError
 
-from sellbird.config import SignatureConfig
-from sellbird.integrations import signature
-from sellbird.integrations.signature import (
+from outreach.config import SignatureConfig
+from outreach.integrations import signature
+from outreach.integrations.signature import (
     MAX_LOGO_BYTES,
     SignatureError,
     load_signature,
@@ -183,7 +183,7 @@ def test_mime_without_signature_is_plain_text():
 
 @pytest.mark.asyncio
 async def test_smtp_sends_the_signed_message(logo, monkeypatch):
-    from sellbird.integrations import smtp_mail
+    from outreach.integrations import smtp_mail
     sent = []
     async def fake_send(msg, **kwargs):
         sent.append(msg)
@@ -201,7 +201,7 @@ async def test_smtp_sends_the_signed_message(logo, monkeypatch):
 @pytest.mark.asyncio
 async def test_gmail_sends_the_signed_message(logo):
     import base64
-    from sellbird.integrations import gmail
+    from outreach.integrations import gmail
     cfg = config(logo=str(logo))
     cfg.persona = SimpleNamespace(name="Sam", email="sam@sender.example", company="Acme")
     p = gmail.GmailProvider(cfg, SimpleNamespace())
@@ -218,7 +218,7 @@ async def test_gmail_sends_the_signed_message(logo):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("provider", ["smtp", "gmail"])
 async def test_unusable_logo_sends_nothing(tmp_path, provider, monkeypatch):
-    from sellbird.integrations import gmail, smtp_mail
+    from outreach.integrations import gmail, smtp_mail
     cfg = config(logo=str(tmp_path / "missing.png"))
     cfg.persona = SimpleNamespace(name="Sam", email="sam@sender.example", company="Acme")
     monkeypatch.setattr(smtp_mail.aiosmtplib, "send", AsyncMock())
@@ -242,7 +242,7 @@ async def test_unusable_logo_sends_nothing(tmp_path, provider, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_outbox_holds_while_the_logo_is_unusable(tmp_path, logo, monkeypatch):
-    from sellbird.state import StateManager
+    from outreach.state import StateManager
     from tests.test_outbox_native import Cfg, FakeProvider, _now_iso, make_sender, seed_prospect
     state = StateManager(str(tmp_path / "state.db"))
     await state.init_db()
@@ -269,7 +269,7 @@ async def test_outbox_holds_while_the_logo_is_unusable(tmp_path, logo, monkeypat
 
 
 def test_an_unusable_logo_is_explained_on_today():
-    from sellbird.sending_mode import held_message
+    from outreach.sending_mode import held_message
     title, detail = held_message(
         {"reason": "email signature: logo file not found: logo.png", "since": "2026-10-31T10:00:00"}, 2)
     assert "logo" in title and "inbox" not in title
@@ -298,8 +298,8 @@ def test_a_path_that_cant_even_be_resolved_is_a_problem_not_a_crash(logo):
 
 @pytest.mark.asyncio
 async def test_a_logo_that_breaks_mid_drain_leaves_email_waiting_not_failed(tmp_path, monkeypatch):
-    from sellbird.integrations.mail_provider import SendResult
-    from sellbird.state import StateManager
+    from outreach.integrations.mail_provider import SendResult
+    from outreach.state import StateManager
     from tests.test_outbox_native import FakeProvider, _now_iso, make_sender, seed_prospect
     state = StateManager(str(tmp_path / "state.db"))
     await state.init_db()

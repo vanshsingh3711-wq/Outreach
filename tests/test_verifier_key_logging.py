@@ -1,9 +1,9 @@
 """Verifier API keys never reach the terminal.
 
 httpx logs every request at INFO with its full URL. Reoon and ZeroBounce only
-accept their key as a query parameter, so at INFO `sellbird run` printed the
+accept their key as a query parameter, so at INFO `outreach run` printed the
 keys in clear text on every verification. Hunter accepts a header instead.
-Two fixes: Hunter's key travels in X-API-KEY, and sellbird.main holds the
+Two fixes: Hunter's key travels in X-API-KEY, and outreach.main holds the
 httpx/httpcore loggers at WARNING so no request URL is echoed at all.
 """
 
@@ -12,8 +12,8 @@ import logging
 import httpx
 import pytest
 
-import sellbird.integrations.email_finder as ef
-import sellbird.main  # noqa: F401  (configures logging, including the httpx loggers)
+import outreach.integrations.email_finder as ef
+import outreach.main  # noqa: F401  (configures logging, including the httpx loggers)
 
 KEY = "sk-test-FAKEKEY-0123456789"
 

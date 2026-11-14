@@ -7,9 +7,9 @@ import json
 import httpx
 import pytest
 
-from sellbird import dashboard_instance
-from sellbird.desktop import tray
-from sellbird.desktop_cli import cmd_tray
+from outreach import dashboard_instance
+from outreach.desktop import tray
+from outreach.desktop_cli import cmd_tray
 
 
 class FakeDashboard:
@@ -27,12 +27,12 @@ class FakeDashboard:
             return httpx.Response(200, json={"instance": self.instance})
         if request.headers.get("authorization") != f"Bearer {self.token}":
             return httpx.Response(401, json={"error": "unauthorized"})
-        if path == "/api/sellbird/status":
+        if path == "/api/outreach/status":
             return httpx.Response(200, json={"running": self.running, "sending_paused": self.paused})
-        if path == "/api/sellbird/start":
+        if path == "/api/outreach/start":
             self.running = True
             return httpx.Response(200, json={"success": True})
-        if path == "/api/sellbird/stop":
+        if path == "/api/outreach/stop":
             self.running = False
             return httpx.Response(200, json={"success": True})
         if path == "/api/sending/pause":
@@ -48,7 +48,7 @@ class FakeDashboard:
 def setup(tmp_path):
     data = tmp_path / "data"
     data.mkdir()
-    from sellbird.dashboard_auth import load_or_create_token
+    from outreach.dashboard_auth import load_or_create_token
     fake = FakeDashboard(token=load_or_create_token(data / "dashboard-token"))
     opened, launched = [], []
     controller = tray.TrayController(
@@ -84,7 +84,7 @@ def test_it_starts_the_dashboard_and_waits_for_it(setup, monkeypatch):
     c._launcher = lambda argv, log: (launched.append((argv, log)), _publish(data))
     assert c.start_dashboard() == "The dashboard started."
     argv, log = launched[0]
-    assert argv[-4:] == ["sellbird", "dashboard", "--port", "5600"] and "-P" in argv
+    assert argv[-4:] == ["outreach", "dashboard", "--port", "5600"] and "-P" in argv
     assert log == data / tray.START_LOG
     assert c.start_dashboard() == "The dashboard is running."
     assert len(launched) == 1
@@ -103,16 +103,16 @@ def test_the_menu_follows_the_loop_and_sending(setup):
     status = c.status()
     assert (status.dashboard, status.loop) == ("running", "stopped")
     labels = [r.label for r in tray.menu_items(status, False)]
-    assert "Start Sellbird" in labels and "Pause sending" in labels
+    assert "Start Outreach" in labels and "Pause sending" in labels
 
-    assert c.start_loop() == "Sellbird started."
+    assert c.start_loop() == "Outreach started."
     assert c.pause_sending() == "Sending is paused."
     status = c.status()
     assert tray.state_label(status) == "running, sending paused"
     assert tray.icon_state(status) == "paused"
     labels = [r.label for r in tray.menu_items(status, True)]
-    assert "Stop Sellbird" in labels and "Resume sending" in labels
-    assert c.resume_sending() == "Sending resumed." and c.stop_loop() == "Sellbird stopped."
+    assert "Stop Outreach" in labels and "Resume sending" in labels
+    assert c.resume_sending() == "Sending resumed." and c.stop_loop() == "Outreach stopped."
     posts = [r for r in fake.requests if r.method == "POST"]
     assert all(r.headers["authorization"] == f"Bearer {fake.token}" for r in posts)
 
@@ -158,10 +158,10 @@ def test_actions_run_off_the_menu_thread_and_refresh(setup):
                        ui=lambda fn: None)
     app.refresh()
     items = app.menu_items()
-    start = next(i for i in items if i.label == "Start Sellbird")
+    start = next(i for i in items if i.label == "Start Outreach")
     start.action(None, start)
     assert fake.running and ran
-    assert any(i.label == "Stop Sellbird" for i in app.menu_items())
+    assert any(i.label == "Stop Outreach" for i in app.menu_items())
 
 
 def test_no_tray_without_pystray(tmp_path, monkeypatch):
@@ -183,7 +183,7 @@ def test_status_prints_no_link_or_token(setup, capsys):
     cmd_tray(argparse.Namespace(status=True, port=5600), data_dir=data,
              transport=httpx.MockTransport(fake.handler))
     out = capsys.readouterr().out
-    assert ("Outreacho: stopped" in out or "Sellbird: stopped" in out) and fake.token not in out and "http" not in out
+    assert ("Outreach: stopped" in out or "Outreach: stopped" in out) and fake.token not in out and "http" not in out
 
 
 @pytest.mark.skipif(__import__("sys").platform == "win32", reason="POSIX modes")
@@ -198,7 +198,7 @@ def test_the_start_log_is_owner_only(tmp_path, monkeypatch):
 
 def test_icon_is_the_bird_with_a_state_dot():
     pytest.importorskip("PIL")
-    from sellbird.desktop.tray import COLORS, make_icon
+    from outreach.desktop.tray import COLORS, make_icon
 
     for dark, bird in ((True, (255, 255, 255)), (False, (29, 29, 31))):
         image = make_icon("running", dark)
@@ -219,7 +219,7 @@ def test_menubar_icon_is_drawn_at_retina_size():
 
     from PIL import Image
 
-    from sellbird.desktop.tray import MENUBAR_PT, menubar_png
+    from outreach.desktop.tray import MENUBAR_PT, menubar_png
 
     image = Image.open(io.BytesIO(menubar_png("running", True)))
     # twice the point size, and wider than tall like the bird, not a 22px square

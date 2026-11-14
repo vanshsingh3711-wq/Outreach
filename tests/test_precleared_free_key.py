@@ -1,5 +1,5 @@
 """Tests for getting a free Precleared key in one step: create_free_key, the
-`sellbird precleared-key` command and the hold message that points to it. No
+`outreach precleared-key` command and the hold message that points to it. No
 network: Precleared is an httpx.MockTransport or a stand-in function."""
 
 import json
@@ -10,10 +10,10 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
-import sellbird.config as config_mod
-from sellbird import cli, dashboard, setup
-from sellbird.integrations import precleared
-from sellbird.integrations.precleared import KEYS_URL, NewKey, create_free_key
+import outreach.config as config_mod
+from outreach import cli, dashboard, setup
+from outreach.integrations import precleared
+from outreach.integrations.precleared import KEYS_URL, NewKey, create_free_key
 
 FAKE_KEY = "pc_live_example_not_a_real_key"
 MADE = {"key": FAKE_KEY, "key_prefix": FAKE_KEY[:12], "free_per_day": 25,
@@ -110,7 +110,7 @@ def test_no_answer_is_said_plainly():
     assert result == NewKey(error="Precleared couldn't be reached")
 
 
-# ── sellbird precleared-key ──
+# ── outreach precleared-key ──
 
 
 @pytest.fixture
@@ -224,10 +224,10 @@ def test_with_the_check_off_the_key_is_saved_and_the_user_told(env_file, monkeyp
     assert f"PRECLEARED_API_KEY={FAKE_KEY}" in env_file.read_text().splitlines()
 
 
-def test_sellbird_precleared_key_is_a_command(monkeypatch):
+def test_outreach_precleared_key_is_a_command(monkeypatch):
     seen = []
     monkeypatch.setattr(cli, "cmd_precleared_key", lambda args: seen.append(args.email))
-    monkeypatch.setattr(sys, "argv", ["sellbird", "precleared-key", "--email", "jo@example.com"])
+    monkeypatch.setattr(sys, "argv", ["outreach", "precleared-key", "--email", "jo@example.com"])
 
     cli.main()
 
@@ -240,7 +240,7 @@ def test_sellbird_precleared_key_is_a_command(monkeypatch):
 def test_the_keyless_hold_points_to_the_command():
     message = precleared.hold_message({"kind": "keyless_limit", "waiting": 3})
 
-    assert "sellbird precleared-key" in message["detail"]
+    assert "outreach precleared-key" in message["detail"]
     assert "100 a day for the first 14 days, then 25" in message["detail"]
     assert "PRECLEARED_API_KEY" in message["detail"]
     assert message["url"] == precleared.GET_KEY_URL
@@ -254,7 +254,7 @@ async def test_the_keyless_limit_reason_names_the_command():
         get_setting=_none, set_setting=_none))
 
     assert result.held and result.hold_kind == "keyless_limit"
-    assert "`sellbird precleared-key`" in result.reason
+    assert "`outreach precleared-key`" in result.reason
     assert "precleared.dev/get-key" in result.reason
 
 

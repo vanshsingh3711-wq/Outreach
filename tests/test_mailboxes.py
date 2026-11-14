@@ -8,13 +8,13 @@ from datetime import date, datetime, timedelta, timezone
 import pytest
 import pytest_asyncio
 
-from sellbird import extensions, mailboxes
-from sellbird.config import EmailChannelConfig, WarmupConfig
-from sellbird.integrations.mail_provider import InboundMessage, MailProvider, SendResult
-from sellbird.integrations.smtp_mail import SmtpImapProvider, SmtpSettings
-from sellbird.mailboxes import MAIN, ConnectRefused, MailboxStore
-from sellbird.secrets import MemorySecretBackend, SecretStore
-from sellbird.state import StateManager
+from outreach import extensions, mailboxes
+from outreach.config import EmailChannelConfig, WarmupConfig
+from outreach.integrations.mail_provider import InboundMessage, MailProvider, SendResult
+from outreach.integrations.smtp_mail import SmtpImapProvider, SmtpSettings
+from outreach.mailboxes import MAIN, ConnectRefused, MailboxStore
+from outreach.secrets import MemorySecretBackend, SecretStore
+from outreach.state import StateManager
 
 from tests.test_outbox_native import Cfg, Env, StubBrain, seed_campaign, seed_prospect
 
@@ -81,7 +81,7 @@ async def add_inbox(store, address, **extra):
 
 
 def sender_for(state, main, *, approval=False):
-    from sellbird.agents.sender import Sender
+    from outreach.agents.sender import Sender
     cfg = Cfg()
     cfg.channels.email.require_approval = approval
     s = Sender(brain=None, state=state, config=cfg, env=Env())
@@ -91,7 +91,7 @@ def sender_for(state, main, *, approval=False):
 
 
 def handler_for(state, main):
-    from sellbird.agents.handler import Handler
+    from outreach.agents.handler import Handler
     h = Handler(brain=StubBrain(), state=state, config=Cfg(), env=Env())
     h.provider = main
     return h
@@ -164,7 +164,7 @@ async def test_smtp_keeps_its_password_in_the_keychain_only(store):
                                                     password="hunter2"))
     row = await store.get_mailbox(mid)
     assert "hunter2" not in json.dumps(row)
-    assert backend.get_password("sellbird", f"mailbox:{mid}:smtp") == "hunter2"
+    assert backend.get_password("outreach", f"mailbox:{mid}:smtp") == "hunter2"
     provider = mailboxes.build_provider(row, config=Config, env=Env(), secrets=secrets)
     assert isinstance(provider, SmtpImapProvider)
     assert provider.smtp_pass == "hunter2" and provider.identity.address == "two@side.co"
@@ -179,7 +179,7 @@ async def test_an_oauth_sign_in_keeps_only_the_refresh_token(store):
         store, secrets, Config, provider="google", address="two@side.co", display_name="",
         warmup_started_at="2026-11-01",
         token={"refresh_token": "r", "access_token": "a" * 3000, "scope": "x"})
-    stored = json.loads(backend.get_password("sellbird", f"mailbox:{mid}:oauth"))
+    stored = json.loads(backend.get_password("outreach", f"mailbox:{mid}:oauth"))
     assert stored == {"refresh_token": "r"}
     assert (await store.get_mailbox(mid))["warmup_started_at"] == "2026-11-01"
 
@@ -235,7 +235,7 @@ def test_built_in_connections_cant_be_replaced():
 
 @pytest.mark.asyncio
 async def test_with_no_extra_inbox_nothing_is_assigned(store, boxes):
-    main = Box("sellbird@x.co")
+    main = Box("outreach@x.co")
     pid = await seed_prospect(store)
     await seed_campaign(store, [pid])
     await sender_for(store, main)._run_native()
@@ -247,7 +247,7 @@ async def test_with_no_extra_inbox_nothing_is_assigned(store, boxes):
 
 @pytest.mark.asyncio
 async def test_new_threads_spread_and_each_thread_keeps_its_inbox(store, boxes):
-    main = Box("sellbird@x.co")
+    main = Box("outreach@x.co")
     side = await add_inbox(store, "two@side.co")
     pids = [await seed_prospect(store, email=f"p{i}@acme{i}.com") for i in range(4)]
     await seed_campaign(store, pids)
@@ -267,7 +267,7 @@ async def test_new_threads_spread_and_each_thread_keeps_its_inbox(store, boxes):
 
 @pytest.mark.asyncio
 async def test_a_follow_up_leaves_from_the_inbox_that_started_the_thread(store, boxes):
-    main = Box("sellbird@x.co")
+    main = Box("outreach@x.co")
     side = await add_inbox(store, "two@side.co")
     pid = await seed_prospect(store)
     campaign = await seed_campaign(store, [pid])
@@ -295,7 +295,7 @@ async def test_a_follow_up_leaves_from_the_inbox_that_started_the_thread(store, 
 async def test_each_inbox_stops_at_its_own_cold_cap(store, boxes, monkeypatch):
     # With several inboxes the main mailbox is one of them: per_inbox_daily_cap.
     monkeypatch.setattr(Cfg.channels.email, "per_inbox_daily_cap", 2, raising=False)
-    main = Box("sellbird@x.co")
+    main = Box("outreach@x.co")
     side = await add_inbox(store, "two@side.co")
     await store.set_cap(side, 1)
     pids = [await seed_prospect(store, email=f"p{i}@acme{i}.com") for i in range(5)]
@@ -308,7 +308,7 @@ async def test_each_inbox_stops_at_its_own_cold_cap(store, boxes, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_a_paused_inbox_hands_its_unsent_first_emails_on(store, boxes):
-    main = Box("sellbird@x.co")
+    main = Box("outreach@x.co")
     side = await add_inbox(store, "two@side.co")
     pid = await seed_prospect(store)
     campaign = await seed_campaign(store, [pid])
@@ -329,7 +329,7 @@ async def test_a_paused_inbox_hands_its_unsent_first_emails_on(store, boxes):
 
 @pytest.mark.asyncio
 async def test_no_inbox_for_a_campaign_holds_its_email(store, boxes):
-    main = Box("sellbird@x.co")
+    main = Box("outreach@x.co")
     side = await add_inbox(store, "two@side.co")
     await store.set_pause(side, "testing")
     pid = await seed_prospect(store)
@@ -342,7 +342,7 @@ async def test_no_inbox_for_a_campaign_holds_its_email(store, boxes):
 
 @pytest.mark.asyncio
 async def test_a_removed_inbox_ends_the_threads_it_started(store, boxes):
-    main = Box("sellbird@x.co")
+    main = Box("outreach@x.co")
     side = await add_inbox(store, "two@side.co")
     pid = await seed_prospect(store)
     campaign = await seed_campaign(store, [pid])
@@ -362,7 +362,7 @@ async def test_a_removed_inbox_ends_the_threads_it_started(store, boxes):
 
 @pytest.mark.asyncio
 async def test_headers_wait_for_an_inbox_that_can_carry_them(store, boxes, monkeypatch):
-    main = Box("sellbird@x.co")
+    main = Box("outreach@x.co")
     side = await add_inbox(store, "two@side.co")
     boxes["two@side.co"] = Box("two@side.co", headers=False)
     extensions._REGISTRY.add_send_headers("unsub", lambda item: [("List-Unsubscribe", "<x>")])
@@ -377,7 +377,7 @@ async def test_headers_wait_for_an_inbox_that_can_carry_them(store, boxes, monke
 
 @pytest.mark.asyncio
 async def test_a_reply_is_answered_from_the_inbox_it_arrived_in(store, boxes):
-    main = Box("sellbird@x.co")
+    main = Box("outreach@x.co")
     side = await add_inbox(store, "two@side.co")
     pid = await seed_prospect(store, status="contacted")
     handler = handler_for(store, main)
@@ -403,7 +403,7 @@ async def test_a_reply_is_answered_from_the_inbox_it_arrived_in(store, boxes):
 
 @pytest.mark.asyncio
 async def test_one_unreadable_inbox_holds_sending_but_the_others_are_read(store, boxes):
-    main = Box("sellbird@x.co")
+    main = Box("outreach@x.co")
     await add_inbox(store, "two@side.co")
     await seed_prospect(store, status="contacted")
     handler = handler_for(store, main)
@@ -434,7 +434,7 @@ async def test_inbox_providers_are_kept_while_their_row_is_unchanged(store, boxe
 @pytest.mark.asyncio
 async def test_the_cli_pauses_caps_and_lists(store, boxes, capsys):
     from argparse import Namespace
-    from sellbird import inbox_cli
+    from outreach import inbox_cli
     await add_inbox(store, "two@side.co")
     secrets = SecretStore(backend=MemorySecretBackend(), env={})
     cfg = Cfg()

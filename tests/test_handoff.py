@@ -1,4 +1,4 @@
-"""Said yes to your offer: Sellbird hands the person to another system's MCP
+"""Said yes to your offer: Outreach hands the person to another system's MCP
 tool once, and the reply it drafts carries what that system answered."""
 
 import sys
@@ -8,11 +8,11 @@ from types import SimpleNamespace
 import pytest
 import pytest_asyncio
 
-from sellbird.config import HandoffConfig
-from sellbird.handoff import call_tool, configured, fill, values_for
-from sellbird.models.conversation import Conversation, Message
-from sellbird.models.prospect import Prospect
-from sellbird.state import StateManager
+from outreach.config import HandoffConfig
+from outreach.handoff import call_tool, configured, fill, values_for
+from outreach.models.conversation import Conversation, Message
+from outreach.models.prospect import Prospect
+from outreach.state import StateManager
 from tests.test_booking import OfferCfg, PromptBrain
 from tests.test_outbox_native import Env
 
@@ -93,7 +93,7 @@ async def state(tmp_path):
 
 
 async def _setup(state, handoff=None):
-    from sellbird.agents.handler import Handler
+    from outreach.agents.handler import Handler
     cfg = YesCfg()
     cfg.handoff = handoff or HandoffConfig()
     brain = PromptBrain(text_reply="Great. Here it is.")
@@ -125,7 +125,7 @@ async def test_a_yes_is_handed_off_once_and_the_reply_carries_the_answer(state, 
     prompt = brain.prompts[-1]
     assert "They said yes to your offer (your new site, free until you launch it)" in prompt
     assert "https://preview.example/summit-roofing" in prompt
-    assert "https://cal.example/sellbird/15" not in prompt   # no meeting ask on top
+    assert "https://cal.example/outreach/15" not in prompt   # no meeting ask on top
 
 
 @pytest.mark.asyncio

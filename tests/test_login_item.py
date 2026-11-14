@@ -15,8 +15,8 @@ from pathlib import Path
 
 import pytest
 
-from sellbird.desktop import login_item as li
-from sellbird.desktop.login_item import (
+from outreach.desktop import login_item as li
+from outreach.desktop.login_item import (
     LABEL,
     MARKER,
     PLIST_COMMENT,
@@ -68,19 +68,19 @@ def test_plist_carries_install_time_path(tmp_path):
     result, _ = _mac_install(tmp_path, env=env)
     data = plistlib.loads(result.path.read_bytes())
     assert data["EnvironmentVariables"]["PATH"] == env["PATH"]
-    assert "SELLBIRD_HOME" not in data["EnvironmentVariables"]
+    assert "OUTREACH_HOME" not in data["EnvironmentVariables"]
 
 
-def test_plist_carries_sellbird_home_when_set(tmp_path):
-    env = _mac_env(tmp_path, SELLBIRD_HOME=str(tmp_path / "ob-home"))
+def test_plist_carries_outreach_home_when_set(tmp_path):
+    env = _mac_env(tmp_path, OUTREACH_HOME=str(tmp_path / "ob-home"))
     result, _ = _mac_install(tmp_path, env=env)
     data = plistlib.loads(result.path.read_bytes())
-    assert data["EnvironmentVariables"]["SELLBIRD_HOME"] == str((tmp_path / "ob-home").resolve())
+    assert data["EnvironmentVariables"]["OUTREACH_HOME"] == str((tmp_path / "ob-home").resolve())
 
 
 def test_plist_is_valid_and_marked(tmp_path):
     log = tmp_path / "tray.log"
-    data = li.render_plist(["/py", "-m", "sellbird", "tray"], "/usr/bin:/bin", None, log)
+    data = li.render_plist(["/py", "-m", "outreach", "tray"], "/usr/bin:/bin", None, log)
     parsed = plistlib.loads(data)
     assert parsed["Label"] == LABEL
     assert PLIST_COMMENT.encode() in data
@@ -88,7 +88,7 @@ def test_plist_is_valid_and_marked(tmp_path):
     assert parsed["KeepAlive"] == {"SuccessfulExit": False}
     assert parsed["ProcessType"] == "Interactive"
     assert parsed["LimitLoadToSessionType"] == "Aqua"
-    assert parsed["ProgramArguments"] == ["/py", "-m", "sellbird", "tray"]
+    assert parsed["ProgramArguments"] == ["/py", "-m", "outreach", "tray"]
     assert parsed["StandardOutPath"] == parsed["StandardErrorPath"] == str(log)
     assert parsed["WorkingDirectory"] == str(li.PROJECT_ROOT)
     lines = data.decode("utf-8").splitlines()
@@ -103,7 +103,7 @@ def test_install_bootstraps_with_absolute_launchctl(tmp_path):
     path = tmp_path / "home" / "Library" / "LaunchAgents" / f"{LABEL}.plist"
     assert result.path == path and path.is_file()
     assert result.changed is True
-    assert result.message == "Sellbird starts at login, and is starting now."
+    assert result.message == "Outreach starts at login, and is starting now."
     assert [c["argv"] for c in runner.calls] == [
         ["/bin/launchctl", "bootout", f"gui/{uid}/{LABEL}"],
         ["/bin/launchctl", "bootstrap", f"gui/{uid}", str(path)],
@@ -114,10 +114,10 @@ def test_install_bootstraps_with_absolute_launchctl(tmp_path):
 
 
 def test_install_writes_port_into_program_arguments(tmp_path):
-    # F-31: `sellbird autostart install --port N` -> the tray gets `--port N`.
+    # F-31: `outreach autostart install --port N` -> the tray gets `--port N`.
     result, _ = _mac_install(tmp_path, port=5596)
     args = plistlib.loads(result.path.read_bytes())["ProgramArguments"]
-    assert args[-4:] == ["sellbird", "tray", "--port", "5596"]
+    assert args[-4:] == ["outreach", "tray", "--port", "5596"]
 
 
 def test_failed_bootstrap_still_saves(tmp_path):
@@ -139,7 +139,7 @@ def test_bootstrap_retry_after_bootout_race(tmp_path):
     waits = []
     result, _ = _mac_install(tmp_path, runner=runner, sleep=waits.append)
     assert waits == [li.BOOTSTRAP_RETRY_WAIT]
-    assert result.message == "Sellbird starts at login, and is starting now."
+    assert result.message == "Outreach starts at login, and is starting now."
 
 
 def test_install_twice_is_a_no_op(tmp_path):
@@ -175,7 +175,7 @@ def test_foreign_plist_is_refused_and_untouched(tmp_path):
     runner = FakeRunner()
     with pytest.raises(ForeignLoginItem) as err:
         _mac_install(tmp_path, runner=runner)
-    assert str(err.value) == f"{path} exists and wasn't created by Sellbird. Nothing was changed."
+    assert str(err.value) == f"{path} exists and wasn't created by Outreach. Nothing was changed."
     assert path.read_bytes() == original
     assert runner.calls == []
 
@@ -323,27 +323,27 @@ def test_windows_foreign_shortcut_is_refused(tmp_path):
 
 
 def test_windows_refuses_a_custom_home_the_shortcut_cannot_carry(tmp_path):
-    # F-32: a .lnk has no environment; a custom SELLBIRD_HOME set only in this
+    # F-32: a .lnk has no environment; a custom OUTREACH_HOME set only in this
     # shell would make the login-started tray use a different home.
-    env = _win_env(tmp_path, SELLBIRD_HOME=str(tmp_path / "custom"))
+    env = _win_env(tmp_path, OUTREACH_HOME=str(tmp_path / "custom"))
     shell = FakeShell()
     with pytest.raises(UnsupportedPlatform) as err:
         li.install(platform="win32", runner=shell, env=env, home=tmp_path / "home",
                    user_env=lambda name: None)
     assert str(err.value) == (
-        "Start at login on Windows uses the default home folder. Set SELLBIRD_HOME as a user "
+        "Start at login on Windows uses the default home folder. Set OUTREACH_HOME as a user "
         "environment variable (System Properties → Environment Variables), then run this again.")
     assert shell.calls == []
 
     # Set in the user registry too: every login process inherits it, so it is fine.
     ok = li.install(platform="win32", runner=shell, env=env, home=tmp_path / "home",
-                    user_env=lambda name: env["SELLBIRD_HOME"] if name == "SELLBIRD_HOME" else None)
+                    user_env=lambda name: env["OUTREACH_HOME"] if name == "OUTREACH_HOME" else None)
     assert ok.changed is True
 
     # The default home spelled out explicitly is also fine.
-    default = str(Path(env["APPDATA"]) / "sellbird")
+    default = str(Path(env["APPDATA"]) / "outreach")
     li.uninstall(platform="win32", runner=shell, env=env, home=tmp_path / "home")
-    ok = li.install(platform="win32", runner=shell, env={**env, "SELLBIRD_HOME": default},
+    ok = li.install(platform="win32", runner=shell, env={**env, "OUTREACH_HOME": default},
                     home=tmp_path / "home", user_env=lambda name: None)
     assert ok.changed is True
 
@@ -353,7 +353,7 @@ def test_windows_without_appdata_is_a_clean_failure(tmp_path, capsys):
     with pytest.raises(li.LoginItemFailed) as err:
         li.install(platform="win32", runner=FakeShell(), env=env, home=tmp_path)
     assert "APPDATA" in str(err.value)
-    from sellbird.desktop_cli import cmd_autostart
+    from outreach.desktop_cli import cmd_autostart
     with pytest.raises(SystemExit) as exited:
         cmd_autostart(argparse.Namespace(autostart_action="status", port=None), platform="win32",
                       runner=FakeShell(), env=env, home=tmp_path)
@@ -363,11 +363,11 @@ def test_windows_without_appdata_is_a_clean_failure(tmp_path, capsys):
 def test_tray_argv_prefers_pythonw_on_windows(tmp_path, monkeypatch):
     (tmp_path / "python.exe").write_text("", encoding="utf-8")
     monkeypatch.setattr(sys, "executable", str(tmp_path / "python.exe"))
-    assert li.tray_argv("win32") == [str(tmp_path / "python.exe"), "-P", "-m", "sellbird", "tray"]
+    assert li.tray_argv("win32") == [str(tmp_path / "python.exe"), "-P", "-m", "outreach", "tray"]
     (tmp_path / "pythonw.exe").write_text("", encoding="utf-8")
     assert li.tray_argv("win32")[0] == str(tmp_path / "pythonw.exe")
     assert li.tray_argv("darwin", port=5596) == [str(tmp_path / "python.exe"), "-P", "-m",
-                                                  "sellbird", "tray", "--port", "5596"]
+                                                  "outreach", "tray", "--port", "5596"]
 
 
 def test_unsupported_platform_message(tmp_path):
@@ -380,7 +380,7 @@ def test_unsupported_platform_message(tmp_path):
 @pytest.mark.skipif(sys.platform != "win32", reason="real shortcut needs Windows")
 def test_real_shortcut_round_trip(tmp_path, monkeypatch):
     env = {**os.environ, "APPDATA": str(tmp_path / "AppData")}
-    env.pop("SELLBIRD_HOME", None)
+    env.pop("OUTREACH_HOME", None)
     result = li.install(platform="win32", env=env, home=tmp_path)
     assert li.read_shortcut(result.path, subprocess.run)["Description"] == MARKER
     li.uninstall(platform="win32", env=env, home=tmp_path)
@@ -390,7 +390,7 @@ def test_real_shortcut_round_trip(tmp_path, monkeypatch):
 # ── CLI ────────────────────────────────────────────────────────────────────
 
 def _cli(tmp_path, action, runner, port=None):
-    from sellbird.desktop_cli import cmd_autostart
+    from outreach.desktop_cli import cmd_autostart
     args = argparse.Namespace(autostart_action=action, port=port)
     return cmd_autostart(args, platform="darwin", runner=runner, env=_mac_env(tmp_path),
                          home=tmp_path / "home")
@@ -399,7 +399,7 @@ def _cli(tmp_path, action, runner, port=None):
 def test_cli_install_status_uninstall(tmp_path, capsys):
     runner = FakeRunner()
     _cli(tmp_path, "install", runner, port=5596)
-    assert "Sellbird starts at login, and is starting now." in capsys.readouterr().out
+    assert "Outreach starts at login, and is starting now." in capsys.readouterr().out
     _cli(tmp_path, "status", runner)
     out = capsys.readouterr().out
     assert "on" in out.lower() and f"{LABEL}.plist" in out
@@ -413,11 +413,11 @@ def test_cli_foreign_file_exits_1(tmp_path, capsys):
     with pytest.raises(SystemExit) as err:
         _cli(tmp_path, "install", FakeRunner())
     assert err.value.code == 1
-    assert "wasn't created by Sellbird. Nothing was changed." in capsys.readouterr().err
+    assert "wasn't created by Outreach. Nothing was changed." in capsys.readouterr().err
 
 
 def test_cli_registers_autostart_parser():
-    from sellbird.desktop_cli import register_desktop_commands
+    from outreach.desktop_cli import register_desktop_commands
     parser = argparse.ArgumentParser()
     register_desktop_commands(parser.add_subparsers(dest="command"))
     args = parser.parse_args(["autostart", "install", "--port", "5596"])

@@ -5,7 +5,7 @@ import sqlite3
 from datetime import datetime, timedelta, timezone
 
 from tests.test_dashboard_signals import client  # noqa: F401  (fixture)
-from sellbird.state import StateManager
+from outreach.state import StateManager
 
 
 def _sql(db, query, params=()):

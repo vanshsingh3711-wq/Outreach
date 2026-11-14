@@ -1,4 +1,4 @@
-"""`sellbird setup` with manual product entry: the answers must reach sellbird.yaml
+"""`outreach setup` with manual product entry: the answers must reach outreach.yaml
 even though the repo already ships one, and the summary's "Product trained"
 tick must reflect them. All data is fictional."""
 
@@ -6,7 +6,7 @@ import asyncio
 
 import yaml
 
-import sellbird.setup as setup
+import outreach.setup as setup
 
 SHIPPED = {
     "persona": {"name": "Alex", "company": "Your Company", "email": "alex@yourcompany.com",
@@ -29,8 +29,8 @@ ANSWERS = [
 ]
 
 
-def test_manual_answers_survive_an_existing_sellbird_yaml(tmp_path, monkeypatch):
-    config = tmp_path / "sellbird.yaml"
+def test_manual_answers_survive_an_existing_outreach_yaml(tmp_path, monkeypatch):
+    config = tmp_path / "outreach.yaml"
     config.write_text(yaml.safe_dump(SHIPPED, sort_keys=False))
     monkeypatch.setattr(setup, "CONFIG_FILE", config)
     monkeypatch.setattr(setup, "ENV_FILE", tmp_path / ".env")
@@ -60,7 +60,7 @@ def test_manual_answers_survive_an_existing_sellbird_yaml(tmp_path, monkeypatch)
 
 def test_trained_config_is_not_overwritten_without_manual_entry(tmp_path, monkeypatch):
     trained = {**SHIPPED, "persona": {**SHIPPED["persona"], "company": "Example Co"}}
-    config = tmp_path / "sellbird.yaml"
+    config = tmp_path / "outreach.yaml"
     config.write_text(yaml.safe_dump(trained, sort_keys=False))
     monkeypatch.setattr(setup, "CONFIG_FILE", config)
 

@@ -6,10 +6,10 @@ import httpx
 import pytest
 import pytest_asyncio
 
-import sellbird.dashboard as dash
-from sellbird import agent_policy, dashboard_instance, extensions, mcp_server
-from sellbird.dashboard_auth import load_or_create_token
-from sellbird.state import StateManager
+import outreach.dashboard as dash
+from outreach import agent_policy, dashboard_instance, extensions, mcp_server
+from outreach.dashboard_auth import load_or_create_token
+from outreach.state import StateManager
 
 ORIGIN = "http://127.0.0.1:5555"
 
@@ -30,10 +30,10 @@ class Recorder(httpx.AsyncBaseTransport):
 async def core(tmp_path, monkeypatch):
     data = tmp_path / "data"
     data.mkdir()
-    db = data / "sellbird.db"
+    db = data / "outreach.db"
     monkeypatch.setattr(dash, "ENV_FILE", tmp_path / ".env")
     monkeypatch.setattr(dash, "DB_PATH", db)
-    monkeypatch.setattr("sellbird.state.DB_PATH", db)
+    monkeypatch.setattr("outreach.state.DB_PATH", db)
     await StateManager(str(db)).init_db()
     token = load_or_create_token(data / "agent-token")
     dash.agent_token_store.configure(data / "agent-token")
@@ -91,7 +91,7 @@ async def test_no_dashboard_file_means_not_running(core):
     client, transport, data = core
     (data / dashboard_instance.INFO_NAME).unlink()
     out = await _call(_server(client), "today")
-    assert out["ok"] is False and "sellbird dashboard" in out["message"]
+    assert out["ok"] is False and "outreach dashboard" in out["message"]
     assert transport.requests == []
 
 
@@ -113,8 +113,8 @@ async def test_the_agent_can_pause_but_never_resume(core):
     ("POST", "/api/settings/env"), ("POST", "/api/signals/status"),
     ("POST", "/api/discover/run"), ("POST", "/api/sending-mode"),
     ("POST", "/api/trulyinbox/connect"), ("GET", "/api/settings"),
-    ("GET", "/api/sellbird/logs"), ("GET", "/api/export/prospects.csv"),
-    ("POST", "/api/prospects/p1/opt-out/undo"), ("POST", "/api/sellbird/start"),
+    ("GET", "/api/outreach/logs"), ("GET", "/api/export/prospects.csv"),
+    ("POST", "/api/prospects/p1/opt-out/undo"), ("POST", "/api/outreach/start"),
     ("POST", "/api/inboxes/x/resume"), ("POST", "/api/inboxes/x/cap"),
     ("POST", "/api/inboxes/x/remove"), ("POST", "/api/inboxes/x/name"),
     ("POST", "/api/campaigns/c/inboxes"),

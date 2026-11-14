@@ -1,4 +1,4 @@
-"""`sellbird mcp install|uninstall`: shown first, backed up, never clobbering.
+"""`outreach mcp install|uninstall`: shown first, backed up, never clobbering.
 
 Every test points the home folder, CODEX_HOME and `which` into tmp_path and
 uses a fake runner, so nothing here can touch the real ~/.claude.json,
@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from sellbird import mcp_install as mi
+from outreach import mcp_install as mi
 
 NOW = datetime(2026, 10, 24, 9, 30, 0)
 
@@ -58,7 +58,7 @@ class FakeRunner:
 
 
 def backups(folder: Path):
-    return sorted(p.name for p in folder.iterdir() if ".sellbird-backup-" in p.name)
+    return sorted(p.name for p in folder.iterdir() if ".outreach-backup-" in p.name)
 
 
 # ── Claude Code ──
@@ -77,14 +77,14 @@ def test_claude_json_merge_keeps_other_servers(tmp_path):
     doc = json.loads(path.read_text(encoding="utf-8"))
     assert doc["other"] == 1
     assert doc["mcpServers"]["x"] == other
-    assert doc["mcpServers"]["sellbird"] == mi.server_entry()
-    assert backups(tmp_path) == [".claude.json.sellbird-backup-20261024093000"]
+    assert doc["mcpServers"]["outreach"] == mi.server_entry()
+    assert backups(tmp_path) == [".claude.json.outreach-backup-20261024093000"]
     assert "If Claude Code is open, restart it." in message
 
 
 def test_second_install_is_a_no_op_without_backup(tmp_path):
     path = tmp_path / ".claude.json"
-    path.write_text(json.dumps({"mcpServers": {"sellbird": mi.server_entry()}}),
+    path.write_text(json.dumps({"mcpServers": {"outreach": mi.server_entry()}}),
                     encoding="utf-8")
     before = path.read_bytes()
 
@@ -120,8 +120,8 @@ def test_missing_claude_is_refused(tmp_path):
 
 def test_foreign_claude_entry_is_refused(tmp_path):
     path = tmp_path / ".claude.json"
-    foreign = {"command": "npx", "args": ["some-other-Sellbird"]}
-    path.write_text(json.dumps({"mcpServers": {"sellbird": foreign}}), encoding="utf-8")
+    foreign = {"command": "npx", "args": ["some-other-Outreach"]}
+    path.write_text(json.dumps({"mcpServers": {"outreach": foreign}}), encoding="utf-8")
     before = path.read_bytes()
     for which in (no_cli, lambda name: "/usr/local/bin/claude"):
         runner = FakeRunner()
@@ -136,13 +136,13 @@ def test_foreign_claude_entry_is_refused(tmp_path):
 
 def test_older_entry_of_ours_is_replaced(tmp_path):
     path = tmp_path / ".claude.json"
-    old = {"command": "/old/venv/bin/python", "args": ["-m", "sellbird", "mcp"]}
-    path.write_text(json.dumps({"mcpServers": {"sellbird": old}}), encoding="utf-8")
+    old = {"command": "/old/venv/bin/python", "args": ["-m", "outreach", "mcp"]}
+    path.write_text(json.dumps({"mcpServers": {"outreach": old}}), encoding="utf-8")
     change = mi.plan_claude(home=tmp_path, which=no_cli, runner=FakeRunner())
     assert change.action == "replace"
     assert any(line.startswith("-") for line in change.preview.splitlines())
     mi.apply_change(change, runner=FakeRunner(), now=NOW)
-    assert json.loads(path.read_text(encoding="utf-8"))["mcpServers"]["sellbird"] == \
+    assert json.loads(path.read_text(encoding="utf-8"))["mcpServers"]["outreach"] == \
         mi.server_entry()
 
 
@@ -156,55 +156,55 @@ def test_claude_cli_preferred_when_present(tmp_path):
     change = mi.plan_claude(home=tmp_path, which=lambda name: claude, runner=runner)
     assert change.action == "cli"
     assert list(change.argv[:6]) == [claude, "mcp", "add-json", "--scope", "user",
-                                     "sellbird"]
+                                     "outreach"]
     assert json.loads(change.argv[6]) == mi.server_entry()
     assert claude in change.preview and "add-json" in change.preview
     assert runner.calls == []                       # planning never runs the CLI
 
     mi.apply_change(change, runner=runner, now=NOW)
     assert runner.calls == [list(change.argv)]      # only the CLI wrote the file
-    assert backups(tmp_path) == [".claude.json.sellbird-backup-20261024093000"]
+    assert backups(tmp_path) == [".claude.json.outreach-backup-20261024093000"]
     assert (tmp_path / backups(tmp_path)[0]).read_bytes() == before
 
 
 def test_claude_cli_replace_preview_shows_old_and_new(tmp_path):
     path = tmp_path / ".claude.json"
-    old = {"command": "/old/bin/sellbird", "args": ["mcp"]}
-    path.write_text(json.dumps({"mcpServers": {"sellbird": old}}), encoding="utf-8")
+    old = {"command": "/old/bin/outreach", "args": ["mcp"]}
+    path.write_text(json.dumps({"mcpServers": {"outreach": old}}), encoding="utf-8")
     change = mi.plan_claude(home=tmp_path, which=lambda name: "/bin/claude",
                             runner=FakeRunner())
     lines = change.preview.splitlines()
-    assert any(l.startswith("-") and "/old/bin/sellbird" in l for l in lines)
+    assert any(l.startswith("-") and "/old/bin/outreach" in l for l in lines)
     assert any(l.startswith("+") and json.dumps(sys.executable)[1:-1] in l for l in lines)
-    assert "claude mcp remove sellbird --scope user" in change.preview
+    assert "claude mcp remove outreach --scope user" in change.preview
 
 
 def test_claude_cli_add_failure_after_remove_puts_old_entry_back(tmp_path):
     path = tmp_path / ".claude.json"
-    old = {"command": "/old/bin/sellbird", "args": ["mcp"]}
-    path.write_text(json.dumps({"mcpServers": {"sellbird": old}}), encoding="utf-8")
+    old = {"command": "/old/bin/outreach", "args": ["mcp"]}
+    path.write_text(json.dumps({"mcpServers": {"outreach": old}}), encoding="utf-8")
     runner = FakeRunner(claude_json=path, fail_adds=1)
     change = mi.plan_claude(home=tmp_path, which=lambda name: "/bin/claude", runner=runner)
     with pytest.raises(mi.InstallError) as err:
         mi.apply_change(change, runner=runner, now=NOW)
     assert "put back" in str(err.value)
     assert [c[2] for c in runner.calls] == ["remove", "add-json", "add-json"]
-    entry = json.loads(path.read_text(encoding="utf-8"))["mcpServers"]["sellbird"]
+    entry = json.loads(path.read_text(encoding="utf-8"))["mcpServers"]["outreach"]
     assert {k: v for k, v in entry.items() if k != "type"} == old
 
 
 def test_claude_cli_both_adds_failing_names_the_backup(tmp_path):
     path = tmp_path / ".claude.json"
-    old = {"command": "/old/bin/sellbird", "args": ["mcp"]}
-    path.write_text(json.dumps({"mcpServers": {"sellbird": old}}), encoding="utf-8")
+    old = {"command": "/old/bin/outreach", "args": ["mcp"]}
+    path.write_text(json.dumps({"mcpServers": {"outreach": old}}), encoding="utf-8")
     runner = FakeRunner(claude_json=path, fail_adds=2)
     change = mi.plan_claude(home=tmp_path, which=lambda name: "/bin/claude", runner=runner)
     with pytest.raises(mi.InstallError) as err:
         mi.apply_change(change, runner=runner, now=NOW)
-    backup = tmp_path / ".claude.json.sellbird-backup-20261024093000"
+    backup = tmp_path / ".claude.json.outreach-backup-20261024093000"
     assert "was removed" in str(err.value)
     assert str(backup) in str(err.value)
-    assert json.loads(backup.read_text(encoding="utf-8"))["mcpServers"]["sellbird"] == old
+    assert json.loads(backup.read_text(encoding="utf-8"))["mcpServers"]["outreach"] == old
 
 
 def test_claude_cli_write_is_verified_by_rereading(tmp_path):
@@ -214,9 +214,9 @@ def test_claude_cli_write_is_verified_by_rereading(tmp_path):
     change = mi.plan_claude(home=tmp_path, which=lambda name: "/bin/claude", runner=runner)
     with pytest.raises(mi.InstallError) as err:
         mi.apply_change(change, runner=runner, now=NOW)
-    assert ".claude.json.sellbird-backup-20261024093000" in str(err.value)
+    assert ".claude.json.outreach-backup-20261024093000" in str(err.value)
 
-    path.write_text(json.dumps({"mcpServers": {"sellbird": mi.server_entry()}}),
+    path.write_text(json.dumps({"mcpServers": {"outreach": mi.server_entry()}}),
                     encoding="utf-8")
     un = mi.plan_uninstall_claude(home=tmp_path, which=lambda name: "/bin/claude",
                                   runner=runner)
@@ -294,15 +294,15 @@ def test_backup_keeps_the_file_mode(tmp_path):
 
 def test_claude_cli_replace_removes_then_adds_and_is_then_a_no_op(tmp_path):
     path = tmp_path / ".claude.json"
-    old = {"type": "stdio", "command": "/old/bin/sellbird", "args": ["mcp"]}
-    path.write_text(json.dumps({"mcpServers": {"sellbird": old}}), encoding="utf-8")
+    old = {"type": "stdio", "command": "/old/bin/outreach", "args": ["mcp"]}
+    path.write_text(json.dumps({"mcpServers": {"outreach": old}}), encoding="utf-8")
     claude = "/usr/local/bin/claude"
     runner = FakeRunner(claude_json=path)
 
     change = mi.plan_claude(home=tmp_path, which=lambda name: claude, runner=runner)
     assert change.action == "cli"
     mi.apply_change(change, runner=runner, now=NOW)
-    assert runner.calls[0] == [claude, "mcp", "remove", "sellbird", "--scope", "user"]
+    assert runner.calls[0] == [claude, "mcp", "remove", "outreach", "--scope", "user"]
     assert runner.calls[1][:3] == [claude, "mcp", "add-json"]
     # The CLI stores "type": "stdio"; that still counts as the same entry.
     again = mi.plan_claude(home=tmp_path, which=lambda name: claude, runner=runner)
@@ -319,7 +319,7 @@ def test_claude_cli_failure_is_reported(tmp_path):
 def test_uninstall_claude_file_removes_only_ours(tmp_path):
     path = tmp_path / ".claude.json"
     other = {"command": "node", "args": ["x.js"]}
-    path.write_text(json.dumps({"mcpServers": {"x": other, "sellbird": mi.server_entry()},
+    path.write_text(json.dumps({"mcpServers": {"x": other, "outreach": mi.server_entry()},
                                 "other": 1}), encoding="utf-8")
     change = mi.plan_uninstall_claude(home=tmp_path, which=no_cli, runner=FakeRunner())
     assert change.action == "remove"
@@ -331,20 +331,20 @@ def test_uninstall_claude_file_removes_only_ours(tmp_path):
 
 
 def test_is_ours():
-    assert mi.is_ours({"command": "/x/python", "args": ["-m", "sellbird", "mcp"]})  # before -P
-    assert mi.is_ours({"command": "/x/python", "args": ["-P", "-m", "sellbird", "mcp"]})
-    assert mi.is_ours({"command": "/x/bin/sellbird", "args": ["mcp"]})
-    assert mi.is_ours({"command": "C:\\x\\Scripts\\sellbird.exe", "args": ["mcp"]})
-    assert not mi.is_ours({"command": "npx", "args": ["sellbird"]})
-    assert not mi.is_ours({"command": "/x/sellbird", "args": ["mcp", "--other"]})
+    assert mi.is_ours({"command": "/x/python", "args": ["-m", "outreach", "mcp"]})  # before -P
+    assert mi.is_ours({"command": "/x/python", "args": ["-P", "-m", "outreach", "mcp"]})
+    assert mi.is_ours({"command": "/x/bin/outreach", "args": ["mcp"]})
+    assert mi.is_ours({"command": "C:\\x\\Scripts\\outreach.exe", "args": ["mcp"]})
+    assert not mi.is_ours({"command": "npx", "args": ["outreach"]})
+    assert not mi.is_ours({"command": "/x/outreach", "args": ["mcp", "--other"]})
     assert not mi.is_ours("not a dict")
 
 
 def test_entry_has_no_token():
     entry = mi.server_entry()
     assert entry["command"] == sys.executable
-    assert entry["args"] == ["-P", "-m", "sellbird", "mcp"]
-    assert set(entry["env"]) == {"SELLBIRD_HOME"}
+    assert entry["args"] == ["-P", "-m", "outreach", "mcp"]
+    assert set(entry["env"]) == {"OUTREACH_HOME"}
     assert "token" not in json.dumps(entry).lower()
 
 
@@ -384,9 +384,9 @@ def test_codex_append_preserves_bytes_and_comments(tmp_path):
     new = path.read_bytes().decode("utf-8")
     assert new.startswith(CODEX_ORIGINAL)
     doc = tomllib.loads(new)
-    assert doc["mcp_servers"]["sellbird"] == mi.server_entry()
+    assert doc["mcp_servers"]["outreach"] == mi.server_entry()
     assert doc["mcp_servers"]["other"] == {"command": "node", "args": ["x.js"]}
-    assert backups(path.parent) == ["config.toml.sellbird-backup-20261024093000"]
+    assert backups(path.parent) == ["config.toml.outreach-backup-20261024093000"]
     assert mi.plan_codex(env=codex_env(tmp_path), home=tmp_path).action == "none"
 
 
@@ -394,7 +394,7 @@ def test_backups_in_the_same_second_never_overwrite(tmp_path):
     path = write_codex(tmp_path, CODEX_ORIGINAL)
     mi.apply_change(mi.plan_codex(env=codex_env(tmp_path), home=tmp_path), now=NOW)
     mi.apply_change(mi.plan_uninstall_codex(env=codex_env(tmp_path), home=tmp_path), now=NOW)
-    first = path.with_name("config.toml.sellbird-backup-20261024093000")
+    first = path.with_name("config.toml.outreach-backup-20261024093000")
     assert first.read_text(encoding="utf-8") == CODEX_ORIGINAL
     assert path.with_name(first.name + "-2").exists()
 
@@ -404,23 +404,23 @@ def test_codex_missing_file_is_created(tmp_path):
     assert change.action == "add"
     mi.apply_change(change, now=NOW)
     doc = tomllib.loads((tmp_path / "codex" / "config.toml").read_text(encoding="utf-8"))
-    assert doc == {"mcp_servers": {"sellbird": mi.server_entry()}}
+    assert doc == {"mcp_servers": {"outreach": mi.server_entry()}}
 
 
 def test_codex_windows_path_round_trips():
-    entry = {"command": "C:\\Users\\Sam\\pipx\\venvs\\sellbird\\Scripts\\python.exe",
-             "args": ["-m", "sellbird", "mcp"],
-             "env": {"SELLBIRD_HOME": "C:\\Users\\Sam O'Neil\\AppData\\Roaming\\sellbird"}}
+    entry = {"command": "C:\\Users\\Sam\\pipx\\venvs\\outreach\\Scripts\\python.exe",
+             "args": ["-m", "outreach", "mcp"],
+             "env": {"OUTREACH_HOME": "C:\\Users\\Sam O'Neil\\AppData\\Roaming\\outreach"}}
     block = mi.render_codex_block(entry)
     assert block.splitlines()[0] == mi.CODEX_MARKER
-    assert block.splitlines()[1] == "[mcp_servers.sellbird]"
+    assert block.splitlines()[1] == "[mcp_servers.outreach]"
     assert "'C:\\Users\\Sam\\pipx" in block            # literal string, no escaping
-    assert tomllib.loads(block)["mcp_servers"]["sellbird"] == entry
+    assert tomllib.loads(block)["mcp_servers"]["outreach"] == entry
 
 
 def test_codex_newline_value_round_trips():
-    entry = {"command": "/a\"b\\c", "args": ["line\none"], "env": {"SELLBIRD_HOME": "x"}}
-    assert tomllib.loads(mi.render_codex_block(entry))["mcp_servers"]["sellbird"] == entry
+    entry = {"command": "/a\"b\\c", "args": ["line\none"], "env": {"OUTREACH_HOME": "x"}}
+    assert tomllib.loads(mi.render_codex_block(entry))["mcp_servers"]["outreach"] == entry
 
 
 def test_invalid_toml_is_never_rewritten(tmp_path):
@@ -433,12 +433,12 @@ def test_invalid_toml_is_never_rewritten(tmp_path):
 
 
 def test_foreign_codex_entry_is_refused(tmp_path):
-    text = CODEX_ORIGINAL + "\n[mcp_servers.sellbird]\ncommand = 'npx'\n"
+    text = CODEX_ORIGINAL + "\n[mcp_servers.outreach]\ncommand = 'npx'\n"
     path = write_codex(tmp_path, text)
     change = mi.plan_codex(env=codex_env(tmp_path), home=tmp_path)
     assert change.action == "refuse"
     assert change.reason == (
-        "~/.codex/config.toml already has a Sellbird server that this command didn't "
+        "~/.codex/config.toml already has a Outreach server that this command didn't "
         "add. Edit it yourself, or remove it and run this again.")
     mi.apply_change(change, now=NOW)
     assert mi.plan_uninstall_codex(env=codex_env(tmp_path), home=tmp_path).action == "refuse"
@@ -456,7 +456,7 @@ def test_codex_marked_block_is_replaced_in_place(tmp_path):
     new = path.read_text(encoding="utf-8")
     assert new.startswith(CODEX_ORIGINAL)
     assert new.endswith("\n# theirs\n[tail]\nk = 1\n")
-    assert tomllib.loads(new)["mcp_servers"]["sellbird"] == mi.server_entry()
+    assert tomllib.loads(new)["mcp_servers"]["outreach"] == mi.server_entry()
 
 
 def test_codex_home_env_honored(tmp_path):
@@ -543,7 +543,7 @@ def test_yes_applies(tmp_path):
     path.write_text("{}", encoding="utf-8")
     code, text = run(tmp_path, "install", "--yes")
     assert code == 0
-    assert json.loads(path.read_text(encoding="utf-8"))["mcpServers"]["sellbird"] == \
+    assert json.loads(path.read_text(encoding="utf-8"))["mcpServers"]["outreach"] == \
         mi.server_entry()
     assert "If Claude Code is open, restart it." in text
 
@@ -556,7 +556,7 @@ def test_tty_asks_and_no_means_no(tmp_path):
     assert path.read_text(encoding="utf-8") == "{}"
     code, text = run(tmp_path, "install", tty=True, answer="y")
     assert code == 0
-    assert "sellbird" in json.loads(path.read_text(encoding="utf-8"))["mcpServers"]
+    assert "outreach" in json.loads(path.read_text(encoding="utf-8"))["mcpServers"]
 
 
 def test_no_client_install_never_touches_codex(tmp_path):
@@ -568,7 +568,7 @@ def test_no_client_install_never_touches_codex(tmp_path):
     assert code == 0
     assert codex.read_bytes() == CODEX_ORIGINAL.encode("utf-8")
     assert runner.calls == []
-    assert "Codex found. To add Sellbird to it too, run: sellbird mcp install codex" in text
+    assert "Codex found. To add Outreach to it too, run: outreach mcp install codex" in text
     code, text = run(tmp_path, "uninstall", "--yes", runner=runner,
                      which=lambda name: "/bin/codex" if name == "codex" else None)
     assert code == 0
@@ -583,21 +583,21 @@ def test_refusal_exits_nonzero_and_says_why(tmp_path):
 
 def test_already_set_up_exits_zero_without_asking(tmp_path):
     (tmp_path / ".claude.json").write_text(
-        json.dumps({"mcpServers": {"sellbird": mi.server_entry()}}), encoding="utf-8")
+        json.dumps({"mcpServers": {"outreach": mi.server_entry()}}), encoding="utf-8")
     code, text = run(tmp_path, "install")
     assert code == 0
     assert "Already set up for Claude Code." in text
 
 
-def test_plain_sellbird_mcp_still_serves_stdio(monkeypatch, capsys):
-    import sellbird.cli as cli
-    import sellbird.home as home
-    import sellbird.mcp_server as server
+def test_plain_outreach_mcp_still_serves_stdio(monkeypatch, capsys):
+    import outreach.cli as cli
+    import outreach.home as home
+    import outreach.mcp_server as server
 
     served = []
     monkeypatch.setattr(server, "run_stdio", lambda: served.append(True))
     monkeypatch.setattr(home, "seed_home", lambda *a, **k: None)
-    monkeypatch.setattr(sys, "argv", ["sellbird", "mcp"])
+    monkeypatch.setattr(sys, "argv", ["outreach", "mcp"])
     cli.main()
     assert served == [True]
     out = capsys.readouterr()
@@ -605,8 +605,8 @@ def test_plain_sellbird_mcp_still_serves_stdio(monkeypatch, capsys):
 
 
 def test_cli_routes_install(monkeypatch, capsys):
-    import sellbird.cli as cli
-    import sellbird.home as home
+    import outreach.cli as cli
+    import outreach.home as home
 
     seen = {}
 
@@ -615,18 +615,18 @@ def test_cli_routes_install(monkeypatch, capsys):
         return 0
     monkeypatch.setattr(mi, "run_command", fake_run_command)
     monkeypatch.setattr(home, "seed_home", lambda *a, **k: None)
-    monkeypatch.setattr(sys, "argv", ["sellbird", "mcp", "install", "codex", "--yes"])
+    monkeypatch.setattr(sys, "argv", ["outreach", "mcp", "install", "codex", "--yes"])
     with pytest.raises(SystemExit) as exit_:
         cli.main()
     assert exit_.value.code == 0
     assert seen == {"action": "install", "client": "codex", "print_only": False, "yes": True}
 
 
-@pytest.mark.parametrize("argv", [["sellbird", "mcp", "--yes"], ["sellbird", "mcp", "--print"]])
+@pytest.mark.parametrize("argv", [["outreach", "mcp", "--yes"], ["outreach", "mcp", "--print"]])
 def test_flags_without_an_action_are_an_error(monkeypatch, capsys, argv):
-    import sellbird.cli as cli
-    import sellbird.home as home
-    import sellbird.mcp_server as server
+    import outreach.cli as cli
+    import outreach.home as home
+    import outreach.mcp_server as server
 
     served = []
     monkeypatch.setattr(server, "run_stdio", lambda: served.append(True))
@@ -649,17 +649,17 @@ def test_print_config_writes_nothing(tmp_path, capsys):
     assert text == config
     assert '"mcpServers"' in config and mi.CODEX_MARKER in config
     assert config.splitlines()[-1] == (
-        f"Any other MCP client: command {sys.executable}, args -P -m sellbird mcp, "
-        f"env SELLBIRD_HOME={mi.server_entry()['env']['SELLBIRD_HOME']}")
+        f"Any other MCP client: command {sys.executable}, args -P -m outreach mcp, "
+        f"env OUTREACH_HOME={mi.server_entry()['env']['OUTREACH_HOME']}")
     first_json = config.split("\n\n")[0]
-    assert json.loads(first_json) == {"mcpServers": {"sellbird": mi.server_entry()}}
+    assert json.loads(first_json) == {"mcpServers": {"outreach": mi.server_entry()}}
 
 
 def test_brain_codex_home_is_still_private():
-    from sellbird.codex import build_private_config_toml
+    from outreach.codex import build_private_config_toml
 
     text = build_private_config_toml()
-    assert "sellbird" not in text
+    assert "outreach" not in text
     assert "mcp_servers" not in text
 
 
@@ -710,7 +710,7 @@ def test_restore_keeps_the_originals_mode(tmp_path):
 
 def test_cli_remove_with_an_unreadable_file_afterwards_is_not_success(tmp_path, monkeypatch):
     path = tmp_path / ".claude.json"
-    path.write_text(json.dumps({"mcpServers": {"sellbird": mi.server_entry()}}),
+    path.write_text(json.dumps({"mcpServers": {"outreach": mi.server_entry()}}),
                     encoding="utf-8")
     claude = str(tmp_path / "bin" / "claude")
     runner = FakeRunner(claude_json=path)

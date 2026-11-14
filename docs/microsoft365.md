@@ -1,6 +1,6 @@
 # Sending from a Microsoft 365 mailbox
 
-Sellbird can send and read mail through a Microsoft 365 / Outlook mailbox
+Outreach can send and read mail through a Microsoft 365 / Outlook mailbox
 (Exchange Online) using Microsoft Graph. Use it when your sending domain's
 mail lives in Microsoft 365.
 
@@ -8,12 +8,12 @@ mail lives in Microsoft 365.
 
 Exchange Online no longer accepts a password for IMAP, and SMTP AUTH is off
 by default in most tenants. The `smtp` provider can sometimes still send, but
-it can't read the inbox. Sellbird has to read replies to stop sequences, honor
+it can't read the inbox. Outreach has to read replies to stop sequences, honor
 opt-outs and catch bounces. If it can send but can't read, it keeps emailing
 people who already answered.
 
 The `microsoft` provider signs in with OAuth (authorization code + PKCE)
-instead. Sellbird never stores a password or a client secret.
+instead. Outreach never stores a password or a client secret.
 
 ## Setup
 
@@ -24,7 +24,7 @@ At [entra.microsoft.com](https://entra.microsoft.com), go to
 
 | Field | Value |
 |---|---|
-| Name | `Sellbird` |
+| Name | `Outreach` |
 | Supported account types | *Accounts in this organizational directory only* |
 | Redirect URI, platform | **Public client/native (mobile & desktop)** |
 | Redirect URI, value | `http://localhost:8766` |
@@ -32,9 +32,9 @@ At [entra.microsoft.com](https://entra.microsoft.com), go to
 From the app's **Overview**, copy the **Application (client) ID** and the
 **Directory (tenant) ID**.
 
-Don't create a client secret. Sellbird is a public client.
+Don't create a client secret. Outreach is a public client.
 
-### 2. Configure Sellbird
+### 2. Configure Outreach
 
 `.env`:
 
@@ -43,7 +43,7 @@ M365_CLIENT_ID=<Application (client) ID>
 M365_TENANT_ID=<Directory (tenant) ID>
 ```
 
-`sellbird.yaml` (or `sellbird.local.yaml`):
+`outreach.yaml` (or `outreach.local.yaml`):
 
 ```yaml
 persona:
@@ -56,11 +56,11 @@ channels:
 ### 3. Sign in once
 
 ```bash
-sellbird microsoft auth   # opens the browser; sign in as persona.email
-sellbird microsoft test   # → ✓ Connected as you@yourdomain.com
+outreach microsoft auth   # opens the browser; sign in as persona.email
+outreach microsoft test   # → ✓ Connected as you@yourdomain.com
 ```
 
-Sellbird asks for four **delegated** permissions:
+Outreach asks for four **delegated** permissions:
 
 | Permission | Why it's needed |
 |---|---|
@@ -72,22 +72,22 @@ Sellbird asks for four **delegated** permissions:
 The refresh token is stored in `data/m365_token.json` (gitignored). On macOS
 and Linux the file is mode 600 (owner only). Windows has no such mode bits:
 the file is protected only by the access permissions (ACLs) of the folder
-Sellbird lives in, so keep Sellbird in a folder only you can read.
-Microsoft rotates it on every use, and Sellbird saves the new one each time.
+Outreach lives in, so keep Outreach in a folder only you can read.
+Microsoft rotates it on every use, and Outreach saves the new one each time.
 
 ### If you see "Need admin approval"
 
 Your tenant doesn't let users consent to apps themselves. An admin has to
 approve the app once:
 
-1. In Entra, open **App registrations → Sellbird → API permissions**. Add the
+1. In Entra, open **App registrations → Outreach → API permissions**. Add the
    four Microsoft Graph delegated permissions above, then click
    **Grant admin consent**.
-2. Run `sellbird microsoft auth` again and sign in as the **sending mailbox**,
-   not as the admin. Sellbird always acts as whoever signs in.
+2. Run `outreach microsoft auth` again and sign in as the **sending mailbox**,
+   not as the admin. Outreach always acts as whoever signs in.
 
 To make sure nobody else in the tenant can use the app, go to
-**Enterprise applications → Sellbird**:
+**Enterprise applications → Outreach**:
 
 1. **Users and groups**: assign only the sending mailbox.
 2. **Properties**: set **Assignment required?** to **Yes**. Do this after
@@ -95,16 +95,16 @@ To make sure nobody else in the tenant can use the app, go to
 
 ## How it behaves
 
-- **Sending.** Sellbird creates a draft and then sends it, so the email's
+- **Sending.** Outreach creates a draft and then sends it, so the email's
   RFC `Message-ID` is known. Bounces and replies are matched on it. Bodies
   are plain text, unless `channels.email.signature.logo` is set: then the
   body is HTML and the logo is added to the draft as an inline attachment
   before it's sent. Outlook's own signature isn't added to mail sent
-  through Graph, so this is the way to put a logo under Sellbird's email.
-- **Replies are threaded.** Sellbird answers with `createReply` on the
+  through Graph, so this is the way to put a logo under Outreach's email.
+- **Replies are threaded.** Outreach answers with `createReply` on the
   prospect's own message, so `In-Reply-To` and `References` are correct. If
   that message was deleted, the reply goes out as a new email.
-- **Your inbox is left alone.** Each cycle, Sellbird reads the last 7 days of
+- **Your inbox is left alone.** Each cycle, Outreach reads the last 7 days of
   the inbox, newest first, all of it (page by page), and skips your own mail. It never marks anything
   read, moves it or deletes it. It keeps its own record of what it has
   handled.
@@ -116,7 +116,7 @@ To make sure nobody else in the tenant can use the app, go to
   Graph outage, throttling), the cycle sends nothing. A reply nobody read
   can't have stopped its follow-ups. Graph throttling (429/503 with a short
   `Retry-After`) is retried once. A read that fails part-way through counts
-  as a failed read: Sellbird never acts on part of the inbox.
+  as a failed read: Outreach never acts on part of the inbox.
 - **Unsent drafts are cleaned up.** If a send fails, its draft is deleted
   so it doesn't sit in your Drafts folder.
 - **The sender name is the mailbox's.** Mail goes out under the mailbox's
@@ -129,10 +129,10 @@ To make sure nobody else in the tenant can use the app, go to
 | `Timed out waiting for the browser round-trip` | The browser never came back to `localhost:8766`. Check that nothing else uses the port, and that the redirect URI is `http://localhost:8766` under *Mobile and desktop applications* (not *Web*). |
 | `AADSTS50011` (redirect URI mismatch) | Same as above: the URI and its platform must match exactly. |
 | `Need admin approval` | See [If you see "Need admin approval"](#if-you-see-need-admin-approval). |
-| `signed in as X, but persona.email is Y` | Run `sellbird microsoft auth` again and pick the right account. Use "Use another account" if the browser is already signed in as someone else. |
-| `token refresh rejected` | The login expired (90 days unused) or was revoked. Run `sellbird microsoft auth` again. |
+| `signed in as X, but persona.email is Y` | Run `outreach microsoft auth` again and pick the right account. Use "Use another account" if the browser is already signed in as someone else. |
+| `token refresh rejected` | The login expired (90 days unused) or was revoked. Run `outreach microsoft auth` again. |
 
-To revoke Sellbird's access, go to
+To revoke Outreach's access, go to
 [myaccount.microsoft.com](https://myaccount.microsoft.com) → **Apps**, or
 delete the app registration. Then delete `data/m365_token.json`.
 
@@ -149,16 +149,16 @@ delete the app registration. Then delete `data/m365_token.json`.
 
 | File | What it is |
 |---|---|
-| `sellbird/integrations/microsoft.py` | `MicrosoftProvider` (a `MailProvider`) and `run_auth_flow` |
-| `sellbird/integrations/mail_provider.py` | Registers `microsoft` in `NATIVE_PROVIDERS` and `get_mail_provider` |
-| `sellbird/cli.py` | `sellbird microsoft auth\|test` |
+| `outreach/integrations/microsoft.py` | `MicrosoftProvider` (a `MailProvider`) and `run_auth_flow` |
+| `outreach/integrations/mail_provider.py` | Registers `microsoft` in `NATIVE_PROVIDERS` and `get_mail_provider` |
+| `outreach/cli.py` | `outreach microsoft auth\|test` |
 | `tests/test_microsoft.py` | Graph and login faked with `httpx.MockTransport`; no network |
 
 `get_replies` **raises** `GraphError` when the inbox can't be read, instead
 of returning `[]`. The handler turns that into a failed read, and the
 heartbeat holds sending. It returns the whole 7-day window or nothing:
 
-- **Every page.** `limit` is only the page size (`$top`). Sellbird follows
+- **Every page.** `limit` is only the page size (`$top`). Outreach follows
   `@odata.nextLink` until Graph stops sending one, using the link exactly
   as given, without re-adding the first request's parameters or touching
   `$skip`, as Microsoft asks. Messages repeated across pages (new mail

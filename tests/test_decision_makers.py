@@ -2,7 +2,7 @@
 
 import pytest
 
-from sellbird.decision_makers import (
+from outreach.decision_makers import (
     DecisionMaker,
     DecisionMakerConfig,
     DecisionMakerExtractor,
@@ -195,7 +195,7 @@ def test_extract_social_profiles_linkedin_twitter_and_github():
 @pytest.mark.asyncio
 async def test_enrich_social_profiles_via_search_mocked(monkeypatch):
     from unittest.mock import AsyncMock
-    from sellbird.decision_makers import enrich_social_profiles_via_search
+    from outreach.decision_makers import enrich_social_profiles_via_search
 
     dm = DecisionMaker(
         first_name="Marcus",
@@ -224,7 +224,7 @@ async def test_enrich_social_profiles_via_search_mocked(monkeypatch):
     mock_client.post = mock_post
     mock_client.__aenter__.return_value = mock_client
 
-    monkeypatch.setattr("sellbird.public_http.public_http_client", lambda timeout=8.0: mock_client)
+    monkeypatch.setattr("outreach.public_http.public_http_client", lambda timeout=8.0: mock_client)
 
     await enrich_social_profiles_via_search([dm], company_name="Frontier AI", serper_api_key="sk-test", max_lookups=2)
 

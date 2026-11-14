@@ -13,8 +13,8 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
-from sellbird.integrations import gmail, microsoft, smtp_mail
-from sellbird.integrations.mail_provider import (
+from outreach.integrations import gmail, microsoft, smtp_mail
+from outreach.integrations.mail_provider import (
     INBOX_NOT_CONNECTED,
     MailIdentity,
     SendResult,
@@ -49,7 +49,7 @@ def test_the_main_mailbox_is_the_persona():
 
 
 def test_missing_token_text_names_the_right_fix():
-    assert missing_token_text(None, "Run 'sellbird gmail auth'.") == "Run 'sellbird gmail auth'."
+    assert missing_token_text(None, "Run 'outreach gmail auth'.") == "Run 'outreach gmail auth'."
     assert missing_token_text(_Tokens(), "x") == INBOX_NOT_CONNECTED
     why = _Tokens()
     why.missing_reason = lambda: "the vault is locked"
@@ -184,7 +184,7 @@ async def test_microsoft_with_its_own_tokens_checks_the_signed_in_account():
 @pytest.mark.asyncio
 @pytest.mark.parametrize("uncertain", [True, False])
 async def test_a_send_that_may_have_gone_out_is_marked_so(tmp_path, uncertain):
-    from sellbird.state import MAYBE_SENT_PREFIX, StateManager
+    from outreach.state import MAYBE_SENT_PREFIX, StateManager
     from tests.test_outbox_native import _now_iso, make_sender, seed_prospect
 
     class Provider:

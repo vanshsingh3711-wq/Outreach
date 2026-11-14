@@ -3,10 +3,10 @@
 import pytest
 from pydantic import ValidationError
 
-from sellbird.models.prospect import Prospect
-from sellbird.models.company import Company
-from sellbird.models.campaign import Campaign, EmailStep
-from sellbird.models.conversation import Conversation, Message, STAGES
+from outreach.models.prospect import Prospect
+from outreach.models.company import Company
+from outreach.models.campaign import Campaign, EmailStep
+from outreach.models.conversation import Conversation, Message, STAGES
 
 
 # ── Prospect ──
@@ -98,7 +98,7 @@ def test_campaign_sequence_json_unicode_round_trip():
 
 def test_message_requires_sender_and_content():
     with pytest.raises(ValidationError):
-        Message(sender="sellbird")
+        Message(sender="outreach")
     with pytest.raises(ValidationError):
         Message(content="hi")
 
@@ -131,7 +131,7 @@ def test_conversation_empty_thread_round_trip():
 def test_thread_json_preserves_timestamps():
     convo = Conversation(
         id="x", prospect_id="p1",
-        thread=[Message(sender="sellbird", content="Hi")],
+        thread=[Message(sender="outreach", content="Hi")],
     )
     original_ts = convo.thread[0].timestamp
     restored = Conversation.thread_from_json(convo.thread_json())

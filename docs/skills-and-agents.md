@@ -2,9 +2,9 @@
 
 ## The skills library
 
-Sellbird's sales knowledge lives in `skills/` as **plain Markdown you can edit**. There is no fine-tuning, no vector store, no retrieval step. Before an agent runs, the skills it needs are concatenated straight into its prompt. Change a file, and the next heartbeat behaves differently — no restart, no code change.
+Outreach's sales knowledge lives in `skills/` as **plain Markdown you can edit**. There is no fine-tuning, no vector store, no retrieval step. Before an agent runs, the skills it needs are concatenated straight into its prompt. Change a file, and the next heartbeat behaves differently — no restart, no code change.
 
-This is the main way you shape Sellbird. If its emails are too pushy, edit `email_frameworks.md`. If it mishandles a specific objection, edit `objection_handling.md` and add the response you'd actually give.
+This is the main way you shape Outreach. If its emails are too pushy, edit `email_frameworks.md`. If it mishandles a specific objection, edit `objection_handling.md` and add the response you'd actually give.
 
 **Your own email shape.** Whatever the skills say, the Writer ends every prompt with a built-in shape: email 1 under 75 words, one observation and one question, no pitch, no link. If your first email has to do more (say who you are, what it costs, link to a sign-up page), write your rules in a markdown file and point `writer.email_rules` at it:
 
@@ -13,7 +13,7 @@ writer:
   email_rules: "skills/email_rules.md"   # gitignored
 ```
 
-The file replaces the built-in shape for the per-person first email and the 3-email sequence, and wins over `email_frameworks.md` and the prompt's style rules where they disagree. It can't lift the FACTS rule (nothing about a prospect is invented), and the send gate still applies: at most 220 words and one link per email, and the do-not-contact list. If `compliance.opt_out_line` is set, Sellbird adds it under each cold email and tells the Writer not to write a second one; leave it empty and your rules can put an opt-out sentence in the body instead (Sellbird still warns, since it can't check your sentence). Sellbird's own opt-out phrase checks cover English, Hebrew, Spanish and French; the model still reads every reply for a request to stop, in any language. A file that's set but missing, empty or over 20,000 characters stops the Writer until it's fixed, rather than drafting in the shape you replaced.
+The file replaces the built-in shape for the per-person first email and the 3-email sequence, and wins over `email_frameworks.md` and the prompt's style rules where they disagree. It can't lift the FACTS rule (nothing about a prospect is invented), and the send gate still applies: at most 220 words and one link per email, and the do-not-contact list. If `compliance.opt_out_line` is set, Outreach adds it under each cold email and tells the Writer not to write a second one; leave it empty and your rules can put an opt-out sentence in the body instead (Outreach still warns, since it can't check your sentence). Outreach's own opt-out phrase checks cover English, Hebrew, Spanish and French; the model still reads every reply for a request to stop, in any language. A file that's set but missing, empty or over 20,000 characters stops the Writer until it's fixed, rather than drafting in the shape you replaced.
 
 ### What ships
 
@@ -25,7 +25,7 @@ The file replaces the built-in shape for the per-person first email and the 3-em
 
 **`lead_qualification.md`** — **BANT** for the first screen, ICP scoring 1–10 for prioritization, **MEDDIC** for anything complex. Includes explicit disqualification criteria, which matter more than the qualification ones.
 
-**`sales_methodology.md`** — The operating philosophy: the ABC loop, how a conversation should flow across stages, tone calibration, and the ethical lines Sellbird does not cross.
+**`sales_methodology.md`** — The operating philosophy: the ABC loop, how a conversation should flow across stages, tone calibration, and the ethical lines Outreach does not cross.
 
 **`offer_strategy.md`** — The offer ladder by engagement level, and the rule that governs it: *never lead with an offer, never pitch in a cold email.* First contact exists to start a conversation. Offers come out only after genuine interest.
 
@@ -35,7 +35,7 @@ The file replaces the built-in shape for the per-person first email and the 3-em
 
 **`linkedin_outreach.md`** — Connection sequences and rate limits, opening with the risk section it should open with: automating LinkedIn violates their ToS, never use a fake identity, and if someone asks whether this is automated, say yes immediately.
 
-**Generated for your product by `sellbird train <url>`:**
+**Generated for your product by `outreach train <url>`:**
 
 - **`product_knowledge.md`** — what you sell, the benefits, pricing, use cases, the pain you solve, buying triggers
 - **`competitive_intel.md`** — battle cards per competitor, differentiation angles, migration paths
@@ -44,7 +44,7 @@ The file replaces the built-in shape for the per-person first email and the 3-em
 
 ### Which agent gets which
 
-Defined in `sellbird/brain.py` — edit the map to change it.
+Defined in `outreach/brain.py` — edit the map to change it.
 
 | Skill | Scout | Writer | Handler | Sender | LinkedIn |
 |---|:-:|:-:|:-:|:-:|:-:|
@@ -60,13 +60,13 @@ Defined in `sellbird/brain.py` — edit the map to change it.
 | `product_knowledge` | ● | ● | ● | ● | ● |
 | `competitive_intel` | | ● | ● | | |
 
-Adding a skill: write the file, add its name to `skill_map` in `sellbird/brain.py`. That's the whole process.
+Adding a skill: write the file, add its name to `skill_map` in `outreach/brain.py`. That's the whole process.
 
 ---
 
 ## The sub-agents
 
-Sellbird feels like one agent. Underneath it's five, each loaded with different skills.
+Outreach feels like one agent. Underneath it's five, each loaded with different skills.
 
 | Agent | What it does |
 |---|---|

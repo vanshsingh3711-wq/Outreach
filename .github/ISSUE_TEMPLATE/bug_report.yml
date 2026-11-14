@@ -1,11 +1,11 @@
 name: Bug report
-description: Something in Sellbird doesn't work as it should.
+description: Something in Outreach doesn't work as it should.
 labels: [bug]
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for reporting. Please don't include real people's names, email addresses or anything from your Sellbird database. Use fictional examples and counts instead.
+        Thanks for reporting. Please don't include real people's names, email addresses or anything from your Outreach database. Use fictional examples and counts instead.
   - type: textarea
     id: what
     attributes:
@@ -18,19 +18,19 @@ body:
     attributes:
       label: Steps to reproduce
       placeholder: |
-        1. Run `sellbird ...`
+        1. Run `outreach ...`
         2. ...
   - type: textarea
     id: logs
     attributes:
       label: Error or log output
-      description: From the terminal or `data/sellbird.log`, with any real contact data removed.
+      description: From the terminal or `data/outreach.log`, with any real contact data removed.
       render: text
   - type: input
     id: version
     attributes:
       label: Version
-      description: Output of `git log -1 --format=%h` in your Sellbird folder.
+      description: Output of `git log -1 --format=%h` in your Outreach folder.
   - type: dropdown
     id: provider
     attributes:

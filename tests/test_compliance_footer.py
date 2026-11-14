@@ -10,11 +10,11 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from sellbird.agents.sender import Sender
-from sellbird.config import ComplianceConfig, EnvConfig, compliance_notice
-from sellbird.gate import pre_send_check
-from sellbird.integrations.mail_provider import InboundMessage, strip_quoted_reply
-from sellbird.models.campaign import Campaign, EmailStep
+from outreach.agents.sender import Sender
+from outreach.config import ComplianceConfig, EnvConfig, compliance_notice
+from outreach.gate import pre_send_check
+from outreach.integrations.mail_provider import InboundMessage, strip_quoted_reply
+from outreach.models.campaign import Campaign, EmailStep
 from tests.test_outbox_native import (  # noqa: F401  (state is a fixture)
     FakeProvider, StubBrain, make_handler, make_sender, seed_prospect, state,
 )
@@ -148,12 +148,12 @@ def test_the_notice_asks_for_an_address_only_when_email_is_on():
 
 GMAIL_QUOTE = (
     "Sounds interesting, send me pricing.\n\n"
-    "On Tue, Oct 14, 2026 at 3:02 PM Sellbird <sellbird@x.co> wrote:\n"
+    "On Tue, Oct 14, 2026 at 3:02 PM Outreach <outreach@x.co> wrote:\n"
     "> A short, plain note. Question?\n>\n> " + ADDRESS + "\n> " + LINE
 )
 OUTLOOK_QUOTE = (
     "Sounds interesting, send me pricing.\n\n"
-    "From: Sellbird <sellbird@x.co>\nSent: Tuesday, October 14, 2026 3:02 PM\n"
+    "From: Outreach <outreach@x.co>\nSent: Tuesday, October 14, 2026 3:02 PM\n"
     "To: Jane\nSubject: hello there\n\n"
     "A short, plain note. Question?\n\n" + ADDRESS + "\n"
     # Outlook re-wraps lines and uses curly quotes.
@@ -168,11 +168,11 @@ def test_strip_keeps_only_what_they_wrote():
         "Thanks.\n\n-----Original Message-----\nFrom: x") == "Thanks."
     # Answers written between quoted lines are theirs too.
     assert strip_quoted_reply(
-        "Hi Sellbird,\n\n> Would you be open to a call?\n\nNo. Remove me please."
-    ) == "Hi Sellbird,\n\nNo. Remove me please."
+        "Hi Outreach,\n\n> Would you be open to a call?\n\nNo. Remove me please."
+    ) == "Hi Outreach,\n\nNo. Remove me please."
     # Everything under a quote header: keep their lines, never return nothing.
     assert "Remove me" in strip_quoted_reply(
-        "On Tue Sellbird wrote:\n> Open to a call?\nRemove me")
+        "On Tue Outreach wrote:\n> Open to a call?\nRemove me")
     assert strip_quoted_reply("") == ""
 
 
@@ -202,10 +202,10 @@ async def _reply(state, body, intent="interested"):
 @pytest.mark.parametrize("body", [
     GMAIL_QUOTE, OUTLOOK_QUOTE,
     # An HTML-only reply converted to text keeps its entities.
-    "Sounds interesting.\n\nOn Tue Sellbird wrote:\nNot interested? Reply &quot;no thanks&quot; "
+    "Sounds interesting.\n\nOn Tue Outreach wrote:\nNot interested? Reply &quot;no thanks&quot; "
     "and I won&#39;t email again.",
     # Gmail re-wraps long quoted lines.
-    "Sounds interesting.\n\nOn Tue Sellbird wrote:\n> Not interested? Reply \"no\n> thanks\" "
+    "Sounds interesting.\n\nOn Tue Outreach wrote:\n> Not interested? Reply \"no\n> thanks\" "
     "and I won't email again.",
 ], ids=["gmail", "outlook", "html-entities", "gmail-wrapped"])
 async def test_our_own_quoted_footer_never_reads_as_an_opt_out(state, body):
@@ -218,11 +218,11 @@ async def test_our_own_quoted_footer_never_reads_as_an_opt_out(state, body):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("body", [
     "No thanks.",
-    "no thank you\n\nOn Tue Sellbird wrote:\n> A short, plain note.",
+    "no thank you\n\nOn Tue Outreach wrote:\n> A short, plain note.",
     # Answered inline, below and between our quoted lines.
     "> Would you be open to a quick call?\nNo. Please remove me from your list.",
-    "Hi Sellbird,\n\n> Would you be open to a quick call?\n\nNo. Remove me from your list.",
-    "On Tue Sellbird wrote:\n> Open to a call?\nunsubscribe",
+    "Hi Outreach,\n\n> Would you be open to a quick call?\n\nNo. Remove me from your list.",
+    "On Tue Outreach wrote:\n> Open to a call?\nunsubscribe",
 ], ids=["no-thanks", "above-quote", "below-quote", "between-quotes", "under-header"])
 async def test_an_opt_out_is_honoured_wherever_they_wrote_it(state, body):
     status, _ = await _reply(state, body)
@@ -249,24 +249,24 @@ def _config(address):
 
 
 def test_the_outbox_shows_the_footer_and_asks_for_a_missing_address(client, monkeypatch):
-    import sellbird.config
-    monkeypatch.setattr(sellbird.config, "load_config", lambda: _config(""))
+    import outreach.config
+    monkeypatch.setattr(outreach.config, "load_config", lambda: _config(""))
     data = client.get("/api/outbox").json()
     assert data["footer"] == LINE
     assert "postal_address" in data["compliance_notice"]
 
-    monkeypatch.setattr(sellbird.config, "load_config", lambda: _config(ADDRESS))
+    monkeypatch.setattr(outreach.config, "load_config", lambda: _config(ADDRESS))
     data = client.get("/api/outbox").json()
     assert data["footer"] == ADDRESS + "\n" + LINE
     assert data["compliance_notice"] == ""
 
 
 def test_an_unreadable_config_still_shows_the_outbox(client, monkeypatch):
-    import sellbird.config
+    import outreach.config
 
     def broken():
-        raise sellbird.config.ConfigError("bad yaml")
-    monkeypatch.setattr(sellbird.config, "load_config", broken)
+        raise outreach.config.ConfigError("bad yaml")
+    monkeypatch.setattr(outreach.config, "load_config", broken)
     data = client.get("/api/outbox").json()
     assert data["footer"] == "" and "pending" in data
 
@@ -275,7 +275,7 @@ def test_an_unreadable_config_still_shows_the_outbox(client, monkeypatch):
 
 async def _reply_after_sending(state, body, sent_bodies=(), intent="interested",
                                line=LINE):
-    """A reply from someone Sellbird already emailed `sent_bodies`."""
+    """A reply from someone Outreach already emailed `sent_bodies`."""
     pid = await seed_prospect(state, status="contacted")
     for n, sent in enumerate(sent_bodies, start=1):
         oid = await state.add_outbox_item(
@@ -317,7 +317,7 @@ async def test_quoting_an_old_opt_out_line_is_not_an_opt_out(state):
     old = 'Reply "unsubscribe" to stop hearing from me.'
     sent = "A short, plain note. Question?\n\n" + ADDRESS + "\n" + old
     status, _ = await _reply_after_sending(
-        state, "Yes, let's talk Tuesday.\n\nOn Tue Sellbird wrote:\n> " + sent.replace("\n", "\n> "),
+        state, "Yes, let's talk Tuesday.\n\nOn Tue Outreach wrote:\n> " + sent.replace("\n", "\n> "),
         sent_bodies=[sent], line="Not for you? Reply no thanks.")
     assert status != "opted_out"
 
@@ -325,7 +325,7 @@ async def test_quoting_an_old_opt_out_line_is_not_an_opt_out(state):
 # Dutch Outlook: a header strip_quoted_reply doesn't know.
 DUTCH_OUTLOOK = (
     "Klinkt goed, stuur me de prijzen.\n\n"
-    "Van: Sellbird <sellbird@x.co>\nVerzonden: dinsdag 14 oktober 2026 15:02\n\n"
+    "Van: Outreach <outreach@x.co>\nVerzonden: dinsdag 14 oktober 2026 15:02\n\n"
     "A short, plain note. Question?\n\n" + ADDRESS + "\n" + LINE
 )
 
@@ -342,7 +342,7 @@ async def test_our_quoted_email_never_reaches_the_model_even_unrecognised(state)
 @pytest.mark.asyncio
 async def test_a_footer_cut_off_by_the_length_limit_is_not_an_opt_out(state):
     sent = "A short, plain note. Question?\n\n" + ADDRESS + "\n" + LINE
-    body = ("Interested, tell me more.\n\nOn Tue Sellbird wrote:\n> A short, plain note. Question?\n> "
+    body = ("Interested, tell me more.\n\nOn Tue Outreach wrote:\n> A short, plain note. Question?\n> "
             + ADDRESS + '\n> Not interested? Reply "no thanks"')  # truncated here
     status, _ = await _reply_after_sending(state, body, sent_bodies=[sent])
     assert status != "opted_out"
@@ -352,13 +352,13 @@ async def test_a_footer_cut_off_by_the_length_limit_is_not_an_opt_out(state):
 async def test_escalation_words_in_our_own_quoted_email_dont_escalate(state):
     sent = "We help attorney offices fill their calendar. Worth a chat?"
     status, prompts = await _reply_after_sending(
-        state, "Yes please.\n\nOn Tue Sellbird wrote:\n> " + sent, sent_bodies=[sent])
+        state, "Yes please.\n\nOn Tue Outreach wrote:\n> " + sent, sent_bodies=[sent])
     assert prompts  # classified by the model, not escalated by keyword
 
 
 def test_inline_answers_under_a_quote_header_are_kept():
     text = strip_quoted_reply(
-        "Answers inline below.\n\nOn Tue, Oct 14 Sellbird wrote:\n"
+        "Answers inline below.\n\nOn Tue, Oct 14 Outreach wrote:\n"
         "> Would a call work?\nYes, Thursday 2pm.\n> CRM?\nHubSpot.")
     assert "Thursday 2pm" in text and "HubSpot" in text and "Would a call" not in text
 
@@ -403,8 +403,8 @@ def test_no_opt_out_line_is_warned_about_too():
 
 def test_an_edit_the_footer_would_push_over_the_limit_is_refused(client, monkeypatch, env):
     import sqlite3
-    import sellbird.config
-    monkeypatch.setattr(sellbird.config, "load_config", lambda: SimpleNamespace(
+    import outreach.config
+    monkeypatch.setattr(outreach.config, "load_config", lambda: SimpleNamespace(
         channels=SimpleNamespace(email=SimpleNamespace(enabled=True)),
         compliance=ComplianceConfig(postal_address=ADDRESS)))
     with closing(sqlite3.connect(env["db"])) as db, db:
@@ -417,8 +417,8 @@ def test_an_edit_the_footer_would_push_over_the_limit_is_refused(client, monkeyp
 
 
 def test_campaigns_carry_the_footer_for_sending_by_hand(client, monkeypatch, env):
-    import sellbird.config
-    monkeypatch.setattr(sellbird.config, "load_config", lambda: _config(ADDRESS))
+    import outreach.config
+    monkeypatch.setattr(outreach.config, "load_config", lambda: _config(ADDRESS))
     from tests.test_dashboard_manual_send import _campaign, _prospect
     _prospect(env, "p1", "a@acme.test", status="queued")
     _campaign(env, "c1", ["p1"])
@@ -433,7 +433,7 @@ SENT = "A short, plain note. Question?\n\n" + ADDRESS + "\n" + LINE
 @pytest.mark.asyncio
 async def test_an_html_only_reply_quoting_our_footer_is_not_an_opt_out(state):
     # Tags become spaces: their words and our quote end up on one line.
-    body = ("Yes, interested. Tuesday works.   On Tue, Oct 14, 2026 Sellbird wrote:   "
+    body = ("Yes, interested. Tuesday works.   On Tue, Oct 14, 2026 Outreach wrote:   "
             "A short, plain note. Question?   " + ADDRESS + "   "
             "Not interested? Reply &quot;no thanks&quot; and I won&#39;t email again.")
     status, prompts = await _reply_after_sending(state, body, sent_bodies=[SENT])
@@ -443,7 +443,7 @@ async def test_an_html_only_reply_quoting_our_footer_is_not_an_opt_out(state):
 
 @pytest.mark.asyncio
 async def test_short_wrapped_fragments_of_our_quote_are_ours(state):
-    body = ("Sure, call me.\n\nOn Tue Sellbird wrote:\n> A short, plain note. Question?\n"
+    body = ("Sure, call me.\n\nOn Tue Outreach wrote:\n> A short, plain note. Question?\n"
             "> Not interested? Reply\n> \"no thanks\"\n> and I won't email again.")
     status, _ = await _reply_after_sending(state, body, sent_bodies=[SENT])
     assert status != "opted_out"
@@ -453,7 +453,7 @@ async def test_short_wrapped_fragments_of_our_quote_are_ours(state):
 async def test_outlook_mailto_annotations_dont_hide_our_line(state):
     line = "To opt out, reply STOP to this email."
     sent = "A short, plain note. Question?\n\n" + ADDRESS + "\n" + line
-    body = ("Yes please, send pricing.\n\nFrom: Sellbird <sellbird@x.co<mailto:sellbird@x.co>>\n"
+    body = ("Yes please, send pricing.\n\nFrom: Outreach <outreach@x.co<mailto:outreach@x.co>>\n"
             "Sent: Tuesday\n\nA short, plain note. Question?\n" + ADDRESS + "\n"
             "To opt out, reply STOP to this email<https://x.co/a>.")
     status, _ = await _reply_after_sending(state, body, sent_bodies=[sent], line=line)
@@ -477,7 +477,7 @@ async def test_campaign_text_counts_as_ours_without_an_outbox_row(state):
     provider = FakeProvider()
     provider.inbound = [InboundMessage(
         provider_id="in1", from_email="jane@acme.com", subject="Re: hi",
-        body="Yes let's talk.\n\nOn Tue Sellbird wrote:\n> Hi Jane, we help attorney offices grow.\n> " + old)]
+        body="Yes let's talk.\n\nOn Tue Outreach wrote:\n> Hi Jane, we help attorney offices grow.\n> " + old)]
     handler = make_handler(state, provider, intent="interested")
     handler.config.compliance = ComplianceConfig(opt_out_line="Reply no thanks to stop.")
     handler.brain = RecordingBrain("interested")
@@ -524,7 +524,7 @@ def test_opt_out_line_can_use_any_wording_but_no_address():
 
 @pytest.mark.asyncio
 async def test_a_reply_quoting_the_previous_default_footer_is_not_an_opt_out(state):
-    from sellbird.config import PREVIOUS_DEFAULT_OPT_OUT_LINE
+    from outreach.config import PREVIOUS_DEFAULT_OPT_OUT_LINE
     status, _ = await _reply(state, "Sounds good, send times.\n\n> " + PREVIOUS_DEFAULT_OPT_OUT_LINE)
     assert status != "opted_out"
 
@@ -532,8 +532,8 @@ async def test_a_reply_quoting_the_previous_default_footer_is_not_an_opt_out(sta
 # ── Review round 3 ──
 
 @pytest.mark.asyncio
-async def test_every_footer_sellbird_used_stays_ours_after_the_line_changes(state):
-    # Instantly keeps the footer in its own copy; Sellbird remembers what it used.
+async def test_every_footer_outreach_used_stays_ours_after_the_line_changes(state):
+    # Instantly keeps the footer in its own copy; Outreach remembers what it used.
     old = 'Reply "unsubscribe" to stop hearing from me.'
     config = SimpleNamespace(
         channels=SimpleNamespace(email=SimpleNamespace(
@@ -547,7 +547,7 @@ async def test_every_footer_sellbird_used_stays_ours_after_the_line_changes(stat
         id="c", name="Draft", instantly_campaign_id="existing",
         sequence=[EmailStep(step=1, subject="a note", body="Would this help?")]))
     # The line is changed afterwards; a reply quotes the old one.
-    status, _ = await _reply(state, "Yes let's talk.\n\nOn Tue Sellbird wrote:\n> Would this help?\n> " + old)
+    status, _ = await _reply(state, "Yes let's talk.\n\nOn Tue Outreach wrote:\n> Would this help?\n> " + old)
     assert status != "opted_out"
 
 
@@ -566,7 +566,7 @@ async def test_template_lines_with_merge_tags_are_recognised_when_quoted(state):
     provider = FakeProvider()
     provider.inbound = [InboundMessage(
         provider_id="in1", from_email="jane@acme.com", subject="Re: hi",
-        body="Yes please.\n\nOn Tue Sellbird wrote:\n> We help Acme attorney offices grow.")]
+        body="Yes please.\n\nOn Tue Outreach wrote:\n> We help Acme attorney offices grow.")]
     handler = make_handler(state, provider, intent="interested")
     handler.brain = RecordingBrain("interested")
     await handler._run_native()
@@ -638,14 +638,14 @@ async def test_ordinary_hebrew_is_not_an_opt_out(state, body):
 async def test_quoting_our_hebrew_footer_is_not_an_opt_out(state):
     sent = "הודעה קצרה ופשוטה. שאלה?\n\n" + ADDRESS + "\n" + HEBREW_LINE
     status, prompts = await _reply_after_sending(
-        state, "כן, בואו נדבר ביום שלישי.\n\nב-יום ג׳ Sellbird כתב:\n> " + sent.replace("\n", "\n> "),
+        state, "כן, בואו נדבר ביום שלישי.\n\nב-יום ג׳ Outreach כתב:\n> " + sent.replace("\n", "\n> "),
         sent_bodies=[sent], line=HEBREW_LINE)
     assert status != "opted_out" and prompts
 
 
 def test_every_reply_an_opt_out_line_can_ask_for_is_caught():
-    from sellbird.agents.handler import _opt_out_reason
-    from sellbird.config import (
+    from outreach.agents.handler import _opt_out_reason
+    from outreach.config import (
         FRENCH_OPT_OUT_WORDS, HEBREW_OPT_OUT_WORDS, OPT_OUT_WORDS, SPANISH_OPT_OUT_WORDS,
     )
     for word in (OPT_OUT_WORDS + HEBREW_OPT_OUT_WORDS + SPANISH_OPT_OUT_WORDS
@@ -677,7 +677,7 @@ def test_opt_out_line_can_ask_in_hebrew():
 
 # ── Review follow-ups ──
 
-from sellbird.agents.handler import OurText, _opt_out_reason  # noqa: E402
+from outreach.agents.handler import OurText, _opt_out_reason  # noqa: E402
 
 @pytest.mark.parametrize("reply", [
     "למה לא, תודה",                # why not, thanks: they're interested
@@ -966,7 +966,7 @@ async def test_ordinary_hebrew_does_not_escalate(state, body):
 async def test_a_hebrew_pitch_mentioning_lawyers_doesnt_escalate_when_quoted(state):
     sent = "אנחנו עוזרים למשרדי עורכי דין למלא את היומן. נדבר?"
     status, prompts = await _reply_after_sending(
-        state, "כן, בואו נדבר.\n\nב-יום ג׳ Sellbird כתב:\n> " + sent, sent_bodies=[sent])
+        state, "כן, בואו נדבר.\n\nב-יום ג׳ Outreach כתב:\n> " + sent, sent_bodies=[sent])
     assert status != "opted_out" and prompts  # not escalated over our own "עורכי דין"
 
 
@@ -1019,13 +1019,13 @@ async def test_a_plain_opt_out_is_closed_not_handed_to_you(state):
     "הפסיקו להטריד אותי", "תפסיקו להטריד אותי",
 ])
 def test_more_ways_to_say_a_hebrew_legal_threat(reply):
-    from sellbird.agents.handler import _escalates, _flat
+    from outreach.agents.handler import _escalates, _flat
     assert _escalates(_flat(reply))
 
 
 @pytest.mark.parametrize("reply", ["עוד-שאלה קטנה", "בית-ספר ליד המשרד", "אתבונן בזה", "תפסיקו לדאוג, נדבר"])
 def test_hyphens_and_near_words_dont_escalate(reply):
-    from sellbird.agents.handler import _escalates, _flat
+    from outreach.agents.handler import _escalates, _flat
     assert not _escalates(_flat(reply))
 
 

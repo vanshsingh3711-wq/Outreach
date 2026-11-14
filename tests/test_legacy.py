@@ -1,6 +1,6 @@
-"""Upgrading a clone from Harvey, Sellbird's old name, must never lose data.
+"""Upgrading a clone from Harvey, Outreach's old name, must never lose data.
 
-Covers the file moves (sellbird/legacy.py), HARVEY_* settings, and the old
+Covers the file moves (outreach/legacy.py), HARVEY_* settings, and the old
 `harvey` command (the harvey/ package), including a clone that ran `git pull`
 without reinstalling.
 """
@@ -15,7 +15,7 @@ import pytest
 
 import harvey
 import harvey.cli
-import sellbird.legacy as legacy
+import outreach.legacy as legacy
 from tests.test_dashboard_live_status import client, env  # noqa: F401  (fixtures)
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -37,12 +37,12 @@ def test_moves_a_harvey_install_to_the_new_names(tmp_path):
 
     notes = legacy.migrate_files(tmp_path)
 
-    assert (tmp_path / "data" / "sellbird.db").read_bytes() == b"old db"
-    assert (tmp_path / "data" / "sellbird.db-wal").read_bytes() == b"recent writes"
-    assert (tmp_path / "data" / "sellbird.log").exists()
-    assert (tmp_path / "sellbird.local.yaml").read_bytes() == b"product: old\n"
+    assert (tmp_path / "data" / "outreach.db").read_bytes() == b"old db"
+    assert (tmp_path / "data" / "outreach.db-wal").read_bytes() == b"recent writes"
+    assert (tmp_path / "data" / "outreach.log").exists()
+    assert (tmp_path / "outreach.local.yaml").read_bytes() == b"product: old\n"
     assert not (tmp_path / "data" / "harvey.db").exists()
-    assert "Moved data/harvey.db to data/sellbird.db." in notes
+    assert "Moved data/harvey.db to data/outreach.db." in notes
 
 
 def test_nothing_to_do_says_nothing(tmp_path):
@@ -57,58 +57,58 @@ def test_runs_once(tmp_path):
 
 def test_never_overwrites_a_file_under_the_new_name(tmp_path):
     _harvey_install(tmp_path)
-    (tmp_path / "sellbird.local.yaml").write_text("product: new\n")
+    (tmp_path / "outreach.local.yaml").write_text("product: new\n")
 
     notes = legacy.migrate_files(tmp_path)
 
-    assert (tmp_path / "sellbird.local.yaml").read_text() == "product: new\n"
+    assert (tmp_path / "outreach.local.yaml").read_text() == "product: new\n"
     assert (tmp_path / "harvey.local.yaml").read_bytes() == b"product: old\n"
     assert any("Left harvey.local.yaml alone" in n for n in notes)
     # The files without a conflict still move.
-    assert (tmp_path / "data" / "sellbird.db").exists()
+    assert (tmp_path / "data" / "outreach.db").exists()
 
 
 def test_waits_while_harvey_is_still_running(tmp_path, monkeypatch):
     _harvey_install(tmp_path)
     (tmp_path / "data" / "harvey.pid").write_text("4242")
-    monkeypatch.setattr("sellbird.pidfile.pid_alive", lambda pid: pid == 4242)
+    monkeypatch.setattr("outreach.pidfile.pid_alive", lambda pid: pid == 4242)
 
     notes = legacy.migrate_files(tmp_path)
 
     assert notes == ["Harvey is still running here (process 4242). Stop it, then run "
-                     "Sellbird again to move its files over."]
+                     "Outreach again to move its files over."]
     assert (tmp_path / "data" / "harvey.db").exists()
-    assert not (tmp_path / "data" / "sellbird.db").exists()
+    assert not (tmp_path / "data" / "outreach.db").exists()
 
 
 def test_clears_a_dead_harveys_pidfile(tmp_path, monkeypatch):
     _harvey_install(tmp_path)
     (tmp_path / "data" / "harvey.pid").write_text("4242")
-    monkeypatch.setattr("sellbird.pidfile.pid_alive", lambda pid: False)
+    monkeypatch.setattr("outreach.pidfile.pid_alive", lambda pid: False)
 
     legacy.migrate_files(tmp_path)
 
     assert not (tmp_path / "data" / "harvey.pid").exists()
-    assert (tmp_path / "data" / "sellbird.db").exists()
+    assert (tmp_path / "data" / "outreach.db").exists()
 
 
 # ── settings ──
 
 
-def test_harvey_settings_fill_in_unset_sellbird_ones():
+def test_harvey_settings_fill_in_unset_outreach_ones():
     env = {"HARVEY_HUMANIZER_SKILL": "/old/skill.md", "HARVEY_UID": "501",
-           "SELLBIRD_UID": "1000", "PATH": "/bin"}
+           "OUTREACH_UID": "1000", "PATH": "/bin"}
 
     adopted = legacy.adopt_legacy_env(env)
 
-    assert adopted == ["SELLBIRD_HUMANIZER_SKILL"]
-    assert env["SELLBIRD_HUMANIZER_SKILL"] == "/old/skill.md"
-    assert env["SELLBIRD_UID"] == "1000"  # the new name always wins
+    assert adopted == ["OUTREACH_HUMANIZER_SKILL"]
+    assert env["OUTREACH_HUMANIZER_SKILL"] == "/old/skill.md"
+    assert env["OUTREACH_UID"] == "1000"  # the new name always wins
 
 
 def test_harvey_setting_reaches_a_module_that_reads_it_at_import():
-    code = "import sellbird.humanize as h; print(h.SKILL_PATH)"
-    env = {k: v for k, v in os.environ.items() if not k.startswith(("HARVEY_", "SELLBIRD_"))}
+    code = "import outreach.humanize as h; print(h.SKILL_PATH)"
+    env = {k: v for k, v in os.environ.items() if not k.startswith(("HARVEY_", "OUTREACH_"))}
     env["HARVEY_HUMANIZER_SKILL"] = "/old/skill.md"
     out = subprocess.run([sys.executable, "-c", code], env=env, cwd=ROOT,
                          capture_output=True, text=True, check=True).stdout
@@ -118,31 +118,31 @@ def test_harvey_setting_reaches_a_module_that_reads_it_at_import():
 # ── the old command ──
 
 
-def test_old_command_says_it_moved_then_runs_sellbird(monkeypatch, capsys):
+def test_old_command_says_it_moved_then_runs_outreach(monkeypatch, capsys):
     ran = []
-    monkeypatch.setattr("sellbird.cli.main", lambda: ran.append(sys.argv[0]))
+    monkeypatch.setattr("outreach.cli.main", lambda: ran.append(sys.argv[0]))
     monkeypatch.setattr(sys, "argv", ["harvey", "status"])
 
     harvey.cli.main()
 
-    assert ran == ["sellbird"]
-    assert "Harvey is now Sellbird" in capsys.readouterr().err
+    assert ran == ["outreach"]
+    assert "Harvey is now Outreach" in capsys.readouterr().err
 
 
-@pytest.mark.parametrize("module", ["harvey", "sellbird"])
+@pytest.mark.parametrize("module", ["harvey", "outreach"])
 def test_both_names_run_as_modules(module):
     result = subprocess.run([sys.executable, "-m", module, "--help"], cwd=ROOT,
                             capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
-    assert "sellbird" in result.stdout or "outreacho" in result.stdout
-    assert ("Harvey is now Sellbird" in result.stderr) == (module == "harvey")
+    assert "outreach" in result.stdout or "outreach" in result.stdout
+    assert ("Harvey is now Outreach" in result.stderr) == (module == "harvey")
 
 
 def test_package_declares_both_commands():
     project = tomllib.loads((ROOT / "pyproject.toml").read_text())
-    assert project["project"]["name"] in ("outreacho", "sellbird")
-    assert "outreacho" in project["project"]["scripts"]
-    assert "sellbird" in project["project"]["scripts"]
+    assert project["project"]["name"] in ("outreach", "outreach")
+    assert "outreach" in project["project"]["scripts"]
+    assert "outreach" in project["project"]["scripts"]
     assert "harvey" in project["project"]["scripts"]
     assert "harvey*" in project["tool"]["setuptools"]["packages"]["find"]["include"]
 
@@ -171,7 +171,7 @@ def test_no_notice_when_nothing_moved(tmp_path):
 
 def test_no_notice_when_every_file_was_left_alone(tmp_path):
     (tmp_path / "harvey.local.yaml").write_text("product: old\n")
-    (tmp_path / "sellbird.local.yaml").write_text("product: new\n")
+    (tmp_path / "outreach.local.yaml").write_text("product: new\n")
     legacy.migrate_files(tmp_path)
     assert not legacy.welcome_pending(tmp_path)
 

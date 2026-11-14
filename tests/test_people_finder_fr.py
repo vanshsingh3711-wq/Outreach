@@ -7,9 +7,9 @@ in a « témoignage ». Every business and person here is fictional.
 
 import pytest
 
-from sellbird.agents.scout import Scout
-from sellbird.collectors import people
-from sellbird.collectors.profile import ProfileCollector, title_looks_like_role
+from outreach.agents.scout import Scout
+from outreach.collectors import people
+from outreach.collectors.profile import ProfileCollector, title_looks_like_role
 
 detect_people = ProfileCollector(state=None).detect_people
 

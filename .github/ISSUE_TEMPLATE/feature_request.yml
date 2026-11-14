@@ -1,5 +1,5 @@
 name: Feature request
-description: Suggest something Sellbird should do.
+description: Suggest something Outreach should do.
 labels: [enhancement]
 body:
   - type: textarea

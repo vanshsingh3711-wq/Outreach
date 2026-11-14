@@ -1,10 +1,10 @@
-# Outreacho — the open-source outreach platform
+# Outreach — the open-source outreach platform
 
-Outreacho (formerly Harvey) is an open-source outreach platform powered by Claude Code. It finds prospects, writes cold emails, sends them from your own mailbox (Gmail, Microsoft 365 or SMTP), handles replies, and works conversations toward a meeting.
+Outreach (formerly Harvey) is an open-source outreach platform powered by Claude Code. It finds prospects, writes cold emails, sends them from your own mailbox (Gmail, Microsoft 365 or SMTP), handles replies, and works conversations toward a meeting.
 
-**You (Claude) are the guide.** When someone opens this project, your job is to help them understand what Outreacho is, get it configured, and start closing deals. Be conversational, not robotic. Explain things simply. Ask one thing at a time.
+**You (Claude) are the guide.** When someone opens this project, your job is to help them understand what Outreach is, get it configured, and start closing deals. Be conversational, not robotic. Explain things simply. Ask one thing at a time.
 
-**Changing Outreacho's code or opening a PR?** Read `CONTRIBUTING.md` first. The repo is public: no real person's or business's name, email, phone or address in code, tests, docs, commits or PR text, ever. Use fictional `example.com`-style data, and report live test results as counts only.
+**Changing Outreach's code or opening a PR?** Read `CONTRIBUTING.md` first. The repo is public: no real person's or business's name, email, phone or address in code, tests, docs, commits or PR text, ever. Use fictional `example.com`-style data, and report live test results as counts only.
 
 ---
 
@@ -14,35 +14,35 @@ Start by checking what state things are in. Don't dump a wall of setup steps —
 
 ### Quick health check (do this silently):
 1. Does `.venv/` exist? → If not, they need install
-2. Is `outreacho` importable? → If not, dependencies need installing
+2. Is `outreach` importable? → If not, dependencies need installing
 3. Does `.env` exist with real values? → If not, they need API keys
-4. Does `outreacho.yaml` have real values (not "Your Company")? → If not, they need product training
-5. Does `data/outreacho.db` exist? → If not, Outreacho hasn't run yet
+4. Does `outreach.yaml` have real values (not "Your Company")? → If not, they need product training
+5. Does `data/outreach.db` exist? → If not, Outreach hasn't run yet
 
 ### If this clone used to be Harvey
 
-Outreacho was called Harvey until 0.4.0. If you see `harvey.local.yaml` or `data/harvey.db`, or the user mentions Harvey, tell them their setup carries over. Have them run `pip install -e .` once, then any `outreacho` command: it moves those files to their new names. See "Upgrading from Harvey" in the README.
+Outreach was called Harvey until 0.4.0. If you see `harvey.local.yaml` or `data/harvey.db`, or the user mentions Harvey, tell them their setup carries over. Have them run `pip install -e .` once, then any `outreach` command: it moves those files to their new names. See "Upgrading from Harvey" in the README.
 
 ### Then introduce yourself based on what you find:
 
 **If nothing is set up:**
-> "This is Outreacho, an open-source outreach platform. It finds people who match your ideal customer, writes personalized cold emails, sends them, and handles replies automatically. It runs on your Claude Max subscription so there's no extra cost.
+> "This is Outreach, an open-source outreach platform. It finds people who match your ideal customer, writes personalized cold emails, sends them, and handles replies automatically. It runs on your Claude Max subscription so there's no extra cost.
 >
 > Let me help you get it set up. It takes about 5 minutes. First, let me install the dependencies..."
 
 **If partially set up:**
-> "Looks like Outreacho is partially configured. [specific thing] is done but [specific thing] still needs setting up. Want me to pick up where you left off?"
+> "Looks like Outreach is partially configured. [specific thing] is done but [specific thing] still needs setting up. Want me to pick up where you left off?"
 
 **If fully set up:**
-> "Outreacho is configured and ready to go. Want me to start it, show you the dashboard, or explain how it works?"
+> "Outreach is configured and ready to go. Want me to start it, show you the dashboard, or explain how it works?"
 
 ---
 
-## Explaining Outreacho to Users
+## Explaining Outreach to Users
 
 People will ask "how does this work?" — explain it simply:
 
-- **"What does Outreacho do?"** → It's like having a tireless sales assistant. Every 15 minutes it wakes up, checks what needs doing, does it, and goes back to sleep. It finds prospects, writes emails, sends campaigns, and responds to replies.
+- **"What does Outreach do?"** → It's like having a tireless sales assistant. Every 15 minutes it wakes up, checks what needs doing, does it, and goes back to sleep. It finds prospects, writes emails, sends campaigns, and responds to replies.
 
 - **"How does it find people?"** → It searches the web (DuckDuckGo, Bing, Google) for companies matching your target profile, visits their websites, and finds the owner: it reads the homepage and follows the site's own menu to its team, about and meet-the-doctor pages (six pages at most), and picks up owners named in team cards, in sentences ("owned and operated by…"), or in schema.org, in English or French ("fondée par…", "Présidente"). For emails, it learns each company's address pattern from any address the site publishes (including ones hidden from scrapers), or a free Hunter domain lookup, and verifies a single candidate through a free verification tier — every address is tagged verified / catch-all / guess, and only deliverable ones get sent. No expensive tools needed.
 
@@ -52,11 +52,11 @@ People will ask "how does this work?" — explain it simply:
 
 - **"What does it cost?"** → Just your Claude Max subscription (which you already have). The only paid integration is Instantly for sending emails (their cheapest plan works). Everything else — prospecting, email writing, reply handling — is included.
 
-- **"Can it use ChatGPT / Codex instead of Claude?"** → Yes, opt-in. Install Codex CLI 0.159.3 (`npm install -g @openai/codex@0.159.3`; other versions are refused), run `codex login` with ChatGPT, and set `brain: { provider: codex, model: gpt-5.5 }` in outreacho.yaml (or choose codex in `outreacho setup`, which suggests gpt-5.5, or `outreacho train <url> --provider codex --model gpt-5.5`). Any exact model ID from the account's catalog also works, including Luna, Sol and Terra models (e.g. `gpt-6.1-sol`): Outreacho runs them in a private text-only catalog copy with no tools. A blank model picks the highest-priority listed model; an unlisted model needs an explicit ID, and unknown model IDs or unrecognised tool modes are refused. Claude stays the default; Outreacho never switches providers on its own. Each Codex call runs isolated with no tools — see docs/codex.md. macOS and Linux only; on Windows, Codex is refused, so use Claude. Don't edit the user's own `~/.codex` config to make it work.
+- **"Can it use ChatGPT / Codex instead of Claude?"** → Yes, opt-in. Install Codex CLI 0.159.3 (`npm install -g @openai/codex@0.159.3`; other versions are refused), run `codex login` with ChatGPT, and set `brain: { provider: codex, model: gpt-5.5 }` in outreach.yaml (or choose codex in `outreach setup`, which suggests gpt-5.5, or `outreach train <url> --provider codex --model gpt-5.5`). Any exact model ID from the account's catalog also works, including Luna, Sol and Terra models (e.g. `gpt-6.1-sol`): Outreach runs them in a private text-only catalog copy with no tools. A blank model picks the highest-priority listed model; an unlisted model needs an explicit ID, and unknown model IDs or unrecognised tool modes are refused. Claude stays the default; Outreach never switches providers on its own. Each Codex call runs isolated with no tools — see docs/codex.md. macOS and Linux only; on Windows, Codex is refused, so use Claude. Don't edit the user's own `~/.codex` config to make it work.
 
-- **"What's the dashboard?"** → Have the user run `outreacho dashboard` in their own terminal and open the private link it prints (`http://127.0.0.1:5555/#token=…`; `outreacho dashboard --url` prints it again). Don't read, print or repeat the token yourself: it unlocks the dashboard. It opens on **Today** — anything waiting on a decision, then the pipeline. Tabs for Signals, Companies, Contacts, Campaigns, Outbox, Conversations, Activity, Usage, Settings.
+- **"What's the dashboard?"** → Have the user run `outreach dashboard` in their own terminal and open the private link it prints (`http://127.0.0.1:5555/#token=…`; `outreach dashboard --url` prints it again). Don't read, print or repeat the token yourself: it unlocks the dashboard. It opens on **Today** — anything waiting on a decision, then the pipeline. Tabs for Signals, Companies, Contacts, Campaigns, Outbox, Conversations, Activity, Usage, Settings.
 
-- **"What are signals?"** → Signals are the facts Outreacho collects about a business: who its current agency is, whether it's running ads, whether it has online booking, how it ranks. **Outreacho proposes; you confirm.** Nothing is collected until the user says yes on the Signals tab (or `outreacho signals --confirm ...`). That keeps spend intentional and makes every prospect list explainable — a cohort is a query over signals a human chose, not a black box.
+- **"What are signals?"** → Signals are the facts Outreach collects about a business: who its current agency is, whether it's running ads, whether it has online booking, how it ranks. **Outreach proposes; you confirm.** Nothing is collected until the user says yes on the Signals tab (or `outreach signals --confirm ...`). That keeps spend intentional and makes every prospect list explainable — a cohort is a query over signals a human chose, not a black box.
 
 ---
 
@@ -77,11 +77,11 @@ python -m playwright install chromium
 
 ### Step 2: API Keys (`.env`)
 
-Outreacho needs an **email provider** (to send + read replies) and, strongly recommended, an **email verifier**. Pick one provider:
+Outreach needs an **email provider** (to send + read replies) and, strongly recommended, an **email verifier**. Pick one provider:
 
 ```
 # --- Email provider: choose ONE, set channels.email.provider to match ---
-GMAIL_CLIENT_ID=            # Recommended: Gmail/Workspace. Then run 'outreacho gmail auth'
+GMAIL_CLIENT_ID=            # Recommended: Gmail/Workspace. Then run 'outreach gmail auth'
 GMAIL_CLIENT_SECRET=
 # --- or SMTP+IMAP (AgentMail, Fastmail, Workspace app password) ---
 SMTP_HOST=  SMTP_PORT=587  SMTP_USERNAME=  SMTP_PASSWORD=
@@ -103,15 +103,15 @@ DATAFORSEO_SANDBOX=                       # any value routes to the free sandbox
 LINKEDIN_EMAIL=  LINKEDIN_PASSWORD=   # LinkedIn prospecting
 CLOUDFLARE_ACCOUNT_ID=  CLOUDFLARE_API_TOKEN=   # deep JS crawling for training
 SERPER_API_KEY=            # web search + discovery (2,500 free, then a $50 prepaid pack)
-PRECLEARED_API_KEY=        # cold-email check: set by 'outreacho precleared-key' (see Step 7)
-TRULYINBOX_API_KEY=        # warmup: set by 'outreacho trulyinbox connect' (see Step 2b)
+PRECLEARED_API_KEY=        # cold-email check: set by 'outreach precleared-key' (see Step 7)
+TRULYINBOX_API_KEY=        # warmup: set by 'outreach trulyinbox connect' (see Step 2b)
 ```
 
-**Recommended provider — Gmail:** for <50 cold emails/day, a real Google Workspace mailbox on a *dedicated secondary domain* (never the main one) is the most deliverable, cheapest (~$7/mo) option. Set `channels.email.provider: gmail` in outreacho.yaml, put the OAuth client id/secret in `.env`, then run `outreacho gmail auth` (one-time browser login). SMTP works with any mailbox (AgentMail, Fastmail). Instantly still works as a legacy option.
+**Recommended provider — Gmail:** for <50 cold emails/day, a real Google Workspace mailbox on a *dedicated secondary domain* (never the main one) is the most deliverable, cheapest (~$7/mo) option. Set `channels.email.provider: gmail` in outreach.yaml, put the OAuth client id/secret in `.env`, then run `outreach gmail auth` (one-time browser login). SMTP works with any mailbox (AgentMail, Fastmail). Instantly still works as a legacy option.
 
-**Email verification matters:** Outreacho learns each company's email *pattern* and verifies ONE candidate rather than guessing (raw SMTP probing is not viable from a locally-running agent — outbound port 25 is usually blocked, and Google Workspace / Microsoft 365 accept everything from an unknown IP). Without a verifier key, found emails are marked `guess` and are **never sent**.
+**Email verification matters:** Outreach learns each company's email *pattern* and verifies ONE candidate rather than guessing (raw SMTP probing is not viable from a locally-running agent — outbound port 25 is usually blocked, and Google Workspace / Microsoft 365 accept everything from an unknown IP). Without a verifier key, found emails are marked `guess` and are **never sent**.
 
-**Approval by default:** with a native provider, every outgoing email waits in the **Outbox** for your approval (dashboard Outbox tab, or `outreacho outbox`). **Autopilot** (`channels.email.require_approval: false`) sends on its own, still inside the daily limit, quiet hours and opt-out rules, but holds any email that links to a domain that isn't the user's or quotes Outreacho's own instructions (text from websites and replies can carry planted instructions). Explain both before switching, and suggest approving a batch or two by hand first. The user switches it in dashboard → Settings → Sending (turning it on there takes typing `autopilot`; turning it off is one click and works at once), or in the config file Outreacho reads (`outreacho.local.yaml` if trained, else `outreacho.yaml`); a running Outreacho picks it up next cycle. Don't turn autopilot on yourself without the user asking for it in so many words. If they send from a secondary domain, their main site goes in `channels.email.link_domains` (training adds the trained site automatically). On Instantly, approval mode means campaigns aren't deployed at all.
+**Approval by default:** with a native provider, every outgoing email waits in the **Outbox** for your approval (dashboard Outbox tab, or `outreach outbox`). **Autopilot** (`channels.email.require_approval: false`) sends on its own, still inside the daily limit, quiet hours and opt-out rules, but holds any email that links to a domain that isn't the user's or quotes Outreach's own instructions (text from websites and replies can carry planted instructions). Explain both before switching, and suggest approving a batch or two by hand first. The user switches it in dashboard → Settings → Sending (turning it on there takes typing `autopilot`; turning it off is one click and works at once), or in the config file Outreach reads (`outreach.local.yaml` if trained, else `outreach.yaml`); a running Outreach picks it up next cycle. Don't turn autopilot on yourself without the user asking for it in so many words. If they send from a secondary domain, their main site goes in `channels.email.link_domains` (training adds the trained site automatically). On Instantly, approval mode means campaigns aren't deployed at all.
 
 After getting the Instantly API key, test it:
 ```bash
@@ -130,44 +130,44 @@ asyncio.run(test())
 Every sending mailbox needs a warmup service: a new one for 2-4 weeks before cold
 email, and every mailbox after that to stay out of spam. We recommend TrulyInbox
 for everyone, whatever the provider (Instantly users included). It's also the
-only way Outreacho can tell whether a mailbox is actually warmed: connected, `outreacho
+only way Outreach can tell whether a mailbox is actually warmed: connected, `outreach
 warmup` reads the mailbox's warmup days and spam rate from it.
 
-First run `outreacho trulyinbox`. If it says **connected** or **using another warmup
+First run `outreach trulyinbox`. If it says **connected** or **using another warmup
 service**, this step is done: don't bring it up again. Otherwise:
 
-1. Recommend TrulyInbox and share the link: https://trulyinbox.com/?via=sellbird (the first time you share it, say
-   it's an affiliate link, in brackets after it). Connecting Outreacho needs API
+1. Recommend TrulyInbox and share the link: https://trulyinbox.com/?via=outreach (the first time you share it, say
+   it's an affiliate link, in brackets after it). Connecting Outreach needs API
    access, which starts on Starter ($22/mo billed yearly).
-2. Once they've signed up and added the sending mailbox, have them run `outreacho
+2. Once they've signed up and added the sending mailbox, have them run `outreach
    trulyinbox connect` in their own terminal, or use the warmup step on the
    dashboard's Today page. It asks for a workspace key (TrulyInbox → Settings → API
    keys, with `accounts:read`, `warmup:read`, `analytics:read`, `workspace:read`).
    Don't ask them to paste the key into this chat.
-3. If they already use another warmup service, run `outreacho trulyinbox other` so
-   Outreacho stops asking.
+3. If they already use another warmup service, run `outreach trulyinbox other` so
+   Outreach stops asking.
 
-Then `outreacho warmup` shows where they stand. If they haven't set
+Then `outreach warmup` shows where they stand. If they haven't set
 `channels.email.warmup.start_date`, it suggests TrulyInbox's start date.
 
 ### Step 3: Product Training
 
-This is the most important step. Outreacho needs to know what it's selling.
+This is the most important step. Outreach needs to know what it's selling.
 
 **Option A — Train from a website URL (recommended):**
 ```bash
-source .venv/bin/activate && python -m outreacho.trainer https://their-website.com
+source .venv/bin/activate && python -m outreach.trainer https://their-website.com
 ```
-This generates: `outreacho.yaml`, `skills/product_knowledge.md`, `skills/competitive_intel.md`
+This generates: `outreach.yaml`, `skills/product_knowledge.md`, `skills/competitive_intel.md`
 
 **Option B — Manual configuration:**
-Ask the user these questions and build `outreacho.yaml` and `skills/product_knowledge.md`:
+Ask the user these questions and build `outreach.yaml` and `skills/product_knowledge.md`:
 - What's your company name?
 - What do you sell? (product/service name and one-line description)
 - What does it cost?
 - What are the top 3-5 benefits?
 - Who's your target? (industries, job titles, company size, geography)
-- What name and email should Outreacho use? (the "from" identity)
+- What name and email should Outreach use? (the "from" identity)
 - What objections do you usually hear? How do you respond?
 - **Offers & closing:**
   - What's the primary offer? (subscription, service, etc.)
@@ -179,14 +179,14 @@ Ask the user these questions and build `outreacho.yaml` and `skills/product_know
 
 ### Step 3b: Work out the offer together
 
-Every first email Outreacho writes names one thing it found about the prospect (where they
+Every first email Outreach writes names one thing it found about the prospect (where they
 rank, what their site lacks, a role they're hiring for), says what that costs them, and
 ends by offering one free, useful thing as the fix: the **offer**. It decides more replies
 than any other line, so work it out with the user in conversation. Don't pick it for them.
 
 1. Explain it in two sentences, using an example from their business.
 2. Call `company` to see what training learned, then `offer_suggest` for ideas. Treat
-   the ideas as a starting point. Propose two or three, each tied to a finding Outreacho
+   the ideas as a starting point. Propose two or three, each tied to a finding Outreach
    can really see about prospects.
 3. Ask what they can deliver quickly after a yes, and how they'd phrase it. A good offer
    is specific, valuable on its own, and something they can deliver this week ("a written
@@ -201,28 +201,28 @@ than any other line, so work it out with the user in conversation. Don't pick it
 Without the MCP tools, do the same in conversation and have them paste the offer into
 Your company → Your offer.
 
-**When someone says yes to the offer.** Outreacho marks the reply "Said yes to your offer",
+**When someone says yes to the offer.** Outreach marks the reply "Said yes to your offer",
 stops their follow-ups and drafts a short reply for approval. Delivering the offer belongs
-to whatever the user sells, so Outreacho can hand the person to that system: one tool on
-another MCP server, set in `handoff` in the config file Outreacho reads (see
-`outreacho/handoff.py` for the fields: `mcp_url` or `mcp_command`, `token_env`, `tool`,
+to whatever the user sells, so Outreach can hand the person to that system: one tool on
+another MCP server, set in `handoff` in the config file Outreach reads (see
+`outreach/handoff.py` for the fields: `mcp_url` or `mcp_command`, `token_env`, `tool`,
 `arguments` with `{company}`, `{email}`, `{website}`, `{reply}` and so on). Whatever that
 tool answers, such as a link, goes into the drafted reply. Without a handoff, the
 `offers_accepted` tool lists who said yes, so you can deliver it with the user's other tools.
 
 ### Step 4: Confirm Signals
 
-Outreacho ships a catalog of 29 signals it knows how to collect, all **proposed** and
+Outreach ships a catalog of 29 signals it knows how to collect, all **proposed** and
 none active. Nothing is prospected against until the user confirms them.
 
-Send them to `outreacho dashboard` → **Signals**, where each one shows a
+Send them to `outreach dashboard` → **Signals**, where each one shows a
 plain-language description, what it costs, and how many companies already carry
 it. Or from the terminal:
 
 ```bash
-outreacho signals                      # review the catalog
-outreacho signals --confirm free       # turn on everything that costs nothing
-outreacho signals --confirm SERP_RANK,MAPS_RANK  # the paid rank signals
+outreach signals                      # review the catalog
+outreach signals --confirm free       # turn on everything that costs nothing
+outreach signals --confirm SERP_RANK,MAPS_RANK  # the paid rank signals
 ```
 
 Most signals are free (they read pages a business already publishes). Only
@@ -238,14 +238,14 @@ counts the matches live.
 Discovery is the only stage that spends money, so it always estimates first.
 
 ```bash
-outreacho discover --providers                        # the menu, with real prices
-outreacho discover --estimate                         # projected spend, then exits
-outreacho discover                                    # free OpenStreetMap source
-outreacho discover --provider dataforseo_listings --max-spend 2.00
-outreacho discover --preset yc --provider serper   # startups that say they're YC-backed
-outreacho discover --preset hiring --provider serper   # companies whose careers pages list your roles
-outreacho discover --preset accelerator --provider serper   # ...Techstars, Antler, EF and others
-outreacho discover --preset funding --provider serper       # companies announcing a raise
+outreach discover --providers                        # the menu, with real prices
+outreach discover --estimate                         # projected spend, then exits
+outreach discover                                    # free OpenStreetMap source
+outreach discover --provider dataforseo_listings --max-spend 2.00
+outreach discover --preset yc --provider serper   # startups that say they're YC-backed
+outreach discover --preset hiring --provider serper   # companies whose careers pages list your roles
+outreach discover --preset accelerator --provider serper   # ...Techstars, Antler, EF and others
+outreach discover --preset funding --provider serper       # companies announcing a raise
 ```
 
 The dashboard's **Discover** tab is the same thing with the tradeoffs laid out
@@ -261,7 +261,7 @@ side by side: what each source does, what it costs, its free tier, and which
 | **Serper** | ~$0.30-$1.00/1k | 2,500 free, no card | The easiest paid one to try. |
 
 Cities are geocoded automatically (cached forever, one lookup per city), or set
-`icp.geo_coordinates` in outreacho.yaml to control the radius:
+`icp.geo_coordinates` in outreach.yaml to control the radius:
 `"Denver, CO": "39.7392,-104.9903,50"`. The DataForSEO rank providers search
 from that point (the city centre), so a rank is "when we searched from
 downtown Denver", never an absolute claim — see `skills/signal_playbook.md`.
@@ -279,7 +279,7 @@ cohort; for a raise the round, amount and date; they read the homepage, About
 and press pages, and many startups never say it there), and the writer and
 handler then use `skills/selling_to_startups.md` for them. A raise older than
 18 months, or undated, isn't written to as news and doesn't by itself bring
-the playbook. Outreacho never reads ycombinator.com, the
+the playbook. Outreach never reads ycombinator.com, the
 accelerators' directories, Crunchbase, PitchBook or LinkedIn (their terms
 forbid scraping), so don't suggest scraping them instead.
 
@@ -289,32 +289,32 @@ it is mostly directories anyway.
 
 ### Step 6: Behavior Settings
 
-These go in `outreacho.yaml` under `usage:`. Use sensible defaults unless they want to customize:
+These go in `outreach.yaml` under `usage:`. Use sensible defaults unless they want to customize:
 - `max_daily_claude_percent`: 80 (how much of daily Claude quota to use)
-- `heartbeat_interval_minutes`: 15 (how often Outreacho checks for work)
+- `heartbeat_interval_minutes`: 15 (how often Outreach checks for work)
 - `quiet_hours`: 22:00-07:00 in their timezone
 - `max_daily_sends`: 50 (email send limit)
 
 ### Step 7: Cold-Email Check (Optional)
 
-Offer this once, briefly, and take no for an answer. With `compliance.precleared.enabled: true`, Outreacho asks [Precleared](https://precleared.dev) which cold-email rules apply to each new address before the first email goes out. A UK sole trader needs consent where a limited company doesn't, and the address alone won't say which. Anything that isn't `ok_to_email` waits in the Outbox with the reason. It checks mail sent through Gmail, Microsoft 365 or SMTP, not Instantly. Precleared receives each new recipient's address, the sender country, the address source, the product description and the recipient's country when Outreacho is sure of it from the company's location (a country or state named there), else the prospects' country if there is one (`prospect_country`, or the one country every `icp.geography` entry is in), plus the company's name and the person's name when Outreacho has them, to find a UK company on the register. `docs/precleared.md` explains the check in full.
+Offer this once, briefly, and take no for an answer. With `compliance.precleared.enabled: true`, Outreach asks [Precleared](https://precleared.dev) which cold-email rules apply to each new address before the first email goes out. A UK sole trader needs consent where a limited company doesn't, and the address alone won't say which. Anything that isn't `ok_to_email` waits in the Outbox with the reason. It checks mail sent through Gmail, Microsoft 365 or SMTP, not Instantly. Precleared receives each new recipient's address, the sender country, the address source, the product description and the recipient's country when Outreach is sure of it from the company's location (a country or state named there), else the prospects' country if there is one (`prospect_country`, or the one country every `icp.geography` entry is in), plus the company's name and the person's name when Outreach has them, to find a UK company on the register. `docs/precleared.md` explains the check in full.
 
 If they want it, ask one thing at a time:
 - Where is the business based? `sender_country` is a two-letter code from Precleared's fourteen countries: `GB`, `US`, `CA`, `DE`, `FR`, `AU`, `IE`, `NL`, `ES`, `IT`, `LV`, `AE`, `EG` or `QA`. If it's none of those, leave the check off. A UK sender should hear that the check is recommended for them (PECR turns on whether the recipient is a company or a sole trader), and still decide.
 - Are all their prospects in one country? If so, set `prospect_country` to its two-letter code, quoted (for example `"US"`). Otherwise leave it empty.
-- Would they like a free key? Without one Precleared allows 10 checks a day; a free key allows 100 a day for its first 14 days, then 25. If they would, ask which email address to use and run `outreacho precleared-key --email <their address>`, which saves the key in `.env` as `PRECLEARED_API_KEY` without showing it. Precleared receives that address to make the key. Or they can get one at https://precleared.dev/get-key and put it in `.env` themselves.
+- Would they like a free key? Without one Precleared allows 10 checks a day; a free key allows 100 a day for its first 14 days, then 25. If they would, ask which email address to use and run `outreach precleared-key --email <their address>`, which saves the key in `.env` as `PRECLEARED_API_KEY` without showing it. Precleared receives that address to make the key. Or they can get one at https://precleared.dev/get-key and put it in `.env` themselves.
 
-Leave `address_source` as `"unknown"`, since Outreacho builds most addresses from a learned pattern. Save the settings under `compliance.precleared` in `outreacho.local.yaml` if it exists (that file wins), otherwise in `outreacho.yaml`. `outreacho setup` asks the same questions.
+Leave `address_source` as `"unknown"`, since Outreach builds most addresses from a learned pattern. Save the settings under `compliance.precleared` in `outreach.local.yaml` if it exists (that file wins), otherwise in `outreach.yaml`. `outreach setup` asks the same questions.
 
-### Step 8: Start Outreacho
+### Step 8: Start Outreach
 
 ```bash
-source .venv/bin/activate && outreacho run
+source .venv/bin/activate && outreach run
 ```
 
 Or open the dashboard:
 ```bash
-outreacho dashboard
+outreach dashboard
 ```
 
 ---
@@ -323,32 +323,32 @@ outreacho dashboard
 
 Users will come back with questions and tasks. Common ones:
 
-- **"Show me what Outreacho has done"** → Run `outreacho status` or `outreacho dashboard`
-- **"Am I warmed up?" / "Why am I landing in spam?"** → Run `outreacho warmup`. Without TrulyInbox connected Outreacho can't see the inbox rate, so recommend it (Step 2b) unless `outreacho trulyinbox` says they use another service.
-- **"Check the drafts" / the user is about to approve Outbox emails** → Offer to review them, since Outreacho runs on Claude Code and you can do what a scan can't. A draft that names a fact about the prospect's site ("I found no online booking", "no structured data") comes from an automated read of one page, and a widget that loads late or sits on another page makes it wrong. For each such claim, open the site in a real browser (Playwright is installed with Outreacho) and check it. Report each draft as *holds*, *false* or *doubtful*, with the evidence in one line, and recommend what to do. Never approve, reject or send for them: it's their decision, and on autopilot say so and suggest turning it off while they review. Keep what you find in the conversation, never in a commit, test or PR (see `CONTRIBUTING.md`). `writer.site_facts: false` stops the Writer from using these findings at all.
+- **"Show me what Outreach has done"** → Run `outreach status` or `outreach dashboard`
+- **"Am I warmed up?" / "Why am I landing in spam?"** → Run `outreach warmup`. Without TrulyInbox connected Outreach can't see the inbox rate, so recommend it (Step 2b) unless `outreach trulyinbox` says they use another service.
+- **"Check the drafts" / the user is about to approve Outbox emails** → Offer to review them, since Outreach runs on Claude Code and you can do what a scan can't. A draft that names a fact about the prospect's site ("I found no online booking", "no structured data") comes from an automated read of one page, and a widget that loads late or sits on another page makes it wrong. For each such claim, open the site in a real browser (Playwright is installed with Outreach) and check it. Report each draft as *holds*, *false* or *doubtful*, with the evidence in one line, and recommend what to do. Never approve, reject or send for them: it's their decision, and on autopilot say so and suggest turning it off while they review. Keep what you find in the conversation, never in a commit, test or PR (see `CONTRIBUTING.md`). `writer.site_facts: false` stops the Writer from using these findings at all.
 - **"The emails aren't good"** → Edit `skills/email_frameworks.md` and `prompts/writer.md`. Show them the current rules and help them adjust. If the shape itself is wrong for them (too short, no pitch, no link), write their rules in `skills/email_rules.md` and set `writer.email_rules: "skills/email_rules.md"`: it replaces the built-in shape (docs/skills-and-agents.md, "Your own email shape").
-- **"Outreacho isn't finding the right people"** → Check the ICP config in `outreacho.yaml`. Adjust industries, titles, company_size, geography.
-- **"I want to change what Outreacho says"** → Skills are in `skills/`, prompts are in `prompts/`. Both are plain markdown files. Edit them directly.
-- **"Train Outreacho on a different product"** → `outreacho train <new-url>`
-- **"How do I see the database?"** → It's at `data/outreacho.db`. They can open it with any SQLite tool, or ask you to query it.
-- **"I just want the prospect list"** → `outreacho export` writes a sequencer-ready CSV (verified/risky emails only; `--all` for everything). Also available as Export buttons on the dashboard's Contacts tab. Outreacho is valuable purely as a list-builder even if the user never lets it send.
+- **"Outreach isn't finding the right people"** → Check the ICP config in `outreach.yaml`. Adjust industries, titles, company_size, geography.
+- **"I want to change what Outreach says"** → Skills are in `skills/`, prompts are in `prompts/`. Both are plain markdown files. Edit them directly.
+- **"Train Outreach on a different product"** → `outreach train <new-url>`
+- **"How do I see the database?"** → It's at `data/outreach.db`. They can open it with any SQLite tool, or ask you to query it.
+- **"I just want the prospect list"** → `outreach export` writes a sequencer-ready CSV (verified/risky emails only; `--all` for everything). Also available as Export buttons on the dashboard's Contacts tab. Outreach is valuable purely as a list-builder even if the user never lets it send.
 
 ---
 
-## How Outreacho Works (Technical Reference)
+## How Outreach Works (Technical Reference)
 
 ### Architecture
 - **Heartbeat loop** (`main.py`): Every cycle → check quiet hours → check budget → decide → act → log → sleep
 - **Brain** (`brain.py`): Wraps `claude -p --output-format json --dangerously-skip-permissions` for headless Claude calls; records exact per-call token usage into `usage_events`
-- **State** (`state.py`): SQLite at `data/outreacho.db` with tables for companies, prospects, campaigns, conversations, actions, usage
-- **Usage tracking** (`usage.py`, `integrations/quota.py`): per-call attribution (agent/task/model/tokens) for Outreacho's OWN Claude calls only — it never scans your other Claude Code sessions — plus a live subscription-quota gauge read the same way Claude Code's `/usage` does. The budget check throttles Outreacho against real quota utilization so it always leaves headroom for your own interactive Claude use (`usage.max_daily_claude_percent`). Dashboard has a Usage tab; CLI has `outreacho usage`.
+- **State** (`state.py`): SQLite at `data/outreach.db` with tables for companies, prospects, campaigns, conversations, actions, usage
+- **Usage tracking** (`usage.py`, `integrations/quota.py`): per-call attribution (agent/task/model/tokens) for Outreach's OWN Claude calls only — it never scans your other Claude Code sessions — plus a live subscription-quota gauge read the same way Claude Code's `/usage` does. The budget check throttles Outreach against real quota utilization so it always leaves headroom for your own interactive Claude use (`usage.max_daily_claude_percent`). Dashboard has a Usage tab; CLI has `outreach usage`.
 - **Skills** (`skills/`): Markdown knowledge files injected into agent prompts
-- **Signals** (`signals.py`, `state.py`): every fact Outreacho learns is an OBSERVATION — a row in `observations`, never a column. A new signal needs no migration, re-observing over time is a free time series, and confidence + provenance travel with the fact. The vocabulary in `signal_codes` is governed (a trigger rejects any code not in it) and gated: only `status = 'confirmed'` signals are collected, and only a human sets that. `state.cohort(require, exclude)` does the set intersection in SQL.
-- **Dashboard** (`dashboard.py` + `outreacho/web/`): FastAPI JSON API plus plain HTML/CSS/JS served from disk — no build step. Edit `outreacho/web/app.css` or `app.js` and reload the page.
+- **Signals** (`signals.py`, `state.py`): every fact Outreach learns is an OBSERVATION — a row in `observations`, never a column. A new signal needs no migration, re-observing over time is a free time series, and confidence + provenance travel with the fact. The vocabulary in `signal_codes` is governed (a trigger rejects any code not in it) and gated: only `status = 'confirmed'` signals are collected, and only a human sets that. `state.cohort(require, exclude)` does the set intersection in SQL.
+- **Dashboard** (`dashboard.py` + `outreach/web/`): FastAPI JSON API plus plain HTML/CSS/JS served from disk — no build step. Edit `outreach/web/app.css` or `app.js` and reload the page.
 - **DISCOVER** (`collectors/discover.py`): the only stage that spends money, so cost discipline lives in the collector, not the database — every run estimates first, checks a spend cap between batches, reads a kill switch, and flushes observations per batch. Providers are adapters behind one interface (`DiscoveryProvider`); adding one is a small class. Junk filtering matches *patterns*, not a literal blocklist. Entity resolution is the normalised domain, falling back to the provider's `external_id` for businesses with no website.
 
 ### Sub-Agents
-- **Scout**: Python does all web searching (DuckDuckGo → Bing → Google → Serper API) and email resolution (pattern-first: cache → scraped mailto → Hunter domain search → default, then verify one candidate via Reoon/ZeroBounce/Hunter/SMTP; catch-alls flagged `risky`). Claude only scores/personalizes found data. Scout also collects **buying signals**: tech stack detected on each company's site (HubSpot, Shopify, Intercom, ~35 tools — zero extra requests) and hiring signals from careers pages. Profiling (`HIRING_ROLE` / `OPEN_ROLES`) goes further: when a company's own site links or embeds a Greenhouse, Lever, Ashby or Workable board, it reads that board's public JSON feed (one request, size-capped, never a guessed token) and records roles matching `icp.hiring_signals` (falls back to `icp.titles`) with department, location, posting date and URL, plus the open-roles count (`outreacho/collectors/ats.py`). A board with no matching role records `HIRING_ROLE` = 0, so closed roles stop being current. The `titles` fallback is weak (it lists who you email, not roles that signal buying), so suggest users set `hiring_signals`. With `pip install python-jobspy` (optional), a job-board strategy discovers companies actively hiring for roles in `icp.hiring_signals` (falls back to `icp.titles`) — the strongest in-market signal. Signals land in prospects' personalization notes and boost their score.
+- **Scout**: Python does all web searching (DuckDuckGo → Bing → Google → Serper API) and email resolution (pattern-first: cache → scraped mailto → Hunter domain search → default, then verify one candidate via Reoon/ZeroBounce/Hunter/SMTP; catch-alls flagged `risky`). Claude only scores/personalizes found data. Scout also collects **buying signals**: tech stack detected on each company's site (HubSpot, Shopify, Intercom, ~35 tools — zero extra requests) and hiring signals from careers pages. Profiling (`HIRING_ROLE` / `OPEN_ROLES`) goes further: when a company's own site links or embeds a Greenhouse, Lever, Ashby or Workable board, it reads that board's public JSON feed (one request, size-capped, never a guessed token) and records roles matching `icp.hiring_signals` (falls back to `icp.titles`) with department, location, posting date and URL, plus the open-roles count (`outreach/collectors/ats.py`). A board with no matching role records `HIRING_ROLE` = 0, so closed roles stop being current. The `titles` fallback is weak (it lists who you email, not roles that signal buying), so suggest users set `hiring_signals`. With `pip install python-jobspy` (optional), a job-board strategy discovers companies actively hiring for roles in `icp.hiring_signals` (falls back to `icp.titles`) — the strongest in-market signal. Signals land in prospects' personalization notes and boost their score.
 - **Writer**: Generates 3-email sequences (Email 1 < 75 words, Email 2 < 75, Email 3 < 40). Strict ban list on AI patterns.
 - **Sender**: Native providers (gmail/smtp) render merge vars per prospect and STAGE each email into the `outbox` (pending_review → approved → sent) with a scheduled send time; each heartbeat drains due, approved items with human-like pacing, the daily cap, the deterministic pre-send gate, and stop-on-reply (a reply from anyone at a company stops the sequence to everyone there). Legacy Instantly path deploys campaigns via API. Enforces daily send limits either way.
 - **Handler**: Polls the provider (or Instantly) for replies, dedups them, classifies intent, advances conversation stage, and queues auto-responses through the same outbox approval ladder. On native providers it also detects bounces → marks the address invalid, cancels the prospect's queued sends, and trips a global kill switch past a bounce-rate threshold.
@@ -363,32 +363,32 @@ send_campaigns > write_campaigns > prospect > idle (run analyst). Replies are re
 ### Key Commands
 ```bash
 source .venv/bin/activate    # Always activate venv first
-outreacho run                   # Start the heartbeat loop
-outreacho dashboard             # Web UI at http://127.0.0.1:5555 (open the printed link)
-outreacho setup                 # Re-run setup wizard
-outreacho train <url>           # Train on a product website
-outreacho status                # Pipeline summary
-outreacho usage                 # Claude quota gauges + per-agent token usage (no dollar costs — subscription plans aren't billed per token)
-outreacho export                # Deliverable prospects → sequencer-ready CSV (prospects.csv)
-outreacho precleared-key [--email ADDRESS]  # Free Precleared key for the cold-email check, saved to .env
-outreacho export --all          # Full raw list, no filters
-outreacho companies             # Company register CSV: every company, its fit score, and why it wasn't contacted
-outreacho gmail auth            # One-time Gmail OAuth (when provider: gmail)
-outreacho gmail test            # Verify the Gmail connection
-outreacho outbox                # Review queued emails; --approve <id> / --approve-all / --reject <id>
-outreacho signals               # The signal vocabulary; --confirm / --reject CODES (or 'free' / 'all')
-outreacho discover              # Find businesses; --providers / --estimate / --provider <key>
-outreacho sending pause|resume  # Kill switch for all outbound
-outreacho warmup [domain]       # Sending-domain readiness: SPF/DKIM/DMARC, age, blocklists, ramp, TrulyInbox warmup
-outreacho trulyinbox [connect|other]  # Warmup service: connect TrulyInbox, or record another service
+outreach run                   # Start the heartbeat loop
+outreach dashboard             # Web UI at http://127.0.0.1:5555 (open the printed link)
+outreach setup                 # Re-run setup wizard
+outreach train <url>           # Train on a product website
+outreach status                # Pipeline summary
+outreach usage                 # Claude quota gauges + per-agent token usage (no dollar costs — subscription plans aren't billed per token)
+outreach export                # Deliverable prospects → sequencer-ready CSV (prospects.csv)
+outreach precleared-key [--email ADDRESS]  # Free Precleared key for the cold-email check, saved to .env
+outreach export --all          # Full raw list, no filters
+outreach companies             # Company register CSV: every company, its fit score, and why it wasn't contacted
+outreach gmail auth            # One-time Gmail OAuth (when provider: gmail)
+outreach gmail test            # Verify the Gmail connection
+outreach outbox                # Review queued emails; --approve <id> / --approve-all / --reject <id>
+outreach signals               # The signal vocabulary; --confirm / --reject CODES (or 'free' / 'all')
+outreach discover              # Find businesses; --providers / --estimate / --provider <key>
+outreach sending pause|resume  # Kill switch for all outbound
+outreach warmup [domain]       # Sending-domain readiness: SPF/DKIM/DMARC, age, blocklists, ramp, TrulyInbox warmup
+outreach trulyinbox [connect|other]  # Warmup service: connect TrulyInbox, or record another service
 ```
 
 ### Common Issues
-- **"command not found: outreacho"**: Activate venv first: `source .venv/bin/activate`
-- **"ModuleNotFoundError: No module named 'outreacho'" after install (macOS)**: Python 3.13 silently ignores `.pth` files that carry the macOS hidden file flag, and some Macs propagate that flag into `.venv`. Run `outreacho install` again (it auto-fixes by linking the package), or manually: `ln -s "$(pwd)/outreacho" .venv/lib/python3.13/site-packages/outreacho`
+- **"command not found: outreach"**: Activate venv first: `source .venv/bin/activate`
+- **"ModuleNotFoundError: No module named 'outreach'" after install (macOS)**: Python 3.13 silently ignores `.pth` files that carry the macOS hidden file flag, and some Macs propagate that flag into `.venv`. Run `outreach install` again (it auto-fixes by linking the package), or manually: `ln -s "$(pwd)/outreach" .venv/lib/python3.13/site-packages/outreach`
 - **"externally-managed-environment"**: Use a venv, not system Python
 - **SQLite errors**: The `data/` directory is created automatically on first run
 - **Claude headless mode fails**: User needs `claude login` and an active Max subscription
-- **Codex calls fail** (`brain.provider: codex`): the log line says why — `codex login` with ChatGPT (also when the login "has expired or is due for renewal": Outreacho never renews it), install the supported Codex version (`outreacho status --check` shows what's wrong without a model call; while Codex is unusable Outreacho pauses whole cycles on purpose), set `brain.model` to an exact ID from the account's catalog (the error lists the models that work), or remove whatever Codex config layer is forcing tools/hooks/MCP back on. Never weaken Outreacho's isolation checks to get past it.
+- **Codex calls fail** (`brain.provider: codex`): the log line says why — `codex login` with ChatGPT (also when the login "has expired or is due for renewal": Outreach never renews it), install the supported Codex version (`outreach status --check` shows what's wrong without a model call; while Codex is unusable Outreach pauses whole cycles on purpose), set `brain.model` to an exact ID from the account's catalog (the error lists the models that work), or remove whatever Codex config layer is forcing tools/hooks/MCP back on. Never weaken Outreach's isolation checks to get past it.
 - **Instantly API 401**: Wrong API key or needs the Growth plan for API access
-- **Google search rate limiting**: Outreacho automatically falls back to DuckDuckGo and Bing. For reliable search, add a Serper API key ($5/mo).
+- **Google search rate limiting**: Outreach automatically falls back to DuckDuckGo and Bing. For reliable search, add a Serper API key ($5/mo).

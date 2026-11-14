@@ -31,11 +31,11 @@ HOW A FIRST EMAIL WORKS. Each line leads to the next, so the ask feels obvious:
    about the problem instead.
 No product name, no feature list, no links in email 1.
 
-STRICT EMAIL RULES. Sellbird checks every draft in code and rewrites or drops one
+STRICT EMAIL RULES. Outreach checks every draft in code and rewrites or drops one
 that breaks these: no dash between words (use a period or a comma), no exclamation
 marks, no formatting or lists, one question only, plain words a busy person would
 type. No "hope this finds you", "reaching out", "just wanted to", "worth a quick
-chat", "I'd love to", no hype words. No sign-off and no name at the end: Sellbird
+chat", "I'd love to", no hype words. No sign-off and no name at the end: Outreach
 adds the sender's first name. Subject: lowercase, 2 to 5 words, no "quick question".
 
 HONESTY. Every claim about them comes from the FACTS. Every claim about you comes
@@ -69,7 +69,7 @@ Offer: a reorder forecast for their top 20 SKUs, at no cost.
 >
 > Want me to run a reorder forecast on your top 20 SKUs while you hire?
 
-Follow-ups: if there's no reply, Sellbird sends them on schedule and stops the
+Follow-ups: if there's no reply, Outreach sends them on schedule and stops the
 moment they answer. Email 2 brings one new reason to reply: one proof point or
 result from the product info, and the offer again or a short call, in 1 to 3
 sentences, without "following up". Email 3 closes the loop in one or two plain

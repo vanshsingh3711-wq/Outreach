@@ -11,8 +11,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from sellbird.agents.writer import Writer
-from sellbird.models.prospect import Prospect
+from outreach.agents.writer import Writer
+from outreach.models.prospect import Prospect
 from tests.test_writer_retry import GOOD, FakeBrain, state, status  # noqa: F401  (state is a fixture)
 
 
@@ -36,7 +36,7 @@ async def add(state, n, score):
 
 
 def test_the_option_defaults_to_zero():
-    from sellbird.config import EmailChannelConfig
+    from outreach.config import EmailChannelConfig
     assert EmailChannelConfig().min_write_score == 0
     assert EmailChannelConfig(min_write_score=60).min_write_score == 60
 
@@ -46,7 +46,7 @@ async def test_prospects_below_the_threshold_are_left_new(state, caplog):
     low = await add(state, 1, 30)
     high = await add(state, 2, 80)
     brain = FakeBrain(reply=GOOD)
-    caplog.set_level(logging.INFO, logger="sellbird.writer")
+    caplog.set_level(logging.INFO, logger="outreach.writer")
     await Writer(brain, state, config(min_write_score=60), None).run()
     assert await status(state, high) == "queued"
     assert await status(state, low) == "new"

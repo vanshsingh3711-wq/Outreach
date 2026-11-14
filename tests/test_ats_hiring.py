@@ -1,7 +1,7 @@
 """Open roles from the public job-board feeds a company's ATS publishes.
 
 Greenhouse, Lever, Ashby and Workable each publish a company's open roles as
-an unauthenticated JSON feed. Sellbird finds which one a company uses from the
+an unauthenticated JSON feed. Outreach finds which one a company uses from the
 links on its OWN site (never by guessing tokens), reads that one feed, and
 records the roles that match ``icp.hiring_signals`` (or ``icp.titles``).
 """
@@ -15,18 +15,18 @@ import httpx
 import pytest
 import pytest_asyncio
 
-from sellbird.collectors.ats import (
+from outreach.collectors.ats import (
     MAX_FEED_BYTES, Board, detect_board, feed_url, matching_roles, parse_feed,
     read_board, role_keywords,
 )
-from sellbird.collectors.discover import (
+from outreach.collectors.discover import (
     Business, DiscoveryProvider, DiscoveryQuery, PRESETS, _observations, build_queries, is_junk,
     preset_problem, run_discovery,
 )
-from sellbird.collectors.profile import ProfileCollector, profile_companies
-from sellbird.models.company import Company
-from sellbird.signals import SIGNAL_CATALOG, seed_signal_catalog
-from sellbird.state import StateManager
+from outreach.collectors.profile import ProfileCollector, profile_companies
+from outreach.models.company import Company
+from outreach.signals import SIGNAL_CATALOG, seed_signal_catalog
+from outreach.state import StateManager
 
 
 @pytest_asyncio.fixture
@@ -439,9 +439,9 @@ class _OneHit(DiscoveryProvider):
 
 @pytest.mark.asyncio
 async def test_a_careers_subdomain_hit_is_recorded_as_the_company(state, monkeypatch):
-    from sellbird.collectors import discover as D
+    from outreach.collectors import discover as D
     monkeypatch.setitem(D.PROVIDERS, "fake", _OneHit("careers.acme.com"))
-    monkeypatch.setattr("sellbird.config.load_env", lambda: SimpleNamespace(model_dump=lambda: {}),
+    monkeypatch.setattr("outreach.config.load_env", lambda: SimpleNamespace(model_dump=lambda: {}),
                         raising=False)
     await seed_signal_catalog(state)
     await state.set_signal_status("FOUND_IN_SERP", "confirmed")
@@ -504,7 +504,7 @@ async def test_a_closed_role_stops_being_current(state):
 
 @pytest.mark.asyncio
 async def test_a_failing_board_read_keeps_the_other_signals(monkeypatch):
-    import sellbird.collectors.profile as P
+    import outreach.collectors.profile as P
     home = HOME.replace("/careers", "https://jobs.lever.co/acme") + '<script src="https://js.stripe.com/v3"></script>'
 
     async def boom(client, board):
@@ -520,7 +520,7 @@ async def test_a_failing_board_read_keeps_the_other_signals(monkeypatch):
 async def test_deeply_nested_json_reads_as_none(monkeypatch):
     # Deep nesting makes json.loads raise RecursionError on 3.11/3.12; newer
     # Pythons parse it. Simulate the raise so every version checks the catch.
-    import sellbird.collectors.ats as ats
+    import outreach.collectors.ats as ats
 
     def too_deep(_):
         raise RecursionError("maximum recursion depth exceeded")
@@ -596,9 +596,9 @@ def test_the_hiring_preset_needs_roles():
 ])
 @pytest.mark.asyncio
 async def test_hiring_preset_hits_on_ats_hosts_are_never_prospects(state, monkeypatch, domain):
-    from sellbird.collectors import discover as D
+    from outreach.collectors import discover as D
     monkeypatch.setitem(D.PROVIDERS, "fake", _OneHit(domain))
-    monkeypatch.setattr("sellbird.config.load_env", lambda: SimpleNamespace(model_dump=lambda: {}),
+    monkeypatch.setattr("outreach.config.load_env", lambda: SimpleNamespace(model_dump=lambda: {}),
                         raising=False)
     await seed_signal_catalog(state)
     await state.set_signal_status("FOUND_IN_SERP", "confirmed")

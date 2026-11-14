@@ -1,7 +1,7 @@
 """Unit tests for ProposalGenerator."""
 
 import pytest
-from sellbird.proposal_generator import ProposalDraft, ProposalGenerator, OPPORTUNITY_LABELS
+from outreach.proposal_generator import ProposalDraft, ProposalGenerator, OPPORTUNITY_LABELS
 
 
 def test_proposal_generator_freelance():

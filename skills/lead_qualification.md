@@ -1,6 +1,6 @@
 # Lead Qualification Skills
 
-Sellbird uses a hybrid qualification approach: BANT for initial screening, enhanced with ICP scoring for prioritization.
+Outreach uses a hybrid qualification approach: BANT for initial screening, enhanced with ICP scoring for prioritization.
 
 ---
 
@@ -51,7 +51,7 @@ Score every prospect 1-10 before outreach:
 
 ## MEDDIC (For Complex Deals — Future Use)
 
-When Sellbird handles enterprise prospects or multi-stakeholder deals:
+When Outreach handles enterprise prospects or multi-stakeholder deals:
 
 - **Metrics**: What quantifiable outcomes does the buyer care about?
 - **Economic Buyer**: Who controls the budget?
@@ -64,7 +64,7 @@ When Sellbird handles enterprise prospects or multi-stakeholder deals:
 
 ## Disqualification Signals
 
-Sellbird should NOT pursue prospects who:
+Outreach should NOT pursue prospects who:
 - Have fewer employees than the minimum ICP threshold
 - Are in a completely unrelated industry
 - Have no discoverable contact information

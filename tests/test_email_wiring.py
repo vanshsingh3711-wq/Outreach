@@ -8,8 +8,8 @@ import aiosqlite
 import pytest
 import pytest_asyncio
 
-from sellbird.state import StateManager
-from sellbird.models.prospect import Prospect
+from outreach.state import StateManager
+from outreach.models.prospect import Prospect
 
 
 @pytest_asyncio.fixture
@@ -104,7 +104,7 @@ class _Cfg:
 
 @pytest.mark.asyncio
 async def test_sender_only_sends_verified(state, monkeypatch):
-    from sellbird.agents.sender import Sender
+    from outreach.agents.sender import Sender
 
     # Three prospects: verified, guess, risky
     ids = {}
@@ -121,7 +121,7 @@ async def test_sender_only_sends_verified(state, monkeypatch):
     sender = Sender(brain=None, state=state, config=_Cfg(), env=Env())
 
     # Filter logic mirrors _deploy_campaign's lead selection.
-    from sellbird.agents.sender import (
+    from outreach.agents.sender import (
         SENDABLE_EMAIL_STATUSES, SENDABLE_EMAIL_STATUSES_WITH_RISKY,
     )
     allowed = SENDABLE_EMAIL_STATUSES
@@ -163,8 +163,8 @@ async def _contacted_at(state, email, utc_iso, status="contacted"):
 
 
 def _sender_at(state, monkeypatch, local_now):
-    from sellbird.agents import sender as sender_mod
-    from sellbird.config import EnvConfig
+    from outreach.agents import sender as sender_mod
+    from outreach.config import EnvConfig
 
     monkeypatch.setattr(sender_mod, "_local_now", lambda: local_now)
     return sender_mod.Sender(brain=None, state=state, config=_Cfg(), env=EnvConfig())

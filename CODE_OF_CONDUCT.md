@@ -1,6 +1,6 @@
 # Code of conduct
 
-Sellbird follows the [Contributor Covenant, version 2.1](https://www.contributor-covenant.org/version/2/1/code_of_conduct/).
+Outreach follows the [Contributor Covenant, version 2.1](https://www.contributor-covenant.org/version/2/1/code_of_conduct/).
 
 In short: be welcoming and respectful, assume good faith, give and take
 feedback on the work rather than the person, and don't harass anyone, in

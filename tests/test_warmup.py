@@ -1,4 +1,4 @@
-"""Warmup: the cold-email ramp for a new domain, and `sellbird warmup`'s
+"""Warmup: the cold-email ramp for a new domain, and `outreach warmup`'s
 read-only deliverability checks.
 
 Based on community PR #18 by Tariz Shahid.
@@ -11,8 +11,8 @@ from unittest.mock import AsyncMock
 import dns.exception
 import pytest
 
-from sellbird import deliverability as d
-from sellbird.config import EmailChannelConfig, WarmupConfig
+from outreach import deliverability as d
+from outreach.config import EmailChannelConfig, WarmupConfig
 from tests.test_outbox_native import (  # noqa: F401  (state is a fixture)
     FakeProvider, make_sender, seed_prospect, state,
 )
@@ -94,9 +94,9 @@ async def test_after_warming_cold_email_is_capped_at_todays_ramp(state, monkeypa
 async def test_the_ramp_leaves_instantly_alone(state, monkeypatch):
     # Instantly runs its own warmup and per-account limits; capping uploads
     # here would strand the rest of a campaign's prospects.
-    from sellbird.agents.sender import Sender
-    from sellbird.config import EnvConfig
-    from sellbird.models.campaign import Campaign, EmailStep
+    from outreach.agents.sender import Sender
+    from outreach.config import EnvConfig
+    from outreach.models.campaign import Campaign, EmailStep
     ids = [await seed_prospect(state, email=f"p{n}@acme.com", status="queued") for n in range(6)]
     warm_start = (date.today() - timedelta(days=14)).isoformat()
     config = SimpleNamespace(channels=SimpleNamespace(email=EmailChannelConfig(

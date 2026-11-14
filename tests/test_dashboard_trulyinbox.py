@@ -3,8 +3,8 @@ use another service. Either answer completes the step, so nobody is asked twice.
 
 import pytest
 
-import sellbird.dashboard as dash
-from sellbird.integrations import trulyinbox as ti
+import outreach.dashboard as dash
+from outreach.integrations import trulyinbox as ti
 from tests.test_dashboard_live_status import client, env  # noqa: F401  (fixtures)
 
 

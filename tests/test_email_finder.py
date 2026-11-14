@@ -6,9 +6,9 @@ import tempfile
 import pytest
 import pytest_asyncio
 
-from sellbird.state import StateManager
-from sellbird.integrations import email_finder as ef
-from sellbird.integrations.email_finder import (
+from outreach.state import StateManager
+from outreach.integrations import email_finder as ef
+from outreach.integrations.email_finder import (
     EmailResult,
     build_email,
     classify_mx,

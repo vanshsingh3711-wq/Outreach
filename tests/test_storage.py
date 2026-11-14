@@ -1,4 +1,4 @@
-"""sellbird.storage: SQLite by default, other backends by locator prefix."""
+"""outreach.storage: SQLite by default, other backends by locator prefix."""
 
 import sqlite3
 from pathlib import Path
@@ -6,8 +6,8 @@ from pathlib import Path
 import aiosqlite
 import pytest
 
-from sellbird import storage
-from sellbird.state import StateManager
+from outreach import storage
+from outreach.state import StateManager
 
 
 class _Recorder:
@@ -40,8 +40,8 @@ def backend(tmp_path):
     storage.unregister_backend("rec")
 
 
-@pytest.mark.parametrize("locator", ["data/sellbird.db", "/abs/sellbird.db", ":memory:",
-                                     r"C:\Users\x\sellbird.db", "C:/x/sellbird.db"])
+@pytest.mark.parametrize("locator", ["data/outreach.db", "/abs/outreach.db", ":memory:",
+                                     r"C:\Users\x\outreach.db", "C:/x/outreach.db"])
 def test_paths_are_sqlite(locator):
     assert storage.split(locator) == (None, locator)
     assert not storage.manages_schema(locator)
@@ -105,10 +105,10 @@ async def test_state_on_sqlite_still_migrates(tmp_path):
 
 
 def test_a_bare_state_manager_uses_the_current_homes_database(tmp_path):
-    from sellbird.workspace_home import Home, use_home
+    from outreach.workspace_home import Home, use_home
 
     with use_home(Home.for_root(tmp_path)):
-        assert StateManager().db_path == str(tmp_path / "data" / "sellbird.db")
+        assert StateManager().db_path == str(tmp_path / "data" / "outreach.db")
 
 
 def test_entry_point_backends_load_on_first_use(monkeypatch, tmp_path):

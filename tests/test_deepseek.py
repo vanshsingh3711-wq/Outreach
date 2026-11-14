@@ -6,12 +6,12 @@ from unittest.mock import AsyncMock, patch
 import httpx
 import pytest
 
-from sellbird.deepseek import (
+from outreach.deepseek import (
     DeepSeekClient,
     DeepSeekConfig,
     get_deepseek_client,
 )
-from sellbird.proposal_generator import ProposalGenerator
+from outreach.proposal_generator import ProposalGenerator
 
 
 def test_deepseek_config_defaults():
@@ -184,7 +184,7 @@ async def test_tailor_pitch_and_proposal_generator_integration():
         "custom_angle": "LangGraph multi-agent workflows",
     }
 
-    with patch("sellbird.deepseek.get_deepseek_client", return_value=client):
+    with patch("outreach.deepseek.get_deepseek_client", return_value=client):
         with patch.object(client, "tailor_pitch", new_callable=AsyncMock) as mock_tp:
             mock_tp.return_value = mock_pitch
             draft = await ProposalGenerator.generate_draft_async(
@@ -206,7 +206,7 @@ async def test_tailor_pitch_and_proposal_generator_integration():
 async def test_proposal_generator_fallback_when_ai_fails():
     client = DeepSeekClient(DeepSeekConfig(api_key="sk-valid-key"))
 
-    with patch("sellbird.deepseek.get_deepseek_client", return_value=client):
+    with patch("outreach.deepseek.get_deepseek_client", return_value=client):
         with patch.object(client, "tailor_pitch", new_callable=AsyncMock) as mock_tp:
             # Simulate DeepSeek failure / timeout
             mock_tp.return_value = None
