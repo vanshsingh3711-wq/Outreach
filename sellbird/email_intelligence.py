@@ -100,10 +100,21 @@ class EmailIntelligenceService:
             candidate.verified_at = ts
             return candidate
 
+        if self.env is None:
+            try:
+                from sellbird.config import load_env
+                self.env = load_env()
+            except Exception:
+                pass
+
         env_dict = self.env.model_dump() if hasattr(self.env, "model_dump") else (self.env or {})
 
         # Priority 1: Reoon
-        reoon_key = env_dict.get("REOON_API_KEY")
+        reoon_key = (
+            env_dict.get("reoon_api_key")
+            or env_dict.get("REOON_API_KEY")
+            or os.environ.get("REOON_API_KEY", "")
+        )
         if reoon_key:
             try:
                 res = await verify_reoon(email, reoon_key)
@@ -121,7 +132,11 @@ class EmailIntelligenceService:
                 logger.debug("Reoon check failed for %s: %s", email, exc)
 
         # Priority 2: ZeroBounce
-        zb_key = env_dict.get("ZEROBOUNCE_API_KEY")
+        zb_key = (
+            env_dict.get("zerobounce_api_key")
+            or env_dict.get("ZEROBOUNCE_API_KEY")
+            or os.environ.get("ZEROBOUNCE_API_KEY", "")
+        )
         if zb_key:
             try:
                 res = await verify_zerobounce(email, zb_key)
@@ -139,7 +154,11 @@ class EmailIntelligenceService:
                 logger.debug("ZeroBounce check failed for %s: %s", email, exc)
 
         # Priority 3: Hunter
-        hunter_key = env_dict.get("HUNTER_API_KEY")
+        hunter_key = (
+            env_dict.get("hunter_api_key")
+            or env_dict.get("HUNTER_API_KEY")
+            or os.environ.get("HUNTER_API_KEY", "")
+        )
         if hunter_key:
             try:
                 res = await verify_hunter(email, hunter_key)
