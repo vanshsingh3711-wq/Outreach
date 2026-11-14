@@ -184,12 +184,14 @@ async def _test_claude(brain: Brain) -> bool:
 
 
 def _ask_brain_config() -> BrainConfig:
-    """Ask which subscription Outreach thinks with. Claude is the default."""
-    _print_outreach("I think with an AI subscription you already pay for:")
-    print("    claude — your Claude plan, via Claude Code (default)")
-    print("    codex  — your ChatGPT plan, via the Codex CLI")
+    """Ask which provider Outreach thinks with."""
+    _print_outreach("I think with an AI provider:")
+    print("    deepseek — direct API integration (recommended, no CLI needed)")
+    print("    claude   — your Claude plan, via Claude Code CLI")
+    print("    codex    — your ChatGPT plan, via Codex CLI")
+    default_p = "deepseek" if os.environ.get("DEEPSEEK_API_KEY") else "deepseek"
     while True:
-        provider = _ask("Which one? (claude/codex)", default="claude").lower()
+        provider = _ask("Which one? (deepseek/claude/codex)", default=default_p).lower()
         if provider == "codex":
             from outreach.codex import CodexError, require_supported_platform
             try:
@@ -197,16 +199,21 @@ def _ask_brain_config() -> BrainConfig:
             except CodexError as e:
                 print(f"    ({e})")
                 continue
-        if provider in ("claude", "codex"):
+        if provider in ("deepseek", "claude", "codex"):
             break
-        print("    (type claude or codex)")
+        print("    (type deepseek, claude, or codex)")
     if provider == "codex":
         from outreach.codex import SUGGESTED_MODEL
         print(f"    {SUGGESTED_MODEL} is the Codex model Outreach has verified as text-only")
         print("    (no code-execution tools). Press Enter to use it, or type another.")
+        default_model = SUGGESTED_MODEL
+    elif provider == "deepseek":
+        default_model = "deepseek-chat"
+    else:
+        default_model = ""
     while True:
-        if provider == "codex":
-            model = _ask("Model", default=SUGGESTED_MODEL, required=False)
+        if default_model:
+            model = _ask("Model", default=default_model, required=False)
         else:
             model = _ask("Model (leave blank for the default)", required=False)
         try:
@@ -294,12 +301,39 @@ class SetupWizard:
         await self._print_summary()
 
     async def _check_prerequisites(self):
-        """Pick the brain provider and verify its CLI is installed and working."""
+        """Pick the brain provider and verify its credentials or CLI."""
         self.brain_config = _ask_brain_config()
-        if self.brain_config.provider == "codex":
+        if self.brain_config.provider == "deepseek":
+            await self._check_deepseek()
+        elif self.brain_config.provider == "codex":
             await self._check_codex()
         else:
             await self._check_claude()
+
+    async def _check_deepseek(self):
+        print("\n  Checking DeepSeek API configuration...", end=" ")
+        from outreach.deepseek import DeepSeekClient, DeepSeekConfig
+        client = DeepSeekClient(DeepSeekConfig(model=self.brain_config.model or "deepseek-chat"))
+        if not client.is_available():
+            print("✗ Not found in environment")
+            key = _ask("Enter your DEEPSEEK_API_KEY")
+            self.env_vars["DEEPSEEK_API_KEY"] = key
+            client.config.api_key = key
+        else:
+            print("✓ Found")
+
+        print("  Testing DeepSeek direct connection...", end=" ", flush=True)
+        state = StateManager()
+        await state.init_db()
+        brain = Brain(state, self.brain_config)
+        if await _test_claude(brain):
+            print("✓ Working")
+        else:
+            print("✗ Failed")
+            _print_outreach("DeepSeek direct connection failed. Check your API key or network.")
+            if not _ask_yes_no("Continue anyway?", default=False):
+                raise SystemExit(1)
+        self._check_python_packages()
 
     async def _check_claude(self):
         # Check Claude CLI

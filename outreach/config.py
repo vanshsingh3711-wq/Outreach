@@ -696,17 +696,18 @@ class UsageConfig(BaseModel):
         return v
 
 
-BRAIN_PROVIDERS = ("claude", "codex")
+BRAIN_PROVIDERS = ("claude", "codex", "deepseek")
 CODEX_REASONING_EFFORTS = ("minimal", "low", "medium", "high", "xhigh")
 
-# Model names are passed to a CLI, so they must look like a model name and
+# Model names are passed to a CLI or API, so they must look like a model name and
 # never like a flag ("-x") or anything a shell would treat specially.
 _MODEL_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/\[\]-]{0,127}$")
 
 
 class BrainConfig(BaseModel):
-    """Which subscription Outreach thinks with.
+    """Which AI provider Outreach thinks with.
 
+    ``deepseek`` runs direct API queries using DEEPSEEK_API_KEY.
     ``claude`` (default) runs Claude Code headless on your Claude plan.
     ``codex`` runs Codex on your ChatGPT plan. There is never an automatic
     fallback between them, and an explicit ``model`` only affects Outreach —

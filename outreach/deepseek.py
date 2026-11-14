@@ -41,7 +41,12 @@ def _get_env_val(key: str, default: str = "") -> str:
         return val.strip()
     try:
         from dotenv import load_dotenv
-        load_dotenv()
+        from outreach.paths import PROJECT_ROOT
+        env_file = PROJECT_ROOT / ".env"
+        if env_file.exists():
+            load_dotenv(env_file)
+        else:
+            load_dotenv()
     except Exception:
         pass
     return os.environ.get(key, default).strip()

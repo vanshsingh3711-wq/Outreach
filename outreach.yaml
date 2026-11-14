@@ -1,14 +1,18 @@
+brain:
+  provider: "deepseek"
+  model: "deepseek-chat"
+
 persona:
-  name: "Alex"
-  company: "Your Company"
-  role: "Business Development"
-  email: "alex@yourcompany.com"
-  linkedin: "linkedin.com/in/alex-yourcompany"
-  tone: "professional, consultative, confident"
+  name: "Vansh"
+  company: "Outreach"
+  role: "Founder"
+  email: "vansh@outreach.internal"
+  linkedin: "linkedin.com/in/vansh"
+  tone: "concise, direct, authentic, founder-to-founder"
 
 product:
-  name: "Your Product"
-  description: "Describe what your product does and who it's for"
+  name: "Outreach"
+  description: "Autonomous lead discovery, qualification, and personalized multi-channel outreach engine"
   pricing: "Starting at $X/mo"
   key_benefits:
     - "Benefit 1"

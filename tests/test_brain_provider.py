@@ -369,7 +369,7 @@ async def test_existing_usage_rows_become_claude(tmp_path):
     assert await sm.get_usage_today("codex") == 0
     summary = await sm.get_state_summary()
     assert summary["usage_today"] == 7
-    assert summary["usage_today_by_provider"] == {"claude": 7, "codex": 0}
+    assert summary["usage_today_by_provider"] == {"claude": 7, "codex": 0, "deepseek": 0}
     with pytest.raises(ValueError):
         await sm.record_usage_event(provider="gemini")
 
@@ -751,3 +751,32 @@ def test_cli_status_hides_another_providers_pause(monkeypatch, tmp_path, capsys)
                       config=BrainConfig(provider="codex", model="gpt-5.5"),
                       setting=_STALE_CODEX_PAUSE)
     assert "Codex PAUSED" in out
+
+
+@pytest.mark.asyncio
+async def test_deepseek_brain_provider(monkeypatch, state):
+    """DeepSeek brain provider thinks directly via DeepSeek API without Claude or Codex CLIs."""
+    cfg = BrainConfig(provider="deepseek", model="deepseek-chat")
+    brain = Brain(state, cfg)
+    assert brain.provider == "deepseek"
+    assert brain.provider_label == "DeepSeek"
+    assert brain.deepseek is not None
+
+    # Stub complete to verify Brain thinks and records usage
+    async def fake_complete(messages, json_mode=False, **kwargs):
+        if json_mode:
+            return {"result": "success"}
+        return "OUTREACH_READY"
+
+    monkeypatch.setattr(brain.deepseek, "is_available", lambda: True)
+    monkeypatch.setattr(brain.deepseek, "complete", fake_complete)
+
+    preflight = await brain.preflight()
+    assert preflight == ""
+
+    response = await brain.think("test", expect_json=False)
+    assert response == "OUTREACH_READY"
+    assert await state.get_usage_today("deepseek") == 1
+
+    json_resp = await brain.think_json("test json")
+    assert json_resp == {"result": "success"}

@@ -1485,17 +1485,23 @@ async function loadLogs() {
 function brainCallChips(data) {
   const chip = (label, n) => '<span class="chip">' + label + ' calls today <b>' + escHtml(String(n || 0)) + '</b></span>';
   const codex = data.codex_calls_today || 0;
+  const deepseek = data.deepseek_calls_today || 0;
+  const claude = data.claude_calls_today || 0;
   const st = data.brain_status || {};
   // A paused brain must not look healthy: say so, and why.
+  const providerLabel = st.provider === 'codex' ? 'Codex' : (st.provider === 'deepseek' ? 'DeepSeek' : 'Brain');
   const paused = st.status === 'paused'
     ? '<span class="chip" title="' + escHtml(st.reason || '') + '">' +
-      escHtml(st.provider === 'codex' ? 'Codex' : 'Brain') + ' <b>paused</b>: ' +
+      escHtml(providerLabel) + ' <b>paused</b>: ' +
       escHtml((st.reason || '').slice(0, 120)) + '</span>'
     : '';
-  if (data.brain_provider === 'codex') {
-    return paused + chip('Codex', codex) + (data.claude_calls_today ? chip('Claude', data.claude_calls_today) : '');
+  if (data.brain_provider === 'deepseek') {
+    return paused + chip('DeepSeek', deepseek) + (claude ? chip('Claude', claude) : '') + (codex ? chip('Codex', codex) : '');
   }
-  return paused + chip('Claude', data.claude_calls_today) + (codex ? chip('Codex', codex) : '');
+  if (data.brain_provider === 'codex') {
+    return paused + chip('Codex', codex) + (claude ? chip('Claude', claude) : '');
+  }
+  return paused + chip('Claude', claude) + (codex ? chip('Codex', codex) : '');
 }
 
 function fmtTokens(n) {

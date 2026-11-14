@@ -40,7 +40,7 @@ _NON_RETRYABLE_PATTERNS = (
 )
 
 
-PROVIDER_LABELS = {"claude": "Claude", "codex": "Codex"}
+PROVIDER_LABELS = {"claude": "Claude", "codex": "Codex", "deepseek": "DeepSeek"}
 
 # Settings key holding the brain's last health transition, for `outreach
 # status` and the dashboard: {"provider", "status": "ok"|"paused", "reason",
@@ -130,6 +130,13 @@ class Brain:
                 model=self.model, reasoning_effort=self.config.reasoning_effort
             )
             self.quota = CodexQuotaClient(self.codex)
+        elif self.provider == "deepseek":
+            from outreach.deepseek import DeepSeekClient, DeepSeekConfig
+            self.deepseek = DeepSeekClient(
+                DeepSeekConfig(model=self.model or "deepseek-chat")
+            )
+            from outreach.integrations.quota import QuotaClient
+            self.quota = QuotaClient()
         else:
             # Lazy import avoids a cycle (quota -> usage -> state).
             from outreach.integrations.quota import QuotaClient
@@ -166,6 +173,8 @@ class Brain:
         PROVIDER_RECHECK_SECONDS, so a persistent problem doesn't start
         runtimes every heartbeat.
         """
+        if self.provider == "deepseek":
+            return await self._deepseek_preflight()
         if self.provider != "codex":
             return await self._claude_preflight()
         from outreach.codex import CodexError
@@ -222,7 +231,25 @@ class Brain:
             await self._mark_available()
         return ""
 
+    async def _deepseek_preflight(self) -> str:
+        """DeepSeek: verify API key is present."""
+        if not self.deepseek.is_available():
+            msg = "DEEPSEEK_API_KEY is missing or invalid. Set it in .env or environment."
+            self.unavailable = msg
+            await self._record_status("paused", msg)
+            return msg
+        if self.unavailable:
+            await self._mark_available()
+        elif not self._status_synced:
+            self._status_synced = True
+            logger.info(
+                f"DeepSeek ready: direct API connection configured (model {self.deepseek.config.model})."
+            )
+        return ""
+
     def _fingerprint(self):
+        if self.provider == "deepseek":
+            return bool(self.deepseek.is_available())
         if self.provider == "codex":
             return self.codex.fingerprint()
         from outreach.claude_runtime import fingerprint
@@ -294,6 +321,11 @@ class Brain:
         if self.transport is not None:
             return await self._think_transport(prompt, expect_json=expect_json,
                                                timeout=timeout, agent=agent, task=task)
+        if self.provider == "deepseek":
+            return await self._think_deepseek(
+                prompt, session_id=session_id, expect_json=expect_json,
+                timeout=timeout, max_retries=max_retries, agent=agent, task=task,
+            )
         if self.provider == "codex":
             return await self._think_codex(
                 prompt, session_id=session_id, timeout=timeout,
@@ -439,6 +471,101 @@ class Brain:
         logger.error(
             f"Brain call failed after {max_retries + 1} attempts. "
             f"Last error: {str(last_error)[:200]}"
+        )
+        return ""
+
+    async def _think_deepseek(
+        self,
+        prompt: str,
+        session_id: str | None = None,
+        expect_json: bool = False,
+        timeout: float = DEFAULT_TIMEOUT_SECONDS,
+        max_retries: int = DEFAULT_MAX_RETRIES,
+        agent: str = "",
+        task: str = "",
+    ) -> str:
+        """Direct call to DeepSeek chat completion API."""
+        paused = self.paused_reason
+        if paused:
+            logger.debug(f"DeepSeek call skipped: {paused}")
+            return ""
+
+        if not self.deepseek.is_available():
+            logger.error("DeepSeek client is not configured (missing DEEPSEEK_API_KEY).")
+            return ""
+
+        logger.debug(f"Brain call via DeepSeek (session={session_id}): {prompt[:100]}...")
+
+        # DeepSeek json_mode strictly requires the word "json" in prompt
+        use_json_mode = expect_json and ("json" in prompt.lower())
+        messages = [{"role": "user", "content": prompt}]
+
+        last_error = ""
+        for attempt in range(max_retries + 1):
+            if attempt > 0:
+                delay = RETRY_BASE_DELAY * (2 ** (attempt - 1))
+                logger.info(
+                    f"Retrying DeepSeek call in {delay:.0f}s "
+                    f"(attempt {attempt + 1}/{max_retries + 1})..."
+                )
+                await asyncio.sleep(delay)
+
+            start = time.monotonic()
+            try:
+                result = await asyncio.wait_for(
+                    self.deepseek.complete(
+                        messages=messages,
+                        json_mode=use_json_mode,
+                    ),
+                    timeout=timeout,
+                )
+            except asyncio.TimeoutError:
+                logger.error(f"DeepSeek call timed out after {timeout:.0f}s.")
+                last_error = "timeout"
+                continue
+            except Exception as e:
+                logger.warning(f"DeepSeek call error: {e}")
+                last_error = str(e)
+                continue
+
+            duration_ms = int((time.monotonic() - start) * 1000)
+
+            if result is None:
+                last_error = "empty or failed response"
+                continue
+
+            if isinstance(result, (dict, list)):
+                response_text = json.dumps(result)
+            else:
+                response_text = str(result).strip()
+
+            try:
+                await self.state.increment_usage(provider="deepseek")
+            except Exception as e:
+                logger.warning(f"Failed to record usage counter: {e}")
+
+            try:
+                prompt_tokens = max(1, len(prompt) // 4)
+                resp_tokens = max(1, len(response_text) // 4)
+                await self.state.record_usage_event(
+                    agent=agent,
+                    task=task,
+                    session_id=session_id or "",
+                    model=self.deepseek.config.model,
+                    input_tokens=prompt_tokens,
+                    output_tokens=resp_tokens,
+                    duration_ms=duration_ms,
+                    provider="deepseek",
+                    source="deepseek_api",
+                )
+            except Exception as e:
+                logger.warning(f"Failed to record usage event: {e}")
+
+            return response_text
+
+        logger.error(
+            f"DeepSeek call failed after {max_retries + 1} attempts. "
+            f"Last error: {last_error[:200]}"
         )
         return ""
 
@@ -617,7 +744,7 @@ class Brain:
             + "\n\nRespond ONLY with valid JSON. No markdown, no explanation."
         )
         response = await self.think(
-            full_prompt, session_id=session_id, agent=agent, task=task
+            full_prompt, session_id=session_id, expect_json=True, agent=agent, task=task
         )
         self.last_reply_empty = not response
         if not response:
