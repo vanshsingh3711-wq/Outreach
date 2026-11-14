@@ -59,6 +59,7 @@ MOCK_TEAM_HTML = """
     <p class="role">Co-Founder & Chief Technology Officer</p>
     <p class="bio">Evelyn oversees AI backend engineering and LangGraph multi-agent research.</p>
     <a href="https://linkedin.com/in/evelyn-reed-phd">LinkedIn</a>
+    <a href="https://x.com/evelyn_ai">𝕏</a>
   </div>
   <div class="member">
     <h3>Jordan Hayes</h3>
@@ -190,6 +191,8 @@ async def test_full_prospecting_pipeline_end_to_end(tmp_path, monkeypatch):
     assert cto.primary_email == "evelyn.reed@agentic-solutions.io"
     assert cto.email_status == "verified"
     assert cto.email_match_confidence >= 0.85
+    assert cto.linkedin_url == "https://www.linkedin.com/in/evelyn-reed-phd"
+    assert cto.twitter_url == "https://x.com/evelyn_ai"
 
     assert ceo is not None
     assert ceo.first_name == "Jordan"

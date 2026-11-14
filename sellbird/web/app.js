@@ -3647,7 +3647,7 @@ async function runUrlEnrichment(targetUrl) {
     html += `<th>Priority</th>`;
     html += `<th>Email & Deliverability</th>`;
     html += `<th>Match Conf.</th>`;
-    html += `<th>LinkedIn</th>`;
+    html += `<th>Social Profiles</th>`;
     html += `<th style="text-align: right;">Action</th>`;
     html += `</tr></thead><tbody>`;
 
@@ -3673,12 +3673,24 @@ async function runUrlEnrichment(targetUrl) {
       const pillHtml = email ? (statusPills[emailStatus] || `<span class="badge t-idle">${emailStatus}</span>`) : '<span style="color: var(--text-3);">none</span>';
       const confPct = Math.round((p.email_match_confidence || 0.85) * 100);
 
+      let socials = [];
+      if (p.linkedin_url) {
+        socials.push(`<a href="${safeHref(p.linkedin_url)}" target="_blank" rel="noopener" style="color: #0a66c2; text-decoration: none; font-weight: 500;">LinkedIn</a>`);
+      }
+      if (p.twitter_url) {
+        socials.push(`<a href="${safeHref(p.twitter_url)}" target="_blank" rel="noopener" style="color: #1d9bf0; text-decoration: none; font-weight: 500;">𝕏</a>`);
+      }
+      if (p.github_url) {
+        socials.push(`<a href="${safeHref(p.github_url)}" target="_blank" rel="noopener" style="color: #a371f7; text-decoration: none; font-weight: 500;">GitHub</a>`);
+      }
+      const socialHtml = socials.length ? socials.join(' &middot; ') : '<span style="color: var(--text-3);">&mdash;</span>';
+
       html += `<tr>`;
       html += `<td><b>${name}</b><br><span style="font-size: 12px; color: var(--text-2);">${title}</span></td>`;
       html += `<td>${prioHtml}</td>`;
       html += `<td>${email ? `<span style="font-family: var(--mono); font-size: 12px;">${email}</span><br>${pillHtml}` : pillHtml}</td>`;
       html += `<td>${confPct}%</td>`;
-      html += `<td>${p.linkedin_url ? `<a href="${safeHref(p.linkedin_url)}" target="_blank" rel="noopener">Profile</a>` : '<span style="color: var(--text-3);">&mdash;</span>'}</td>`;
+      html += `<td>${socialHtml}</td>`;
       html += `<td style="text-align: right;"><button class="btn btn-secondary btn-sm" onclick="goToOutreachPrepByName('${escHtml(p.first_name)}', '${escHtml(p.last_name)}')">Draft Outreach</button></td>`;
       html += `</tr>`;
     });
@@ -3732,6 +3744,7 @@ async function loadDecisionMakers() {
   html += '<th>Role Priority</th>';
   html += '<th>Email & Deliverability</th>';
   html += '<th>Match Conf.</th>';
+  html += '<th>Social Profiles</th>';
   html += '<th>Status</th>';
   html += '<th style="text-align: right;">Action</th>';
   html += '</tr></thead><tbody>';
@@ -3761,6 +3774,18 @@ async function loadDecisionMakers() {
     const pillHtml = email ? (statusPills[emailStatus] || `<span class="badge t-idle">${emailStatus}</span>`) : '<span style="color: var(--text-3);">none</span>';
     const confPct = Math.round((d.email_match_confidence || 0.85) * 100);
 
+    let socials = [];
+    if (d.linkedin_url) {
+      socials.push(`<a href="${safeHref(d.linkedin_url)}" target="_blank" rel="noopener" style="color: #0a66c2; text-decoration: none; font-weight: 500;">LinkedIn</a>`);
+    }
+    if (d.twitter_url) {
+      socials.push(`<a href="${safeHref(d.twitter_url)}" target="_blank" rel="noopener" style="color: #1d9bf0; text-decoration: none; font-weight: 500;">𝕏</a>`);
+    }
+    if (d.github_url) {
+      socials.push(`<a href="${safeHref(d.github_url)}" target="_blank" rel="noopener" style="color: #a371f7; text-decoration: none; font-weight: 500;">GitHub</a>`);
+    }
+    const socialHtml = socials.length ? socials.join(' &middot; ') : '<span style="color: var(--text-3);">&mdash;</span>';
+
     const statusBadge = d.status === 'queued'
       ? '<span class="badge t-good">outbox queued</span>'
       : (d.status === 'contacted' ? '<span class="badge t-active">contacted</span>' : '<span class="badge t-idle">new</span>');
@@ -3771,6 +3796,7 @@ async function loadDecisionMakers() {
     html += `<td>${prioHtml}</td>`;
     html += `<td>${email ? `<span style="font-family: var(--mono); font-size: 12px;">${email}</span><br>${pillHtml}` : pillHtml}</td>`;
     html += `<td>${confPct}%</td>`;
+    html += `<td>${socialHtml}</td>`;
     html += `<td>${statusBadge}</td>`;
     html += `<td style="text-align: right;"><button class="btn btn-secondary btn-sm" onclick="goToOutreachPrep('${escHtml(d.id)}')">Draft Proposal</button></td>`;
     html += `</tr>`;
@@ -3908,6 +3934,14 @@ async function generateOutreachDraft() {
   dosHtml += `<div><span style="color: var(--text-3); font-size: 11px; display: block;">Target Opportunity Angle</span><span class="badge t-active">${escHtml(draft.opportunity_label)}</span></div>`;
   dosHtml += `<div><span style="color: var(--text-3); font-size: 11px; display: block;">Deliverable Email</span><span style="font-family: var(--mono); font-size: 12px;">${escHtml(draft.recipient_email || 'None on file')}</span></div>`;
   dosHtml += `</div>`;
+
+  if (p && (p.linkedin_url || p.twitter_url || p.github_url)) {
+    dosHtml += `<div style="margin-bottom: var(--sp-3);"><span style="color: var(--text-3); font-size: 11px; display: block; margin-bottom: 6px;">Social Profiles</span><div style="display: flex; gap: 6px; flex-wrap: wrap;">`;
+    if (p.linkedin_url) dosHtml += `<a href="${safeHref(p.linkedin_url)}" target="_blank" rel="noopener" class="badge" style="background: rgba(10,102,194,0.15); color: #0a66c2; text-decoration: none;">LinkedIn</a>`;
+    if (p.twitter_url) dosHtml += `<a href="${safeHref(p.twitter_url)}" target="_blank" rel="noopener" class="badge" style="background: rgba(29,155,240,0.15); color: #1d9bf0; text-decoration: none;">𝕏 (Twitter)</a>`;
+    if (p.github_url) dosHtml += `<a href="${safeHref(p.github_url)}" target="_blank" rel="noopener" class="badge" style="background: rgba(110,84,148,0.15); color: #a371f7; text-decoration: none;">GitHub</a>`;
+    dosHtml += `</div></div>`;
+  }
 
   if (draft.tech_stack && draft.tech_stack.length) {
     dosHtml += `<div style="margin-bottom: var(--sp-2);"><span style="color: var(--text-3); font-size: 11px; display: block; margin-bottom: 4px;">Detected Tech Stack</span><div style="display: flex; gap: 4px; flex-wrap: wrap;">`;

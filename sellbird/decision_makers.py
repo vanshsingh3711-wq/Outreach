@@ -78,9 +78,17 @@ _SUBORDINATE_ROLES = re.compile(
     re.I,
 )
 
-# LinkedIn profile URL regex
+# Social profile URL regexes
 _LINKEDIN_PROFILE_RE = re.compile(
     r"https?://(?:[a-z]{2,3}\.)?linkedin\.com/in/([a-zA-Z0-9_\-%]+)",
+    re.I,
+)
+_TWITTER_PROFILE_RE = re.compile(
+    r"https?://(?:www\.)?(?:twitter\.com|x\.com)/(?!home|share|intent|search|hashtag|privacy|terms|explore|login|signup|i/)([a-zA-Z0-9_]{1,30})\b",
+    re.I,
+)
+_GITHUB_PROFILE_RE = re.compile(
+    r"https?://(?:www\.)?github\.com/(?!features|pricing|enterprise|about|blog|explore|topics|orgs|site|marketplace)([a-zA-Z0-9_-]{1,39})\b",
     re.I,
 )
 
@@ -104,6 +112,8 @@ class DecisionMaker:
     company_name: str = ""
     company_domain: str = ""
     linkedin_url: str = ""
+    twitter_url: str = ""
+    github_url: str = ""
     evidence_snippet: str = ""
     source_url: str = ""
     confidence: float = 0.8
@@ -267,11 +277,21 @@ class DecisionMakerExtractor:
         company_size: str = "",
     ) -> DecisionMaker | None:
         """Extract a single DecisionMaker from an HTML card or section."""
-        # Find LinkedIn profile link if present
+        # Find LinkedIn, Twitter/X, and GitHub profile links if present
         linkedin_url = ""
         m_li = _LINKEDIN_PROFILE_RE.search(html_block)
         if m_li:
             linkedin_url = f"https://www.linkedin.com/in/{m_li.group(1)}"
+
+        twitter_url = ""
+        m_tw = _TWITTER_PROFILE_RE.search(html_block)
+        if m_tw:
+            twitter_url = f"https://x.com/{m_tw.group(1)}"
+
+        github_url = ""
+        m_gh = _GITHUB_PROFILE_RE.search(html_block)
+        if m_gh:
+            github_url = f"https://github.com/{m_gh.group(1)}"
 
         # Strip scripts, styles, and tags
         clean_text = re.sub(r"(?s)<script.*?</script>|<style.*?</style>", " ", html_block)
@@ -317,6 +337,8 @@ class DecisionMakerExtractor:
                     company_name=site_name,
                     company_domain=domain,
                     linkedin_url=linkedin_url,
+                    twitter_url=twitter_url,
+                    github_url=github_url,
                     evidence_snippet=snippet,
                     source_url=page_url,
                     confidence=0.90 if linkedin_url else (0.85 if priority <= 2 else 0.75),
@@ -343,11 +365,21 @@ class DecisionMakerExtractor:
         collector = ProfileCollector(state=None)
         people_dicts = collector.detect_people(html, domain=domain, site_name=site_name)
 
-        # Look for page-wide LinkedIn URLs to correlate with names
+        # Look for page-wide social profile URLs to correlate with names
         linkedin_map: dict[str, str] = {}
         for m in _LINKEDIN_PROFILE_RE.finditer(html):
             handle = m.group(1).lower()
             linkedin_map[handle] = f"https://www.linkedin.com/in/{m.group(1)}"
+
+        twitter_map: dict[str, str] = {}
+        for m in _TWITTER_PROFILE_RE.finditer(html):
+            handle = m.group(1).lower()
+            twitter_map[handle] = f"https://x.com/{m.group(1)}"
+
+        github_map: dict[str, str] = {}
+        for m in _GITHUB_PROFILE_RE.finditer(html):
+            handle = m.group(1).lower()
+            github_map[handle] = f"https://github.com/{m.group(1)}"
 
         for p in people_dicts:
             first = p.get("first_name", "").strip()
@@ -371,11 +403,23 @@ class DecisionMakerExtractor:
                 clean_title, company_size=company_size, config=self.config
             )
 
-            # Check if person's name matches any discovered LinkedIn handle
+            # Check if person's name matches any discovered social handle
             assigned_linkedin = ""
             for handle, full_li in linkedin_map.items():
-                if first.lower() in handle and last.lower() in handle:
+                if (first.lower() in handle and last.lower() in handle) or (last.lower() in handle and len(last) >= 4):
                     assigned_linkedin = full_li
+                    break
+
+            assigned_twitter = ""
+            for handle, full_tw in twitter_map.items():
+                if (first.lower() in handle and last.lower() in handle) or (last.lower() in handle and len(last) >= 4):
+                    assigned_twitter = full_tw
+                    break
+
+            assigned_github = ""
+            for handle, full_gh in github_map.items():
+                if (first.lower() in handle and last.lower() in handle) or (last.lower() in handle and len(last) >= 4):
+                    assigned_github = full_gh
                     break
 
             evidence = f"{first} {last} | {clean_title}"
@@ -387,6 +431,8 @@ class DecisionMakerExtractor:
                 company_name=site_name,
                 company_domain=domain,
                 linkedin_url=assigned_linkedin,
+                twitter_url=assigned_twitter,
+                github_url=assigned_github,
                 evidence_snippet=evidence,
                 source_url=url,
                 confidence=0.88 if assigned_linkedin else (0.80 if priority <= 2 else 0.70),
@@ -395,7 +441,7 @@ class DecisionMakerExtractor:
             seen_names.add(key)
             results.append(dm)
 
-        # 2. Targeted regex card parsing for team containers with LinkedIn badges
+        # 2. Targeted regex card parsing for team containers with badges
         card_pattern = re.compile(
             r'(?is)<(?:div|li|section|article)[^>]*class=["\'][^"\']*(?:team|member|person|card|bio|leader)[^"\']*["\'][^>]*>(.*?)</(?:div|li|section|article)>'
         )
@@ -410,16 +456,17 @@ class DecisionMakerExtractor:
             )
             if dm:
                 key = (dm.first_name.lower(), dm.last_name.lower())
-                if key not in seen_names:
+                existing = next((r for r in results if (r.first_name.lower(), r.last_name.lower()) == key), None)
+                if not existing:
                     seen_names.add(key)
                     results.append(dm)
                 else:
-                    # Update existing record if card has LinkedIn URL and previous did not
-                    for existing in results:
-                        if (existing.first_name.lower(), existing.last_name.lower()) == key:
-                            if not existing.linkedin_url and dm.linkedin_url:
-                                existing.linkedin_url = dm.linkedin_url
-                            break
+                    if not existing.linkedin_url and dm.linkedin_url:
+                        existing.linkedin_url = dm.linkedin_url
+                    if not existing.twitter_url and dm.twitter_url:
+                        existing.twitter_url = dm.twitter_url
+                    if not existing.github_url and dm.github_url:
+                        existing.github_url = dm.github_url
 
         return results
 
@@ -450,6 +497,10 @@ class DecisionMakerExtractor:
                         current.seniority = dm.seniority
                     if not current.linkedin_url and dm.linkedin_url:
                         current.linkedin_url = dm.linkedin_url
+                    if not current.twitter_url and dm.twitter_url:
+                        current.twitter_url = dm.twitter_url
+                    if not current.github_url and dm.github_url:
+                        current.github_url = dm.github_url
                     if len(dm.evidence_snippet) > len(current.evidence_snippet):
                         current.evidence_snippet = dm.evidence_snippet
 
@@ -473,4 +524,68 @@ class DecisionMakerExtractor:
             f'{clean_domain} "Engineering Manager"',
             f'{clean_domain} "Head of AI"',
         ]
+
+
+async def enrich_social_profiles_via_search(
+    people: list[DecisionMaker],
+    company_name: str,
+    serper_api_key: str = "",
+    max_lookups: int = 4,
+) -> None:
+    """Enrich missing LinkedIn, X/Twitter, or GitHub profiles using Serper search."""
+    if not serper_api_key or not company_name or not people:
+        return
+
+    from sellbird.public_http import public_http_client
+
+    headers = {"X-API-KEY": serper_api_key, "Content-Type": "application/json"}
+    lookups_done = 0
+
+    try:
+        async with public_http_client(timeout=8.0) as client:
+            for p in people[:3]:  # Top priority decision makers
+                if lookups_done >= max_lookups:
+                    break
+
+                # 1. Search LinkedIn if missing
+                if not p.linkedin_url:
+                    try:
+                        q_li = f'site:linkedin.com/in "{p.full_name}" "{company_name}"'
+                        r = await client.post(
+                            "https://google.serper.dev/search",
+                            headers=headers,
+                            json={"q": q_li, "num": 1},
+                        )
+                        if r.status_code == 200:
+                            for item in r.json().get("organic") or []:
+                                link = item.get("link", "")
+                                if "linkedin.com/in/" in link:
+                                    p.linkedin_url = link
+                                    break
+                        lookups_done += 1
+                    except Exception as err:
+                        logger.debug("Serper LinkedIn search failed for %s: %s", p.full_name, err)
+
+                # 2. Search X / Twitter if missing
+                if not p.twitter_url and lookups_done < max_lookups:
+                    try:
+                        q_x = f'(site:x.com OR site:twitter.com) "{p.full_name}" "{company_name}"'
+                        r = await client.post(
+                            "https://google.serper.dev/search",
+                            headers=headers,
+                            json={"q": q_x, "num": 1},
+                        )
+                        if r.status_code == 200:
+                            for item in r.json().get("organic") or []:
+                                link = item.get("link", "")
+                                m = _TWITTER_PROFILE_RE.search(link)
+                                if m:
+                                    p.twitter_url = f"https://x.com/{m.group(1)}"
+                                    break
+                        lookups_done += 1
+                    except Exception as err:
+                        logger.debug("Serper X search failed for %s: %s", p.full_name, err)
+    except Exception as exc:
+        logger.debug("Social search enrichment error: %s", exc)
+
 

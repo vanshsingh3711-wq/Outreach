@@ -26,6 +26,7 @@ from sellbird.collectors.discover import (
     site_name_from_html,
 )
 from sellbird.collectors import people as people_mod
+from sellbird.config import load_env
 from sellbird.decision_makers import DecisionMakerExtractor
 from sellbird.email_intelligence import EmailIntelligenceService
 from sellbird.firmographics import FirmographicExtractor
@@ -216,6 +217,8 @@ class DiscoveredPerson:
     evidence_snippet: str = ""
     source_url: str = ""
     linkedin_url: str = ""
+    twitter_url: str = ""
+    github_url: str = ""
     confidence: float = 0.8
     primary_email: str = ""
     email_status: str = ""
@@ -439,6 +442,18 @@ class CompanyEnricher:
             company_size=company.company_size,
         )
 
+        # 4b. Optional Serper search for missing social profiles (LinkedIn / X)
+        env = load_env()
+        serper_key = getattr(env, "serper_api_key", "") or os.environ.get("SERPER_API_KEY", "")
+        if serper_key and extracted_dms:
+            from sellbird.decision_makers import enrich_social_profiles_via_search
+            await enrich_social_profiles_via_search(
+                extracted_dms,
+                company_name=company.name or domain,
+                serper_api_key=serper_key,
+                max_lookups=3,
+            )
+
         discovered_people: list[DiscoveredPerson] = []
         for dm in extracted_dms:
             person = DiscoveredPerson(
@@ -449,6 +464,8 @@ class CompanyEnricher:
                 evidence_snippet=dm.evidence_snippet[:300],
                 source_url=dm.source_url or canonical_url,
                 linkedin_url=dm.linkedin_url,
+                twitter_url=dm.twitter_url,
+                github_url=dm.github_url,
                 confidence=dm.confidence,
             )
             discovered_people.append(person)
@@ -502,6 +519,10 @@ class CompanyEnricher:
                 notes = dp.evidence_snippet
                 if dp.email_match_confidence > 0:
                     notes = f"{notes} | match_confidence: {dp.email_match_confidence:.2f}"
+                if dp.twitter_url:
+                    notes = f"{notes} | x: {dp.twitter_url}"
+                if dp.github_url:
+                    notes = f"{notes} | github: {dp.github_url}"
                 prospect = Prospect(
                     company_id=company.id,
                     first_name=dp.first_name,

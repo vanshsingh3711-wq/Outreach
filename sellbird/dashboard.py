@@ -968,6 +968,16 @@ async def get_decision_makers_endpoint(
         if role_priority and str(priority) != str(role_priority):
             continue
 
+        twitter_url = ""
+        m_tw = re.search(r"\|\s*x:\s*(https?://(?:twitter\.com|x\.com)/[^\s|]+)", notes_raw, re.I)
+        if m_tw:
+            twitter_url = m_tw.group(1).strip()
+
+        github_url = ""
+        m_gh = re.search(r"\|\s*github:\s*(https?://github\.com/[^\s|]+)", notes_raw, re.I)
+        if m_gh:
+            github_url = m_gh.group(1).strip()
+
         item = {
             "id": r["id"],
             "first_name": fn,
@@ -980,6 +990,8 @@ async def get_decision_makers_endpoint(
             "email_match_confidence": match_conf,
             "evidence": evidence or notes_raw,
             "linkedin_url": r.get("linkedin_url") or "",
+            "twitter_url": twitter_url,
+            "github_url": github_url,
             "company_id": r.get("company_id") or "",
             "company_name": r.get("company_name") or (r.get("domain") or "").split(".")[0].title() or "Unknown",
             "company_domain": r.get("domain") or "",
@@ -997,7 +1009,7 @@ async def get_decision_makers_endpoint(
             output,
             fieldnames=[
                 "id", "full_name", "first_name", "last_name", "title", "role_priority",
-                "email", "email_status", "email_match_confidence", "linkedin_url",
+                "email", "email_status", "email_match_confidence", "linkedin_url", "twitter_url", "github_url",
                 "company_name", "company_domain", "industry", "location", "status",
             ],
             extrasaction="ignore",

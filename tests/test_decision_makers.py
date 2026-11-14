@@ -167,3 +167,68 @@ def test_build_search_queries():
     assert any('myagent.ai "Chief Technology Officer"' in q for q in queries)
     assert any('myagent.ai "Head of Engineering"' in q for q in queries)
 
+
+def test_extract_social_profiles_linkedin_twitter_and_github():
+    card_html = """
+    <div class="team-card">
+        <h3>Elena Rostova</h3>
+        <span class="role">Chief Technology Officer</span>
+        <a href="https://www.linkedin.com/in/elena-rostova-ai">LinkedIn</a>
+        <a href="https://x.com/elena_rostova">𝕏</a>
+        <a href="https://github.com/erostova">GitHub</a>
+    </div>
+    """
+    extractor = DecisionMakerExtractor()
+    dm = extractor.extract_from_card(
+        card_html,
+        page_url="https://neuralflow.io/team",
+        domain="neuralflow.io",
+        site_name="NeuralFlow",
+    )
+    assert dm is not None
+    assert dm.first_name == "Elena"
+    assert dm.linkedin_url == "https://www.linkedin.com/in/elena-rostova-ai"
+    assert dm.twitter_url == "https://x.com/elena_rostova"
+    assert dm.github_url == "https://github.com/erostova"
+
+
+@pytest.mark.asyncio
+async def test_enrich_social_profiles_via_search_mocked(monkeypatch):
+    from unittest.mock import AsyncMock
+    from sellbird.decision_makers import enrich_social_profiles_via_search
+
+    dm = DecisionMaker(
+        first_name="Marcus",
+        last_name="Vance",
+        title="CTO",
+        role_priority=2,
+        company_name="Frontier AI",
+    )
+
+    class MockResp:
+        status_code = 200
+        def __init__(self, organic):
+            self._organic = organic
+        def json(self):
+            return {"organic": self._organic}
+
+    async def mock_post(url, headers, json, timeout=8.0):
+        q = json.get("q", "")
+        if "site:linkedin.com" in q:
+            return MockResp([{"link": "https://www.linkedin.com/in/marcus-vance-ai"}])
+        elif "site:x.com" in q or "site:twitter.com" in q:
+            return MockResp([{"link": "https://x.com/marcus_vance"}])
+        return MockResp([])
+
+    mock_client = AsyncMock()
+    mock_client.post = mock_post
+    mock_client.__aenter__.return_value = mock_client
+
+    monkeypatch.setattr("sellbird.public_http.public_http_client", lambda timeout=8.0: mock_client)
+
+    await enrich_social_profiles_via_search([dm], company_name="Frontier AI", serper_api_key="sk-test", max_lookups=2)
+
+    assert dm.linkedin_url == "https://www.linkedin.com/in/marcus-vance-ai"
+    assert dm.twitter_url == "https://x.com/marcus_vance"
+
+

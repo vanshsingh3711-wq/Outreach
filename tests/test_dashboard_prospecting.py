@@ -112,7 +112,7 @@ def test_export_decision_makers_csv(client):
 def test_draft_proposal_endpoint(client):
     r = client.post(
         "/api/prospecting/draft-proposal",
-        json={"prospect_id": "p1", "opportunity_type": "ai_contract"},
+        json={"prospect_id": "p1", "opportunity_type": "ai_contract", "use_ai": False},
     )
     assert r.status_code == 200
     data = r.json()
