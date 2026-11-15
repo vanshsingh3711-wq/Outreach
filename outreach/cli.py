@@ -204,17 +204,19 @@ def cmd_dashboard(args):
         os.environ["OUTREACH_NO_AUTH"] = "1"
         os.environ["OUTREACH_DEV_CORS"] = "1"
 
-    if launch_frontend:
-        print(f"  Next.js Frontend:     http://localhost:3000")
-
-    if not 1 <= args.port <= 65535:
-        print(f"  Invalid port: {args.port}. Must be 1-65535.")
-        sys.exit(2)
-
     if getattr(args, "url", False):
         # The unlock link for an already-running dashboard.
         print(dashboard_url(host=args.host, port=args.port))
         return
+
+    print(f"\n=======================================================", flush=True)
+    print(f"🚀 Outreach AI Outbound Engine Dashboard", flush=True)
+    print(f"📡 Backend Gateway:  http://{args.host}:{args.port}", flush=True)
+    if launch_frontend:
+        print(f"💻 Next.js Frontend: http://localhost:3000", flush=True)
+    print(f"🔓 Security Mode:    {'NO AUTH (Loopback Development)' if no_auth else 'TOKEN AUTH'}", flush=True)
+    print(f"📊 Step-by-Step Logging: ACTIVE (Micro-steps print in real time)", flush=True)
+    print(f"=======================================================\n", flush=True)
 
     frontend_proc = None
     if launch_frontend:

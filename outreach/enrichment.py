@@ -281,9 +281,12 @@ class CompanyEnricher:
 
     async def enrich_url(self, raw_url: str) -> EnrichmentResult:
         """Execute full company URL enrichment safely."""
+        print(f"\n[🌐 ENRICHMENT START] Starting deep enrichment for URL: '{raw_url}'", flush=True)
         try:
             canonical_url, domain = validate_and_normalize_url(raw_url)
+            print(f"  [🛡️ SSRF VALIDATION] Verified safe destination: {canonical_url} (Domain: {domain})", flush=True)
         except SSRFValidationError as exc:
+            print(f"  [🛡️ SSRF VIOLATION] Target rejected: {exc}", flush=True)
             raise exc
 
         existing = await self.state.get_company_by_domain(domain)
@@ -300,15 +303,18 @@ class CompanyEnricher:
 
         async with public_http_client(timeout=self.timeout) as client:
             # 1. Fetch homepage
+            print(f"  [🏠 HOMEPAGE CRAWL] Fetching {canonical_url}...", flush=True)
             home_html = await self._safe_fetch(client, canonical_url)
             if not home_html and canonical_url.startswith("https://"):
                 # Try http fallback if https failed
                 http_fallback = "http://" + canonical_url[8:]
+                print(f"  [🏠 HOMEPAGE RETRY] HTTPS failed, trying HTTP fallback: {http_fallback}...", flush=True)
                 home_html = await self._safe_fetch(client, http_fallback)
                 if home_html:
                     canonical_url = http_fallback
 
             if not home_html:
+                print(f"  [❌ HOMEPAGE FAILED] Unable to reach website at {canonical_url}", flush=True)
                 return EnrichmentResult(
                     company=company,
                     is_new=is_new,
@@ -316,6 +322,7 @@ class CompanyEnricher:
                     error=f"Unable to reach website at {canonical_url}",
                 )
 
+            print(f"  [🏠 HOMEPAGE FETCHED] Received {len(home_html)} bytes", flush=True)
             pages.append(PageSnapshot(url=canonical_url, html=home_html, page_type="home"))
             fetched_urls.add(people_mod._norm_url(canonical_url))
 
@@ -329,6 +336,8 @@ class CompanyEnricher:
                 if target not in all_targets:
                     all_targets.append(target)
 
+            print(f"  [🔗 LINK DISCOVERY] Found {len(all_targets)} potential subpage candidate(s)", flush=True)
+
             # Fetch target pages up to budget
             for target_url in all_targets:
                 if len(pages) >= MAX_ENRICH_PAGES or len(fetched_urls) >= MAX_ENRICH_FETCHES:
@@ -338,10 +347,12 @@ class CompanyEnricher:
                     continue
                 fetched_urls.add(norm_key)
 
+                ptype = self._classify_page_type(target_url)
+                print(f"  [📄 PAGE CRAWL] Fetching [{ptype}] {target_url}...", flush=True)
                 html = await self._safe_fetch(client, target_url)
                 if html and len(html) > 200:
-                    ptype = self._classify_page_type(target_url)
                     pages.append(PageSnapshot(url=target_url, html=html, page_type=ptype))
+                    print(f"    ↳ Fetched {len(html)} bytes", flush=True)
 
             # Extract Firmographic Profile (headcount, revenue, industry, model, funding, AI tech, ATS roles)
             page_tuples = [(p.url, p.html) for p in pages]
@@ -432,6 +443,11 @@ class CompanyEnricher:
             if not any(s.get("type") == "business_model" for s in company.signals):
                 company.signals.append(model_signal)
 
+        print(f"  [🏢 FIRMOGRAPHICS EXTRACTED] Profile for '{company.name}' ({domain}):", flush=True)
+        print(f"    ↳ Industry: {company.industry} | Size Tier: {company.company_size} | Loc: {company.location or 'N/A'}", flush=True)
+        print(f"    ↳ Tech Stack ({len(company.tech_stack)}): {', '.join(company.tech_stack[:8]) if company.tech_stack else 'None'}", flush=True)
+        print(f"    ↳ Hiring Active: {hiring_detected} | Business Model: {firmo_profile.business_model} | Funding: {firmo_profile.funding_stage}", flush=True)
+
         # 4. Discover People / Decision-Makers
         page_tuples = [(p.url, p.html) for p in pages]
         dm_extractor = DecisionMakerExtractor()
@@ -441,11 +457,13 @@ class CompanyEnricher:
             site_name=site_name,
             company_size=company.company_size,
         )
+        print(f"  [👥 ON-PAGE TEAM SCAN] Found {len(extracted_dms)} potential decision-maker(s) on website", flush=True)
 
         # 4b. Discover real LinkedIn executives if site yielded few or no decision-makers
         env = load_env()
         serper_key = getattr(env, "serper_api_key", "") or os.environ.get("SERPER_API_KEY", "")
         if serper_key and len(extracted_dms) < 2:
+            print(f"  [🔎 LINKEDIN SEARCH TRIGGER] Team count ({len(extracted_dms)}) < 2. Triggering Google Serper LinkedIn executive search...", flush=True)
             from outreach.decision_makers import discover_executives_via_linkedin_search
             exec_dms = await discover_executives_via_linkedin_search(
                 company_name=company.name or domain,
@@ -488,6 +506,7 @@ class CompanyEnricher:
                     discovered_emails.append(email)
 
         # 5b. Person-Specific Email Discovery & Verification (Dual Scoring)
+        print(f"  [✉️ EMAIL INTELLIGENCE] Synthesizing & scoring mailboxes for {len(discovered_people)} person(s)...", flush=True)
         email_service = EmailIntelligenceService(state=self.state)
         for dp in discovered_people:
             cands = await email_service.discover_candidates_for_person(
@@ -522,6 +541,7 @@ class CompanyEnricher:
         else:
             # Update existing company record with enriched fields
             await self.state.update_company(company)
+            print(f"  [💾 DB:COMPANY] Updated existing company record '{company.name}' -> ID: {company.id}", flush=True)
 
         # Save discovered people as Prospects if valid
         for dp in discovered_people:
@@ -550,6 +570,7 @@ class CompanyEnricher:
                 )
                 await self.state.add_prospect(prospect)
 
+        print(f"[🎉 ENRICHMENT COMPLETE] '{company.name}' ({domain}) enriched: {len(discovered_people)} decision-makers, {len(pages)} pages crawled\n", flush=True)
         return EnrichmentResult(
             company=company,
             is_new=is_new,

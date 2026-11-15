@@ -551,6 +551,7 @@ async def enrich_social_profiles_via_search(
                 if not p.linkedin_url:
                     try:
                         q_li = f'site:linkedin.com/in "{p.full_name}" "{company_name}"'
+                        print(f"  [📱 SOCIAL LOOKUP] Searching LinkedIn for {p.full_name} ({company_name})...", flush=True)
                         r = await client.post(
                             "https://google.serper.dev/search",
                             headers=headers,
@@ -561,6 +562,7 @@ async def enrich_social_profiles_via_search(
                                 link = item.get("link", "")
                                 if "linkedin.com/in/" in link:
                                     p.linkedin_url = link
+                                    print(f"    ↳ Found LinkedIn: {link}", flush=True)
                                     break
                         lookups_done += 1
                     except Exception as err:
@@ -570,6 +572,7 @@ async def enrich_social_profiles_via_search(
                 if not p.twitter_url and lookups_done < max_lookups:
                     try:
                         q_x = f'(site:x.com OR site:twitter.com) "{p.full_name}" "{company_name}"'
+                        print(f"  [📱 SOCIAL LOOKUP] Searching X/Twitter for {p.full_name} ({company_name})...", flush=True)
                         r = await client.post(
                             "https://google.serper.dev/search",
                             headers=headers,
@@ -581,6 +584,7 @@ async def enrich_social_profiles_via_search(
                                 m = _TWITTER_PROFILE_RE.search(link)
                                 if m:
                                     p.twitter_url = f"https://x.com/{m.group(1)}"
+                                    print(f"    ↳ Found X/Twitter: {p.twitter_url}", flush=True)
                                     break
                         lookups_done += 1
                     except Exception as err:
@@ -605,6 +609,9 @@ async def discover_executives_via_linkedin_search(
     headers = {"X-API-KEY": serper_api_key, "Content-Type": "application/json"}
     q = f'site:linkedin.com/in ("Founder" OR "Co-Founder" OR "CEO" OR "CTO" OR "VP" OR "Head of" OR "Managing Director") "{company_name}"'
 
+    print(f"\n  [🔎 SERPER LINKEDIN] Discovering executives for '{company_name}' ({domain})...", flush=True)
+    print(f"    ↳ Query: {q}", flush=True)
+
     results: list[DecisionMaker] = []
     seen_names: set[tuple[str, str]] = set()
 
@@ -612,12 +619,17 @@ async def discover_executives_via_linkedin_search(
         async with public_http_client(timeout=10.0) as client:
             resp = await client.post("https://google.serper.dev/search", headers=headers, json={"q": q, "num": limit + 4})
             if resp.status_code != 200:
+                print(f"    ↳ ⚠️ Serper search returned status {resp.status_code}", flush=True)
                 return []
 
             data = resp.json()
-            for item in data.get("organic") or []:
+            organic = data.get("organic") or []
+            print(f"    ↳ HTTP 200 OK: Serper returned {len(organic)} organic results", flush=True)
+
+            for item in organic:
                 link = item.get("link", "")
                 if "linkedin.com/in/" not in link:
+                    print(f"      ↳ ⏭️ Skipping non-profile URL: {link}", flush=True)
                     continue
 
                 title = item.get("title", "")
@@ -630,10 +642,12 @@ async def discover_executives_via_linkedin_search(
                 raw_name = re.sub(r"[^\w\s\-\x27]", "", raw_name).strip()
                 name_parts = split_person_name(raw_name)
                 if not name_parts:
+                    print(f"      ↳ ⛔ Rejected non-human title or marketing heading: '{raw_name}'", flush=True)
                     continue
                 first, last = name_parts
                 name_key = (first.lower(), last.lower())
                 if name_key in seen_names:
+                    print(f"      ↳ ⏭️ Skipping duplicate candidate: {first} {last}", flush=True)
                     continue
                 seen_names.add(name_key)
 
@@ -672,11 +686,14 @@ async def discover_executives_via_linkedin_search(
                     seniority=seniority,
                 )
                 results.append(dm)
+                print(f"      ↳ ✅ Discovered Executive: {first} {last} | Title: '{clean_title}' (P{priority}, {seniority}) | Loc: '{loc or 'Unknown'}' | LinkedIn: {link}", flush=True)
                 if len(results) >= limit:
                     break
     except Exception as exc:
         logger.debug("LinkedIn executive discovery error for %s: %s", company_name, exc)
+        print(f"    ↳ ⚠️ Error discovering executives for {company_name}: {exc}", flush=True)
 
+    print(f"  [🎯 SERPER LINKEDIN COMPLETE] Found {len(results)} valid executive(s) for '{company_name}'\n", flush=True)
     return results
 
 

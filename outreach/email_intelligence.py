@@ -227,6 +227,9 @@ class EmailIntelligenceService:
         mx_host = await get_mx_host(clean_domain)
         mx_type = classify_mx(mx_host or "")
 
+        print(f"  [✉️ EMAIL INTELLIGENCE] Synthesizing address for {first_name} {last_name} (@{clean_domain})...", flush=True)
+        print(f"    ↳ MX Host: {mx_host or 'None'} | MX Type: {mx_type}", flush=True)
+
         candidates: list[EmailCandidate] = []
         seen_emails: set[str] = set()
 
@@ -250,6 +253,7 @@ class EmailIntelligenceService:
                     )
                     candidates.append(cand)
                     seen_emails.add(pub_clean)
+                    print(f"    ↳ Found direct published address on website: {pub_clean}", flush=True)
 
         # 2. Derive company pattern from known staff or database
         pattern, pattern_source, _ = await derive_pattern(
@@ -258,6 +262,7 @@ class EmailIntelligenceService:
             state=self.state,
             default_pattern=DEFAULT_PATTERN,
         )
+        print(f"    ↳ Derived domain email pattern: '{pattern}' (source: {pattern_source})", flush=True)
 
         has_proven_pattern = pattern_source not in ("default", "default_after_hunter")
 
@@ -308,5 +313,11 @@ class EmailIntelligenceService:
         # Sort candidates: deliverability (verified first), then match confidence descending
         status_rank = {"verified": 1, "risky": 2, "guess": 3, "unknown": 4, "invalid": 5}
         candidates.sort(key=lambda c: (status_rank.get(c.deliverability_status, 4), -c.match_confidence))
+
+        if candidates:
+            best = candidates[0]
+            print(f"    ↳ Primary Candidate: {best.email} | Status: {best.deliverability_status} | Method: {best.discovery_method} | Conf: {best.match_confidence:.2f}", flush=True)
+        else:
+            print(f"    ↳ ⚠️ No candidate address generated for {first_name} {last_name}", flush=True)
 
         return candidates

@@ -789,6 +789,7 @@ async def enrich_company_url(request: Request):
     if not url:
         return JSONResponse({"error": "Missing 'url' field"}, status_code=400)
 
+    print(f"\n[🌐 DASHBOARD API] Received POST /api/prospecting/enrich-url for: '{url}'", flush=True)
     state = StateManager()
     await state.init_db()
     enricher = CompanyEnricher(state)
@@ -796,14 +797,18 @@ async def enrich_company_url(request: Request):
     try:
         result = await enricher.enrich_url(url)
     except SSRFValidationError as exc:
+        print(f"  [⚠️ DASHBOARD API] SSRF Validation error: {exc}", flush=True)
         return JSONResponse({"error": f"Security restriction: {exc}"}, status_code=400)
     except Exception as exc:
         logger.exception("URL enrichment error: %s", exc)
+        print(f"  [❌ DASHBOARD API] Enrichment error: {exc}", flush=True)
         return JSONResponse({"error": str(exc)}, status_code=500)
 
     if result.error:
+        print(f"  [⚠️ DASHBOARD API] Target unreachable: {result.error}", flush=True)
         return JSONResponse({"error": result.error}, status_code=502)
 
+    print(f"[✅ DASHBOARD API] Finished enrich-url for '{result.company.name}' ({len(result.people)} decision-makers, {len(result.pages_crawled)} crawled)\n", flush=True)
     return {
         "success": True,
         "is_new": result.is_new,
@@ -857,6 +862,7 @@ async def discover_companies_endpoint(request: Request):
         auto_enrich=bool(body.get("auto_enrich", False)),
     )
 
+    print(f"\n[🌐 DASHBOARD API] Received POST /api/prospecting/discover (limit={criteria.limit}, auto_enrich={criteria.auto_enrich})", flush=True)
     state = StateManager()
     await state.init_db()
     engine = FilteredDiscoveryEngine(state)
@@ -865,8 +871,10 @@ async def discover_companies_endpoint(request: Request):
         candidates = await engine.discover_companies(criteria)
     except Exception as exc:
         logger.exception("Company discovery error: %s", exc)
+        print(f"  [❌ DASHBOARD API] Company discovery error: {exc}", flush=True)
         return JSONResponse({"error": str(exc)}, status_code=500)
 
+    print(f"[✅ DASHBOARD API] Finished discover endpoint: returning {len(candidates)} companies\n", flush=True)
     return {
         "success": True,
         "count": len(candidates),

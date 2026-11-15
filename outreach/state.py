@@ -695,6 +695,9 @@ class StateManager:
                         if row:
                             company.id = row[0]
                             break
+                print(f"  [💾 DB:COMPANY] Recognized existing company in DB: '{company.name}' ({company.domain}) -> ID: {company.id}", flush=True)
+            else:
+                print(f"  [💾 DB:COMPANY] Inserted NEW company: '{company.name}' ({company.domain}) -> ID: {company.id}", flush=True)
         return company.id
 
     async def update_company_signals(
@@ -894,6 +897,9 @@ class StateManager:
                         if row:
                             prospect.id = row[0]
                             break
+                print(f"  [💾 DB:PROSPECT] Recognized existing prospect in DB: '{prospect.first_name} {prospect.last_name}' at '{prospect.company}' -> ID: {prospect.id}", flush=True)
+            else:
+                print(f"  [💾 DB:PROSPECT] Inserted NEW prospect: '{prospect.first_name} {prospect.last_name}' | Title: '{prospect.title}' at '{prospect.company}' | Email: {prospect.email or 'N/A'} | LinkedIn: {prospect.linkedin_url or 'N/A'}", flush=True)
         return prospect.id
 
     async def get_prospect(self, prospect_id: str) -> Prospect | None:

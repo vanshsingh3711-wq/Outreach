@@ -8,6 +8,7 @@ and optionally triggers deep company enrichment.
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from html import unescape
@@ -242,21 +243,36 @@ class FilteredDiscoveryEngine:
         provider: str = "auto",
     ) -> list[DiscoveredCandidate]:
         """Execute filtered discovery, deduplicate, persist, and optionally enrich."""
+        print(f"\n[🔎 ICP DISCOVERY START] Initiating company discovery...", flush=True)
+        print(f"  ↳ Industries: {criteria.industries or 'All'}", flush=True)
+        print(f"  ↳ Tech Stack: {criteria.tech_stack or 'All'}", flush=True)
+        print(f"  ↳ Locations: {criteria.locations or 'Global/Remote'}", flush=True)
+        print(f"  ↳ Model/Funding: {criteria.business_model or 'Any'} / {criteria.funding_stage or 'Any'}", flush=True)
+        print(f"  ↳ Target Limit: {criteria.limit} companies | Auto-enrich: {criteria.auto_enrich}", flush=True)
+
         queries = DiscoveryQueryBuilder.build_queries(criteria)
         if not queries:
+            print("  ↳ ⚠️ No search queries could be generated from criteria.", flush=True)
             return []
+
+        print(f"  [🎯 QUERY BUILDER] Generated {len(queries)} search query(ies):", flush=True)
+        for i, q in enumerate(queries, 1):
+            print(f"    ↳ [Q{i}]: {q}", flush=True)
 
         env = load_env().model_dump()
         serper_key = env.get("serper_api_key", "").strip()
+        provider_name = "Serper (Google)" if (provider in ("auto", "serper") and serper_key and not serper_key.startswith("your_")) else "DuckDuckGo Public Search"
+        print(f"  [🌐 SEARCH PROVIDER] Using: {provider_name}", flush=True)
 
         candidates: list[DiscoveredCandidate] = []
         seen_domains: set[str] = set()
 
         async with public_http_client(timeout=15.0) as client:
-            for q_str in queries:
+            for q_idx, q_str in enumerate(queries, 1):
                 if len(candidates) >= criteria.limit:
                     break
 
+                print(f"\n  [🚀 QUERY EXECUTION {q_idx}/{len(queries)}] Running: {q_str}", flush=True)
                 raw_items: list[dict] = []
                 # 1. Use Serper provider if configured
                 if (provider in ("auto", "serper")) and serper_key and not serper_key.startswith("your_"):
@@ -274,12 +290,18 @@ class FilteredDiscoveryEngine:
                                     "title": item.get("title", ""),
                                     "snippet": item.get("snippet", ""),
                                 })
+                            print(f"    ↳ Received {len(raw_items)} organic results from Serper", flush=True)
+                        else:
+                            print(f"    ↳ ⚠️ Serper search returned status {resp.status_code}", flush=True)
                     except Exception as err:
                         logger.debug("Serper search failed: %s, falling back to public search", err)
+                        print(f"    ↳ ⚠️ Serper search error: {err}. Falling back to public search...", flush=True)
 
                 # 2. Fallback to public search if raw_items empty
                 if not raw_items:
+                    print(f"    ↳ Dispatched DuckDuckGo fallback query...", flush=True)
                     raw_items = await self._fetch_duckduckgo_results(client, q_str, limit=criteria.limit)
+                    print(f"    ↳ Received {len(raw_items)} organic results from DuckDuckGo", flush=True)
 
                 # Process results into candidate companies
                 for rank, item in enumerate(raw_items, start=1):
@@ -289,10 +311,15 @@ class FilteredDiscoveryEngine:
 
                     raw_domain = normalize_domain(raw_link)
                     domain = company_host(raw_domain)
-                    if not domain or is_junk_domain(domain):
+                    if not domain:
+                        continue
+
+                    if is_junk_domain(domain):
+                        print(f"    ↳ ⛔ Filtered out aggregator/directory domain: '{domain}'", flush=True)
                         continue
 
                     if domain in seen_domains:
+                        print(f"    ↳ ⏭️ Skipping already-seen domain in this run: '{domain}'", flush=True)
                         continue
                     seen_domains.add(domain)
 
@@ -316,6 +343,7 @@ class FilteredDiscoveryEngine:
 
                     # Persist company record in database
                     if not is_existing:
+                        print(f"    ↳ ✅ Accepted fresh company candidate: '{cand.name}' ({domain})", flush=True)
                         company_record = Company(
                             domain=domain,
                             name=cand.name,
@@ -328,22 +356,27 @@ class FilteredDiscoveryEngine:
                         cid = await self.state.add_company(company_record)
                         cand.company_id = cid
                     else:
-                        # Append signal note
+                        print(f"    ↳ 🔄 Existing company verified: '{cand.name}' ({domain}) -> ID: {existing.id}", flush=True)
                         cand.company_id = existing.id
 
                     # 3. Optional Auto-Enrichment (bounded timeout to prevent proxy gateway timeouts)
                     if criteria.auto_enrich:
+                        print(f"      ↳ ⚡ Auto-enriching {cand.name} ({cand.website})...", flush=True)
                         try:
                             res = await asyncio.wait_for(
                                 self.enricher.enrich_url(cand.website),
-                                timeout=6.0,
+                                timeout=8.0,
                             )
                             cand.enrichment_result = res
+                            print(f"      ↳ ⚡ Auto-enrichment complete: {len(res.people)} decision-makers found", flush=True)
                         except Exception as e_err:
                             logger.debug("Auto-enrichment error for %s: %s", cand.website, e_err)
+                            print(f"      ↳ ⚡ Auto-enrichment timeout/skip: {e_err}", flush=True)
 
                     candidates.append(cand)
                     if len(candidates) >= criteria.limit:
+                        print(f"  ↳ Target limit of {criteria.limit} reached.", flush=True)
                         break
 
+        print(f"\n[✨ ICP DISCOVERY COMPLETE] Discovered {len(candidates)} companies total.\n", flush=True)
         return candidates
