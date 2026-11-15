@@ -3,11 +3,13 @@
   "version": "0.5.0",
   "private": true,
   "scripts": {
-    "frontend": "pnpm --dir frontend dev",
-    "frontend:build": "pnpm --dir frontend build",
-    "frontend:start": "pnpm --dir frontend start",
     "dev": "pnpm --dir frontend dev",
-    "build": "pnpm --dir frontend build"
+    "build": "pnpm --dir frontend build",
+    "start": "pnpm --dir frontend start",
+    "lint": "pnpm --dir frontend lint",
+    "test": ".venv/bin/pytest tests/",
+    "test:dashboard": ".venv/bin/pytest tests/test_dashboard*.py",
+    "backend": ".venv/bin/python -m outreach dashboard --cors --api-only",
+    "outreach": ".venv/bin/python -m outreach"
   }
 }
-

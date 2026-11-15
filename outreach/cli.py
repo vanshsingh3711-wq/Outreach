@@ -197,15 +197,29 @@ def cmd_dashboard(args):
     from outreach.dashboard import DashboardSetupError, dashboard_url, start_dashboard
     from outreach.dashboard_auth import TokenError
 
-    if getattr(args, "cors", False):
+    launch_frontend = getattr(args, "frontend", False)
+    if getattr(args, "cors", False) or launch_frontend:
         os.environ["OUTREACH_DEV_CORS"] = "1"
-        print("  CORS enabled for local loopback development (e.g. Next.js on port 3000)")
         from outreach.dashboard import token_store
         print(f"  Next.js Frontend:     http://localhost:3000/#token={token_store.get()}")
 
     if not 1 <= args.port <= 65535:
         print(f"  Invalid port: {args.port}. Must be 1-65535.")
         sys.exit(2)
+
+    frontend_proc = None
+    if launch_frontend and not getattr(args, "url", False):
+        frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
+        if frontend_dir.is_dir():
+            print("  Starting Next.js frontend on http://localhost:3000 ...")
+            try:
+                frontend_proc = subprocess.Popen(
+                    ["pnpm", "--dir", str(frontend_dir), "dev", "--port", "3000"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            except Exception as e:
+                print(f"  Note: Could not start Next.js automatically ({e}). Run 'pnpm dev' manually.")
 
     try:
         if getattr(args, "url", False):
@@ -216,6 +230,12 @@ def cmd_dashboard(args):
     except (DashboardSetupError, TokenError) as e:
         print(f"\n  Dashboard not started: {e}\n")
         sys.exit(2)
+    finally:
+        if frontend_proc:
+            try:
+                frontend_proc.terminate()
+            except Exception:
+                pass
 
 
 def cmd_status(args):
@@ -1302,6 +1322,8 @@ def main():
                      help="Enable CORS for local frontend development (e.g. Next.js on port 3000)")
     sub.add_argument("--api-only", action="store_true",
                      help="Run as headless REST API server without static asset expectations")
+    sub.add_argument("--frontend", action="store_true",
+                     help="Automatically launch Next.js frontend alongside the dashboard")
     sub.set_defaults(func=cmd_dashboard)
 
     # outreach status
