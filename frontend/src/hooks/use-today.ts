@@ -39,3 +39,4 @@ export function useToday() {
     refetchInterval: 5000,
   });
 }
+

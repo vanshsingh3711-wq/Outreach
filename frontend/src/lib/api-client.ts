@@ -94,3 +94,4 @@ export async function fetchApi<T = any>(
 
   return response.text() as unknown as T;
 }
+

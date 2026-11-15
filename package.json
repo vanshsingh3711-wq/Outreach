@@ -10,3 +10,4 @@
     "build": "pnpm --dir frontend build"
   }
 }
+
