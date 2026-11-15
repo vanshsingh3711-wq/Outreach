@@ -76,18 +76,36 @@ class DiscoveredCandidate:
     enrichment_result: Any = None
 
     def to_dict(self) -> dict:
+        people_data = []
+        if self.enrichment_result and hasattr(self.enrichment_result, "people"):
+            people_data = [
+                {
+                    "first_name": p.first_name,
+                    "last_name": p.last_name,
+                    "title": p.title,
+                    "email": getattr(p, "primary_email", ""),
+                    "linkedin_url": getattr(p, "linkedin_url", ""),
+                    "email_status": getattr(p, "email_status", ""),
+                }
+                for p in self.enrichment_result.people
+            ]
+
         return {
+            "id": self.company_id,
+            "company_id": self.company_id,
             "domain": self.domain,
             "name": self.name,
             "website": self.website,
             "title": self.title,
             "snippet": self.snippet,
+            "description": self.snippet,
             "source_url": self.source_url,
             "query": self.query,
             "rank": self.rank,
             "is_existing": self.is_existing,
-            "company_id": self.company_id,
             "enriched": self.enrichment_result is not None,
+            "people": people_data,
+            "contact_count": len(people_data),
         }
 
 

@@ -1034,6 +1034,7 @@ async def get_decision_makers_endpoint(
     return {
         "success": True,
         "count": len(results),
+        "total": len(results),
         "decision_makers": results,
     }
 
