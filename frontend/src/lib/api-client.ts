@@ -76,22 +76,30 @@ export async function fetchApi<T = any>(
     headers,
   });
 
-  if (!response.ok) {
-    let errorData: any = null;
+  const rawText = await response.text();
+  let parsed: any = null;
+  if (rawText) {
     try {
-      errorData = await response.json();
+      parsed = JSON.parse(rawText);
     } catch {
-      errorData = { message: await response.text() };
+      parsed = null;
     }
-    const message = errorData?.message || errorData?.error || `HTTP ${response.status}: Request failed`;
-    throw new ApiError(message, response.status, errorData);
   }
 
-  const contentType = response.headers.get("content-type") || "";
-  if (contentType.includes("application/json")) {
-    return response.json();
+  if (!response.ok) {
+    const message =
+      parsed?.message ||
+      parsed?.error ||
+      parsed?.detail ||
+      rawText ||
+      `HTTP ${response.status}: Request failed`;
+    throw new ApiError(message, response.status, parsed || { message: rawText });
   }
 
-  return response.text() as unknown as T;
+  if (parsed !== null) {
+    return parsed as T;
+  }
+
+  return rawText as unknown as T;
 }
 

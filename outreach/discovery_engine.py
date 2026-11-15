@@ -331,10 +331,13 @@ class FilteredDiscoveryEngine:
                         # Append signal note
                         cand.company_id = existing.id
 
-                    # 3. Optional Auto-Enrichment
+                    # 3. Optional Auto-Enrichment (bounded timeout to prevent proxy gateway timeouts)
                     if criteria.auto_enrich:
                         try:
-                            res = await self.enricher.enrich_url(cand.website)
+                            res = await asyncio.wait_for(
+                                self.enricher.enrich_url(cand.website),
+                                timeout=6.0,
+                            )
                             cand.enrichment_result = res
                         except Exception as e_err:
                             logger.debug("Auto-enrichment error for %s: %s", cand.website, e_err)

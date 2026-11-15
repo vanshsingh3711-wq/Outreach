@@ -22,6 +22,7 @@ export default function DiscoveryPage() {
   const [techStack, setTechStack] = useState("Python, FastAPI, Next.js");
   const [location, setLocation] = useState("United States, Remote");
   const [customQuery, setCustomQuery] = useState("");
+  const [autoEnrich, setAutoEnrich] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [results, setResults] = useState<DiscoveredCompany[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +39,7 @@ export default function DiscoveryPage() {
         locations: location.split(",").map((s) => s.trim()).filter(Boolean),
         custom_query: customQuery.trim(),
         limit: 12,
-        auto_enrich: true,
+        auto_enrich: autoEnrich,
       };
 
       const res = await fetchApi<{ success: boolean; count: number; companies: DiscoveredCompany[] }>(
@@ -132,9 +133,15 @@ export default function DiscoveryPage() {
         )}
 
         <div className="flex items-center justify-between pt-2">
-          <span className="text-[11px] text-slate-500">
-            Automatically profiles candidates & extracts decision-makers
-          </span>
+          <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer select-none hover:text-slate-200 transition">
+            <input
+              type="checkbox"
+              checked={autoEnrich}
+              onChange={(e) => setAutoEnrich(e.target.checked)}
+              className="rounded border-slate-700 bg-slate-950 text-sky-500 focus:ring-sky-500/20"
+            />
+            <span>Deep web enrichment (crawl & extract tech signals)</span>
+          </label>
           <button
             type="submit"
             disabled={isRunning}
