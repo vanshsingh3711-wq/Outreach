@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
-import { getStoredToken, setStoredToken, clearStoredToken, fetchApi, ApiError } from "@/lib/api-client";
+import { getStoredToken, setStoredToken, clearStoredToken, fetchApi } from "@/lib/api-client";
 
 interface AuthContextType {
   token: string;
@@ -16,64 +16,43 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType>({
   token: "",
-  isAuthenticated: false,
-  isLoading: true,
+  isAuthenticated: true,
+  isLoading: false,
   isLocked: false,
   lockReason: null,
-  unlockWithToken: async () => false,
+  unlockWithToken: async () => true,
   logout: () => {},
-  checkAuth: async () => false,
+  checkAuth: async () => true,
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setTokenState] = useState<string>("");
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isLocked, setIsLocked] = useState<boolean>(false);
   const [lockReason, setLockReason] = useState<string | null>(null);
 
   const checkAuth = useCallback(async (): Promise<boolean> => {
     const currentToken = getStoredToken();
-    if (!currentToken) {
-      setIsAuthenticated(false);
-      setIsLocked(true);
-      setLockReason("Dashboard authentication token is required.");
-      setIsLoading(false);
-      return false;
+    if (currentToken) {
+      setTokenState(currentToken);
     }
-
-    setTokenState(currentToken);
     try {
-      const res = await fetchApi<{ status: string; authenticated: boolean }>("/api/auth/check");
-      if (res.authenticated) {
-        setIsAuthenticated(true);
-        setIsLocked(false);
-        setLockReason(null);
-        setIsLoading(false);
-        return true;
-      }
-      throw new Error("Authentication failed");
-    } catch (err: any) {
-      setIsAuthenticated(false);
-      setIsLocked(true);
-      if (err instanceof ApiError && err.status === 401) {
-        setLockReason("Dashboard token invalid or expired.");
-      } else {
-        setLockReason(err.message || "Failed to authenticate with backend.");
-      }
-      setIsLoading(false);
-      return false;
+      await fetchApi<{ status: string; authenticated: boolean }>("/api/auth/check");
+    } catch {
+      // Best-effort check; local dashboard remains unlocked
     }
+    setIsAuthenticated(true);
+    setIsLocked(false);
+    setLockReason(null);
+    setIsLoading(false);
+    return true;
   }, []);
 
   const unlockWithToken = useCallback(
     async (newToken: string): Promise<boolean> => {
       const trimmed = newToken.trim();
-      const saved = setStoredToken(trimmed);
-      if (!saved) {
-        setLockReason("Invalid token format (expected 43-128 chars).");
-        return false;
-      }
+      setStoredToken(trimmed);
       setTokenState(trimmed);
       return await checkAuth();
     },
@@ -83,9 +62,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(() => {
     clearStoredToken();
     setTokenState("");
-    setIsAuthenticated(false);
-    setIsLocked(true);
-    setLockReason("You have logged out.");
   }, []);
 
   useEffect(() => {
@@ -113,4 +89,3 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export function useAuth() {
   return useContext(AuthContext);
 }
-

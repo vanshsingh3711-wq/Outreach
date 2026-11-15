@@ -3426,9 +3426,13 @@ def start_dashboard(host: str = "127.0.0.1", port: int = 5555):
     except (DashboardSetupError, auth.TokenError) as e:
         raise DashboardSetupError(str(e)) from e
 
-    print(f"\n  Outreach Dashboard running. Open this link to unlock it:\n\n    {url}\n")
-    print(f"  The token is stored in {token_store.path} (owner-only). Keep the link")
-    print("  private; anyone with it can use the dashboard. Press Ctrl+C to stop.\n")
+    if os.environ.get("OUTREACH_NO_AUTH") == "1":
+        print(f"\n  Outreach Dashboard running at:\n\n    http://{bind}:{port}/\n")
+        print("  Security token is disabled for local dashboard access. Press Ctrl+C to stop.\n")
+    else:
+        print(f"\n  Outreach Dashboard running. Open this link to unlock it:\n\n    {url}\n")
+        print(f"  The token is stored in {token_store.path} (owner-only). Keep the link")
+        print("  private; anyone with it can use the dashboard. Press Ctrl+C to stop.\n")
     if os.name == "nt":
         print("  Windows: the token file is protected by your folder's permissions,")
         print("  not POSIX file modes.\n")

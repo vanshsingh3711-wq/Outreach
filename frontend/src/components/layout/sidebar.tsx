@@ -24,7 +24,6 @@ import {
   BarChart3,
   Sliders,
   Settings,
-  Lock,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -263,16 +262,6 @@ export function Sidebar({ collapsed = false, onToggleCollapse }: SidebarProps) {
               </div>
             )}
           </div>
-
-          {!collapsed && (
-            <button
-              onClick={logout}
-              title="Lock Dashboard"
-              className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-700/60 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition"
-            >
-              <Lock className="h-3.5 w-3.5" />
-            </button>
-          )}
         </div>
       </div>
     </aside>

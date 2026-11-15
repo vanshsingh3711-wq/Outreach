@@ -199,10 +199,13 @@ def cmd_dashboard(args):
     from outreach.dashboard_auth import TokenError
 
     launch_frontend = getattr(args, "frontend", False)
-    if getattr(args, "cors", False) or launch_frontend:
+    no_auth = getattr(args, "no_auth", False) or launch_frontend
+    if no_auth or getattr(args, "cors", False):
+        os.environ["OUTREACH_NO_AUTH"] = "1"
         os.environ["OUTREACH_DEV_CORS"] = "1"
-        from outreach.dashboard import token_store
-        print(f"  Next.js Frontend:     http://localhost:3000/#token={token_store.get()}")
+
+    if launch_frontend:
+        print(f"  Next.js Frontend:     http://localhost:3000")
 
     if not 1 <= args.port <= 65535:
         print(f"  Invalid port: {args.port}. Must be 1-65535.")
@@ -213,25 +216,19 @@ def cmd_dashboard(args):
         print(dashboard_url(host=args.host, port=args.port))
         return
 
-    # Check if backend port is already in use
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        if s.connect_ex((args.host, args.port)) == 0:
-            print(f"\n  Port {args.port} is already in use by another process.")
-            print("  If Outreach is already running, get the dashboard link with:")
-            print(f"    .venv/bin/python -m outreach dashboard --url\n")
-            print(f"  Or free the port before starting:")
-            print(f"    fuser -k {args.port}/tcp 3000/tcp\n")
-            sys.exit(1)
-
     frontend_proc = None
     if launch_frontend:
         frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
         if frontend_dir.is_dir():
             print("  Starting Next.js frontend on http://localhost:3000 ...")
             try:
+                import shutil
                 import signal
+                dev_cmd = ["pnpm", "--dir", str(frontend_dir), "dev", "--port", "3000"]
+                if not shutil.which("pnpm") and shutil.which("npm"):
+                    dev_cmd = ["npm", "--prefix", str(frontend_dir), "run", "dev", "--", "--port", "3000"]
                 frontend_proc = subprocess.Popen(
-                    ["pnpm", "--dir", str(frontend_dir), "dev", "--port", "3000"],
+                    dev_cmd,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                     preexec_fn=os.setsid if hasattr(os, "setsid") else None,
@@ -244,6 +241,15 @@ def cmd_dashboard(args):
     except (DashboardSetupError, TokenError) as e:
         print(f"\n  Dashboard not started: {e}\n")
         sys.exit(2)
+    except OSError as e:
+        if getattr(e, "errno", None) == 98 or "address already in use" in str(e).lower():
+            print(f"\n  Port {args.port} is already in use by another process.")
+            print("  If Outreach is already running, open http://localhost:3000 or run:")
+            print(f"    .venv/bin/python -m outreach dashboard --url\n")
+            print(f"  Or free the port before starting:")
+            print(f"    fuser -k {args.port}/tcp 3000/tcp\n")
+            sys.exit(1)
+        raise
     finally:
         if frontend_proc:
             try:
@@ -1342,6 +1348,8 @@ def main():
                      help="Run as headless REST API server without static asset expectations")
     sub.add_argument("--frontend", action="store_true",
                      help="Automatically launch Next.js frontend alongside the dashboard")
+    sub.add_argument("--no-auth", action="store_true", default=False,
+                     help="Disable token authentication for local dashboard access")
     sub.set_defaults(func=cmd_dashboard)
 
     # outreach status
