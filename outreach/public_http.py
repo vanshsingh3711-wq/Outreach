@@ -30,13 +30,17 @@ def _public_address(value: str) -> str:
     if "%" in value:
         raise ValueError("Scoped addresses are not public website targets")
     address = ipaddress.ip_address(value)
+    if isinstance(address, ipaddress.IPv6Address):
+        if any(address in network for network in _TRANSLATION_NETWORKS):
+            # DNS64 / NAT64 synthetic address (RFC 6052).
+            # Extract and validate the embedded IPv4 destination.
+            embedded = ipaddress.IPv4Address(address.packed[-4:])
+            return _public_address(str(embedded))
+        if address.is_site_local or address.ipv4_mapped or address.sixtofour or address.teredo:
+            raise ValueError("Translated IPv6 addresses are not supported")
     if (not address.is_global or address.is_multicast or address.is_reserved
             or address.is_unspecified):
         raise ValueError("Address is not public")
-    if isinstance(address, ipaddress.IPv6Address):
-        if (address.is_site_local or address.ipv4_mapped or address.sixtofour or address.teredo
-                or any(address in network for network in _TRANSLATION_NETWORKS)):
-            raise ValueError("Translated IPv6 addresses are not supported")
     return str(address)
 
 
