@@ -3438,8 +3438,9 @@ def start_dashboard(host: str = "127.0.0.1", port: int = 5555):
         print("  not POSIX file modes.\n")
     from outreach import dashboard_instance
     dashboard_instance.write(DB_PATH.parent, host=bind, port=port, instance=INSTANCE_ID)
+    log_level = "info" if (os.environ.get("OUTREACH_DEV_CORS") == "1" or os.environ.get("OUTREACH_NO_AUTH") == "1") else "warning"
     try:
-        uvicorn.run(app, host=bind, port=port, log_level="warning",
+        uvicorn.run(app, host=bind, port=port, log_level=log_level,
                     proxy_headers=False, server_header=False, date_header=False)
     finally:
         dashboard_instance.remove(DB_PATH.parent, instance=INSTANCE_ID)

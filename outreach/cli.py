@@ -229,8 +229,6 @@ def cmd_dashboard(args):
                     dev_cmd = ["npm", "--prefix", str(frontend_dir), "run", "dev", "--", "--port", "3000"]
                 frontend_proc = subprocess.Popen(
                     dev_cmd,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
                     preexec_fn=os.setsid if hasattr(os, "setsid") else None,
                 )
             except Exception as e:
