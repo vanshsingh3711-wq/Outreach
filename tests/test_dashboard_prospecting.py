@@ -164,3 +164,69 @@ def test_get_ai_status(client):
     assert "model" in data
 
 
+def test_save_lead_endpoint(client):
+    r = client.post(
+        "/api/prospecting/save-lead",
+        json={
+            "domain": "staged-startup.io",
+            "name": "Staged Startup",
+            "website": "https://staged-startup.io",
+            "description": "Next-gen developer tooling platform.",
+            "industry": "Developer Tools",
+            "location": "San Francisco, CA",
+            "size": "11-50",
+            "people": [
+                {
+                    "first_name": "Sarah",
+                    "last_name": "Connor",
+                    "title": "Founder & CEO",
+                    "email": "sarah@staged-startup.io",
+                    "email_status": "verified",
+                    "email_verified": True,
+                    "linkedin_url": "https://linkedin.com/in/sarah-connor",
+                }
+            ],
+        },
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert data["success"] is True
+    assert data["company_id"]
+    assert data["saved_prospects"] == 1
+
+    # Verify it now appears in decision-makers
+    dm_res = client.get("/api/prospecting/decision-makers?search=Sarah")
+    assert dm_res.status_code == 200
+    assert dm_res.json()["count"] == 1
+    assert dm_res.json()["decision_makers"][0]["first_name"] == "Sarah"
+
+
+def test_save_leads_batch_endpoint(client):
+    r = client.post(
+        "/api/prospecting/save-leads-batch",
+        json={
+            "leads": [
+                {
+                    "domain": "batch-agency1.com",
+                    "name": "Batch Agency One",
+                    "industry": "Agencies & Dev Studios",
+                    "people": [
+                        {"first_name": "John", "last_name": "Doe", "title": "Partner", "email": "john@batch1.com"}
+                    ],
+                },
+                {
+                    "domain": "batch-agency2.com",
+                    "name": "Batch Agency Two",
+                    "industry": "Agencies & Dev Studios",
+                    "people": [],
+                },
+            ]
+        },
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert data["success"] is True
+    assert data["saved_count"] == 2
+
+
+

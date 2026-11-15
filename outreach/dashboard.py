@@ -789,13 +789,14 @@ async def enrich_company_url(request: Request):
     if not url:
         return JSONResponse({"error": "Missing 'url' field"}, status_code=400)
 
-    print(f"\n[🌐 DASHBOARD API] Received POST /api/prospecting/enrich-url for: '{url}'", flush=True)
-    state = StateManager()
+    persist = bool(body.get("persist", False))
+    print(f"\n[🌐 DASHBOARD API] Received POST /api/prospecting/enrich-url for: '{url}' (persist={persist})", flush=True)
+    state = _state()
     await state.init_db()
     enricher = CompanyEnricher(state)
 
     try:
-        result = await enricher.enrich_url(url)
+        result = await enricher.enrich_url(url, persist=persist)
     except SSRFValidationError as exc:
         print(f"  [⚠️ DASHBOARD API] SSRF Validation error: {exc}", flush=True)
         return JSONResponse({"error": f"Security restriction: {exc}"}, status_code=400)
@@ -849,6 +850,7 @@ async def discover_companies_endpoint(request: Request):
     except Exception:
         return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
 
+    save_to_db = bool(body.get("save_to_db", False))
     criteria = DiscoveryCriteria(
         target_type=body.get("target_type") or "all",
         industries=body.get("industries") or [],
@@ -862,10 +864,11 @@ async def discover_companies_endpoint(request: Request):
         custom_query=body.get("custom_query") or "",
         limit=min(int(body.get("limit") or 15), 50),
         auto_enrich=bool(body.get("auto_enrich", False)),
+        save_to_db=save_to_db,
     )
 
-    print(f"\n[🌐 DASHBOARD API] Received POST /api/prospecting/discover (target_type={criteria.target_type}, size={criteria.company_size_tier}, locs={criteria.locations}, auto_enrich={criteria.auto_enrich})", flush=True)
-    state = StateManager()
+    print(f"\n[🌐 DASHBOARD API] Received POST /api/prospecting/discover (target_type={criteria.target_type}, size={criteria.company_size_tier}, locs={criteria.locations}, auto_enrich={criteria.auto_enrich}, save_to_db={save_to_db})", flush=True)
+    state = _state()
     await state.init_db()
     engine = FilteredDiscoveryEngine(state)
 
@@ -881,6 +884,159 @@ async def discover_companies_endpoint(request: Request):
         "success": True,
         "count": len(candidates),
         "companies": [c.to_dict() for c in candidates],
+    }
+
+
+@app.post("/api/prospecting/save-lead")
+async def save_lead_endpoint(request: Request):
+    """Save a discovered company and its decision-makers permanently to the database."""
+    from outreach.models.company import Company
+    from outreach.models.prospect import Prospect
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
+
+    domain = (body.get("domain") or "").strip().lower()
+    name = (body.get("name") or domain).strip()
+    if not domain and not name:
+        return JSONResponse({"error": "Missing domain or name"}, status_code=400)
+
+    state = _state()
+    await state.init_db()
+
+    # 1. Get or create Company
+    existing_company = await state.get_company_by_domain(domain) if domain else None
+    if existing_company:
+        company_id = existing_company.id
+        print(f"\n[💾 DB:SAVE-LEAD] Company '{name}' ({domain}) already in DB -> ID: {company_id}", flush=True)
+    else:
+        co = Company(
+            domain=domain,
+            name=name,
+            website=body.get("website") or f"https://{domain}",
+            description=body.get("description") or "",
+            source="manual_saved_discovery",
+            industry=body.get("industry") or "",
+            location=body.get("location") or "",
+            size=body.get("size") or "",
+        )
+        company_id = await state.add_company(co)
+        print(f"\n[💾 DB:SAVE-LEAD] ✅ Permanently saved company '{name}' ({domain}) -> ID: {company_id}", flush=True)
+
+    # 2. Save any attached people / decision-makers
+    saved_prospects = 0
+    people = body.get("people") or []
+    for p in people:
+        first = (p.get("first_name") or "").strip()
+        last = (p.get("last_name") or "").strip()
+        title = (p.get("title") or "").strip()
+        email = (p.get("email") or "").strip()
+        if not first and not last and not title:
+            continue
+
+        prospect = Prospect(
+            company_id=company_id,
+            first_name=first,
+            last_name=last,
+            title=title,
+            email=email or None,
+            email_status=p.get("email_status") or ("verified" if email else "unknown"),
+            email_verified=bool(p.get("email_status") == "verified" or email),
+            linkedin_url=p.get("linkedin_url") or "",
+            company=name,
+            source="saved_lead",
+            source_url=body.get("website") or "",
+            score=90,
+        )
+        await state.add_prospect(prospect)
+        saved_prospects += 1
+        print(f"    ↳ ✅ Saved decision-maker: {first} {last} ({title}) -> Email: {email or 'None'}", flush=True)
+
+    return {
+        "success": True,
+        "company_id": company_id,
+        "saved_prospects": saved_prospects,
+        "message": f"Successfully saved {name} and {saved_prospects} lead(s) permanently to database.",
+    }
+
+
+@app.post("/api/prospecting/save-leads-batch")
+async def save_leads_batch_endpoint(request: Request):
+    """Save multiple discovered companies and their decision-makers in one batch."""
+    from outreach.models.company import Company
+    from outreach.models.prospect import Prospect
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
+
+    companies = body.get("companies") or body.get("leads") or []
+    if not isinstance(companies, list):
+        return JSONResponse({"error": "'companies' must be a list"}, status_code=400)
+
+    state = _state()
+    await state.init_db()
+
+    total_companies_saved = 0
+    total_leads_saved = 0
+
+    for c in companies:
+        domain = (c.get("domain") or "").strip().lower()
+        name = (c.get("name") or domain).strip()
+        if not domain and not name:
+            continue
+
+        existing = await state.get_company_by_domain(domain) if domain else None
+        if existing:
+            cid = existing.id
+        else:
+            co = Company(
+                domain=domain,
+                name=name,
+                website=c.get("website") or f"https://{domain}",
+                description=c.get("description") or "",
+                source="manual_saved_discovery",
+                industry=c.get("industry") or "",
+                location=c.get("location") or "",
+                size=c.get("size") or "",
+            )
+            cid = await state.add_company(co)
+            total_companies_saved += 1
+
+        for p in c.get("people") or []:
+            first = (p.get("first_name") or "").strip()
+            last = (p.get("last_name") or "").strip()
+            title = (p.get("title") or "").strip()
+            email = (p.get("email") or "").strip()
+            if not first and not last and not title:
+                continue
+
+            prospect = Prospect(
+                company_id=cid,
+                first_name=first,
+                last_name=last,
+                title=title,
+                email=email or None,
+                email_status=p.get("email_status") or ("verified" if email else "unknown"),
+                email_verified=bool(p.get("email_status") == "verified" or email),
+                linkedin_url=p.get("linkedin_url") or "",
+                company=name,
+                source="saved_lead",
+                source_url=c.get("website") or "",
+                score=90,
+            )
+            await state.add_prospect(prospect)
+            total_leads_saved += 1
+
+    print(f"\n[💾 DB:BATCH-SAVE] Saved {total_companies_saved} companies and {total_leads_saved} leads to DB", flush=True)
+    return {
+        "success": True,
+        "saved_count": total_companies_saved,
+        "companies_saved": total_companies_saved,
+        "leads_saved": total_leads_saved,
     }
 
 

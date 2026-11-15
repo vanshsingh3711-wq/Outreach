@@ -63,6 +63,7 @@ class DiscoveryCriteria:
     custom_query: str = ""        # optional override
     limit: int = 15               # max companies to discover
     auto_enrich: bool = False     # whether to enrich discovered companies immediately
+    save_to_db: bool = True       # whether to persist discovered companies to DB immediately
 
 
 @dataclass
@@ -415,23 +416,27 @@ class FilteredDiscoveryEngine:
                         size=cand_size,
                     )
 
-                    # Persist company record in database
+                    # Persist company record in database only if criteria.save_to_db is True
                     if not is_existing:
-                        print(f"    ↳ ✅ Accepted fresh company candidate: '{cand.name}' ({domain}) [{detected_type.upper()}]", flush=True)
-                        company_record = Company(
-                            domain=domain,
-                            name=cand.name,
-                            website=cand.website,
-                            description=cand.snippet[:400],
-                            source="company_discovery",
-                            source_url=raw_link,
-                            notes=f"Discovered via query: {q_str[:200]}",
-                            industry=cand_industry,
-                            location=cand_location,
-                            size=cand_size,
-                        )
-                        cid = await self.state.add_company(company_record)
-                        cand.company_id = cid
+                        if criteria.save_to_db:
+                            print(f"    ↳ ✅ Accepted & Saved to DB: '{cand.name}' ({domain}) [{detected_type.upper()}]", flush=True)
+                            company_record = Company(
+                                domain=domain,
+                                name=cand.name,
+                                website=cand.website,
+                                description=cand.snippet[:400],
+                                source="company_discovery",
+                                source_url=raw_link,
+                                notes=f"Discovered via query: {q_str[:200]}",
+                                industry=cand_industry,
+                                location=cand_location,
+                                size=cand_size,
+                            )
+                            cid = await self.state.add_company(company_record)
+                            cand.company_id = cid
+                        else:
+                            print(f"    ↳ ⚡ Staged temporary candidate (not saved to DB): '{cand.name}' ({domain}) [{detected_type.upper()}]", flush=True)
+                            cand.company_id = f"staged_{domain.replace('.', '_')}"
                     else:
                         print(f"    ↳ 🔄 Existing company verified: '{cand.name}' ({domain}) -> ID: {existing.id}", flush=True)
                         cand.company_id = existing.id
@@ -440,10 +445,11 @@ class FilteredDiscoveryEngine:
                     if criteria.auto_enrich:
                         print(f"      ↳ ⚡ Auto-enriching {cand.name} ({cand.website})...", flush=True)
                         try:
-                            res = await asyncio.wait_for(
-                                self.enricher.enrich_url(cand.website),
-                                timeout=8.0,
-                            )
+                            try:
+                                enrich_coro = self.enricher.enrich_url(cand.website, persist=criteria.save_to_db)
+                            except TypeError:
+                                enrich_coro = self.enricher.enrich_url(cand.website)
+                            res = await asyncio.wait_for(enrich_coro, timeout=8.0)
                             cand.enrichment_result = res
                             print(f"      ↳ ⚡ Auto-enrichment complete: {len(res.people)} decision-makers found", flush=True)
                         except Exception as e_err:

@@ -23,6 +23,9 @@ import {
   Target,
   Send,
   Zap,
+  BookmarkPlus,
+  Save,
+  X,
 } from "lucide-react";
 import { LinkedInIcon, TwitterXIcon } from "@/components/ui/brand-icons";
 import Link from "next/link";
@@ -83,11 +86,13 @@ export default function DiscoveryPage() {
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Per-company enrichment loading state
+  // Per-company action states
   const [enrichingDomain, setEnrichingDomain] = useState<string | null>(null);
+  const [savingDomain, setSavingDomain] = useState<string | null>(null);
+  const [isSavingAll, setIsSavingAll] = useState(false);
   const [isLoadingExisting, setIsLoadingExisting] = useState(true);
   const [searchFilter, setSearchFilter] = useState("");
-  const [activeTab, setActiveTab] = useState<"all" | "with_leads" | "need_leads">("all");
+  const [activeTab, setActiveTab] = useState<"all" | "saved" | "temporary" | "with_leads">("all");
   const [copiedEmail, setCopiedEmail] = useState<string | null>(null);
 
   const handleCopyEmail = (email: string) => {
@@ -109,7 +114,7 @@ export default function DiscoveryPage() {
     "EdTech",
   ];
 
-  // Load saved companies and their decision-makers on mount so nothing ever disappears
+  // Load permanently saved companies and their decision-makers on mount
   const loadSavedAccounts = async () => {
     try {
       setIsLoadingExisting(true);
@@ -168,10 +173,16 @@ export default function DiscoveryPage() {
           contact_count: attachedPeople.length || c.contact_count || 0,
           people: attachedPeople,
           fit_score: c.fit,
+          is_existing: true, // Permanent DB record
         };
       });
 
-      setResults(mapped);
+      // Preserve any temporary unsaved results the user currently has open
+      setResults((prev) => {
+        const existingDomains = new Set(mapped.map((m) => m.domain.toLowerCase()));
+        const temporary = prev.filter((p) => !p.is_existing && !existingDomains.has(p.domain.toLowerCase()));
+        return [...temporary, ...mapped];
+      });
     } catch (err) {
       console.error("Failed to load saved accounts:", err);
     } finally {
@@ -183,6 +194,7 @@ export default function DiscoveryPage() {
     loadSavedAccounts();
   }, []);
 
+  // Run discovery: produces temporary staged results without saving to DB automatically
   const handleRunDiscovery = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsRunning(true);
@@ -201,6 +213,7 @@ export default function DiscoveryPage() {
         custom_query: customQuery.trim(),
         limit: 12,
         auto_enrich: autoEnrich,
+        save_to_db: false, // DO NOT save to database automatically
       };
 
       const res = await fetchApi<{ success: boolean; count: number; companies: any[] }>(
@@ -211,7 +224,7 @@ export default function DiscoveryPage() {
         }
       );
 
-      const incoming = (res.companies || []).map((c) => ({
+      const incoming: DiscoveredCompany[] = (res.companies || []).map((c) => ({
         id: c.company_id || c.id,
         company_id: c.company_id || c.id,
         name: c.name,
@@ -224,10 +237,10 @@ export default function DiscoveryPage() {
         target_type: c.target_type || targetType,
         contact_count: c.contact_count || (c.people ? c.people.length : 0),
         people: c.people || [],
-        is_existing: c.is_existing,
+        is_existing: Boolean(c.is_existing),
       }));
 
-      // Merge new results with existing, keeping unique domains
+      // Merge new temporary results with existing, keeping unique domains
       setResults((prev) => {
         const existingDomains = new Set(prev.map((p) => p.domain.toLowerCase()));
         const fresh = incoming.filter((item) => !existingDomains.has(item.domain.toLowerCase()));
@@ -235,10 +248,8 @@ export default function DiscoveryPage() {
       });
 
       setSuccessMsg(
-        `Discovered ${res.count || incoming.length} companies matching your criteria! All saved directly to your database.`
+        `Discovered ${res.count || incoming.length} leads! They are staged temporarily below. Click "Save to DB" on any lead you want to permanently keep.`
       );
-      // Reload from DB to ensure complete sync
-      setTimeout(() => loadSavedAccounts(), 1500);
     } catch (err: any) {
       setError(err.message || "Failed to run discovery.");
     } finally {
@@ -246,6 +257,7 @@ export default function DiscoveryPage() {
     }
   };
 
+  // Enrich temporary candidate in-memory (persist=false)
   const handleEnrichCompany = async (company: DiscoveredCompany) => {
     const targetUrl = company.website || `https://${company.domain}`;
     setEnrichingDomain(company.domain);
@@ -258,7 +270,7 @@ export default function DiscoveryPage() {
         people: DecisionMakerPreview[];
       }>("/api/prospecting/enrich-url", {
         method: "POST",
-        body: JSON.stringify({ url: targetUrl }),
+        body: JSON.stringify({ url: targetUrl, persist: false }),
       });
 
       if (res.success && res.people) {
@@ -277,7 +289,7 @@ export default function DiscoveryPage() {
           )
         );
         setSuccessMsg(
-          `Enriched ${company.name}! Found and saved ${res.people.length} real decision-maker(s) to your database.`
+          `Extracted ${res.people.length} real decision-maker(s) for ${company.name}! Review below and click "Save to DB" to keep them.`
         );
       }
     } catch (err: any) {
@@ -285,6 +297,79 @@ export default function DiscoveryPage() {
     } finally {
       setEnrichingDomain(null);
     }
+  };
+
+  // Explicitly save a single lead permanently to the database
+  const handleSaveLead = async (company: DiscoveredCompany) => {
+    setSavingDomain(company.domain);
+    setError(null);
+
+    try {
+      const res = await fetchApi<{ success: boolean; company_id: string; saved_prospects: number }>(
+        "/api/prospecting/save-lead",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            name: company.name,
+            domain: company.domain,
+            website: company.website,
+            description: company.description,
+            industry: company.industry,
+            location: company.location,
+            size: company.size,
+            people: company.people || [],
+          }),
+        }
+      );
+
+      if (res.success) {
+        setResults((prev) =>
+          prev.map((c) =>
+            c.domain.toLowerCase() === company.domain.toLowerCase()
+              ? { ...c, is_existing: true, company_id: res.company_id }
+              : c
+          )
+        );
+        setSuccessMsg(`✓ Saved ${company.name} and ${res.saved_prospects || 0} decision-maker(s) permanently to database.`);
+      }
+    } catch (err: any) {
+      setError(`Failed to save ${company.name}: ${err.message}`);
+    } finally {
+      setSavingDomain(null);
+    }
+  };
+
+  // Batch save all currently unsaved temporary leads to database
+  const handleSaveAllUnsaved = async () => {
+    const unsaved = results.filter((c) => !c.is_existing);
+    if (unsaved.length === 0) return;
+
+    setIsSavingAll(true);
+    setError(null);
+
+    try {
+      const res = await fetchApi<{ success: boolean; companies_saved: number; leads_saved: number }>(
+        "/api/prospecting/save-leads-batch",
+        {
+          method: "POST",
+          body: JSON.stringify({ companies: unsaved }),
+        }
+      );
+
+      if (res.success) {
+        setResults((prev) => prev.map((c) => ({ ...c, is_existing: true })));
+        setSuccessMsg(`✓ Successfully saved ${res.companies_saved} companies and ${res.leads_saved} leads permanently to database!`);
+      }
+    } catch (err: any) {
+      setError(`Failed to batch save: ${err.message}`);
+    } finally {
+      setIsSavingAll(false);
+    }
+  };
+
+  // Dismiss a temporary lead from the session
+  const handleDismissCompany = (domain: string) => {
+    setResults((prev) => prev.filter((c) => c.domain.toLowerCase() !== domain.toLowerCase()));
   };
 
   // Filter accounts in the list
@@ -299,15 +384,20 @@ export default function DiscoveryPage() {
 
     if (!matchesSearch) return false;
 
+    if (activeTab === "saved") {
+      return Boolean(c.is_existing);
+    }
+    if (activeTab === "temporary") {
+      return !c.is_existing;
+    }
     if (activeTab === "with_leads") {
       return (c.contact_count || 0) > 0 || (c.people && c.people.length > 0);
-    }
-    if (activeTab === "need_leads") {
-      return (c.contact_count || 0) === 0 && (!c.people || c.people.length === 0);
     }
     return true;
   });
 
+  const savedCount = results.filter((c) => c.is_existing).length;
+  const unsavedCount = results.filter((c) => !c.is_existing).length;
   const totalWithLeads = results.filter((c) => (c.contact_count || 0) > 0 || (c.people && c.people.length > 0)).length;
 
   return (
@@ -322,15 +412,34 @@ export default function DiscoveryPage() {
             </span>
           </div>
           <p className="mt-1 text-sm text-slate-400">
-            Find real tech startups (for jobs) and agencies (for freelance work) and their decision-maker emails. No job board gig noise.
+            Find tech startups and agencies. Review staged results temporarily and save only the leads you want to keep permanently.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/60 px-3.5 py-1.5 text-xs">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-1.5 text-xs">
             <Database className="h-4 w-4 text-emerald-400" />
-            <span className="text-slate-300 font-medium">{results.length} Saved in DB</span>
+            <span className="text-slate-300 font-medium">{savedCount} Saved in DB</span>
           </div>
+
+          {unsavedCount > 0 && (
+            <div className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs">
+              <Zap className="h-4 w-4 text-amber-400" />
+              <span className="text-amber-300 font-medium">{unsavedCount} Temporary</span>
+            </div>
+          )}
+
+          {unsavedCount > 0 && (
+            <button
+              onClick={handleSaveAllUnsaved}
+              disabled={isSavingAll}
+              className="flex items-center gap-1.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40 px-3 py-1.5 text-xs text-emerald-300 hover:bg-emerald-500/30 transition cursor-pointer font-semibold disabled:opacity-50"
+            >
+              {isSavingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+              <span>Save All ({unsavedCount}) to DB</span>
+            </button>
+          )}
+
           <button
             onClick={loadSavedAccounts}
             disabled={isLoadingExisting}
@@ -560,9 +669,9 @@ export default function DiscoveryPage() {
         <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 px-4 py-3 flex items-start gap-3 text-xs text-slate-300">
           <ShieldCheck className="h-5 w-5 text-sky-400 shrink-0 mt-0.5" />
           <div className="space-y-0.5">
-            <span className="font-semibold text-sky-300">Direct Company & Executive Intelligence Guarantee</span>
+            <span className="font-semibold text-sky-300">Temporary Staging Discovery</span>
             <p className="text-[11px] text-slate-400 leading-relaxed">
-              Queries are tuned strictly to discover actual company websites and client portfolios. All job board postings (Indeed, Glassdoor, Jobright), gig marketplaces (Upwork, Fiverr), and aggregator noise are 100% blocked so you only get real decision-makers to email directly.
+              Discovered results are kept in memory for review. Only the leads you explicitly click <strong>"Save to DB"</strong> will be written permanently to your database.
             </p>
           </div>
         </div>
@@ -599,7 +708,7 @@ export default function DiscoveryPage() {
             {isRunning ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Searching & Auto-Saving to DB...</span>
+                <span>Searching & Staging...</span>
               </>
             ) : (
               <>
@@ -620,7 +729,7 @@ export default function DiscoveryPage() {
       {/* Discovered Accounts Controls & Header */}
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => setActiveTab("all")}
               className={`rounded-xl px-3 py-1.5 text-xs font-medium transition cursor-pointer ${
@@ -629,27 +738,37 @@ export default function DiscoveryPage() {
                   : "text-slate-400 hover:text-white hover:bg-slate-900"
               }`}
             >
-              All Discovered ({results.length})
+              All Results ({results.length})
+            </button>
+            <button
+              onClick={() => setActiveTab("saved")}
+              className={`rounded-xl px-3 py-1.5 text-xs font-medium transition cursor-pointer ${
+                activeTab === "saved"
+                  ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+                  : "text-slate-400 hover:text-white hover:bg-slate-900"
+              }`}
+            >
+              ✓ Saved in DB ({savedCount})
+            </button>
+            <button
+              onClick={() => setActiveTab("temporary")}
+              className={`rounded-xl px-3 py-1.5 text-xs font-medium transition cursor-pointer ${
+                activeTab === "temporary"
+                  ? "bg-amber-500/15 text-amber-300 border border-amber-500/30"
+                  : "text-slate-400 hover:text-white hover:bg-slate-900"
+              }`}
+            >
+              ⚡ Temporary ({unsavedCount})
             </button>
             <button
               onClick={() => setActiveTab("with_leads")}
               className={`rounded-xl px-3 py-1.5 text-xs font-medium transition cursor-pointer ${
                 activeTab === "with_leads"
-                  ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                  ? "bg-sky-500/15 text-sky-300 border border-sky-500/30"
                   : "text-slate-400 hover:text-white hover:bg-slate-900"
               }`}
             >
-              With Verified Leads ({totalWithLeads})
-            </button>
-            <button
-              onClick={() => setActiveTab("need_leads")}
-              className={`rounded-xl px-3 py-1.5 text-xs font-medium transition cursor-pointer ${
-                activeTab === "need_leads"
-                  ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                  : "text-slate-400 hover:text-white hover:bg-slate-900"
-              }`}
-            >
-              Need Leads ({results.length - totalWithLeads})
+              With Leads ({totalWithLeads})
             </button>
           </div>
 
@@ -669,7 +788,7 @@ export default function DiscoveryPage() {
         {isLoadingExisting && results.length === 0 ? (
           <div className="rounded-2xl border border-slate-800 bg-slate-900/30 p-12 text-center text-slate-500 flex flex-col items-center gap-3">
             <Loader2 className="h-6 w-6 animate-spin text-sky-400" />
-            <span>Loading saved accounts from database...</span>
+            <span>Loading accounts...</span>
           </div>
         ) : filteredResults.length === 0 ? (
           <div className="rounded-2xl border border-slate-800 bg-slate-900/30 p-12 text-center text-slate-500">
@@ -680,12 +799,17 @@ export default function DiscoveryPage() {
             {filteredResults.map((c) => {
               const hasLeads = (c.people && c.people.length > 0) || (c.contact_count || 0) > 0;
               const isEnrichingThis = enrichingDomain === c.domain;
+              const isSavingThis = savingDomain === c.domain;
               const isAgency = c.target_type === "agency" || (c.name || "").toLowerCase().includes("agency");
 
               return (
                 <div
                   key={c.id || c.domain}
-                  className="rounded-2xl border border-slate-800 bg-slate-900/50 p-5 shadow-sm hover:border-slate-700 transition flex flex-col justify-between"
+                  className={`rounded-2xl border p-5 shadow-sm transition flex flex-col justify-between ${
+                    c.is_existing
+                      ? "border-slate-800 bg-slate-900/50 hover:border-slate-700"
+                      : "border-amber-500/20 bg-slate-900/40 hover:border-amber-500/40"
+                  }`}
                 >
                   <div className="space-y-3">
                     {/* Header */}
@@ -714,11 +838,28 @@ export default function DiscoveryPage() {
                         </div>
                       </div>
 
-                      <div className="flex flex-col items-end gap-1">
-                        <span className="flex items-center gap-1 rounded-full bg-slate-800/80 px-2 py-0.5 text-[10px] font-medium text-emerald-400 border border-emerald-500/20">
-                          <Database className="h-2.5 w-2.5" />
-                          Saved in DB
-                        </span>
+                      <div className="flex flex-col items-end gap-1.5">
+                        {c.is_existing ? (
+                          <span className="flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-400 border border-emerald-500/30">
+                            <Check className="h-2.5 w-2.5" />
+                            Saved in DB
+                          </span>
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            <span className="flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-300 border border-amber-500/30">
+                              <Zap className="h-2.5 w-2.5" />
+                              Temporary
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleDismissCompany(c.domain)}
+                              className="text-slate-500 hover:text-rose-400 p-0.5 rounded cursor-pointer transition"
+                              title="Dismiss from temporary view"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        )}
                         {c.fit_score ? (
                           <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold text-sky-400 border border-sky-500/20">
                             {c.fit_score}% Fit
@@ -768,7 +909,9 @@ export default function DiscoveryPage() {
                             <ShieldCheck className="h-3.5 w-3.5" />
                             Verified Decision-Makers ({c.people.length})
                           </span>
-                          <span className="text-[10px] text-slate-500">Auto-Saved</span>
+                          <span className="text-[10px] text-slate-500">
+                            {c.is_existing ? "Saved in DB" : "Staged (Unsaved)"}
+                          </span>
                         </div>
 
                         <div className="space-y-2">
@@ -819,7 +962,7 @@ export default function DiscoveryPage() {
 
                           {c.people.length > 2 && (
                             <p className="text-[10px] text-slate-500 text-center pt-1">
-                              +{c.people.length - 2} more decision-makers saved in DB
+                              +{c.people.length - 2} more decision-makers found
                             </p>
                           )}
                         </div>
@@ -829,16 +972,8 @@ export default function DiscoveryPage() {
 
                   {/* Card Actions Footer */}
                   <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between gap-2">
-                    {hasLeads ? (
-                      <Link
-                        href={`/decision-makers?search=${encodeURIComponent(c.name)}`}
-                        className="flex items-center gap-1.5 text-xs font-medium text-sky-400 hover:text-sky-300 transition"
-                      >
-                        <Users className="h-3.5 w-3.5" />
-                        <span>View Leads ({c.contact_count || (c.people ? c.people.length : 0)})</span>
-                        <ArrowRight className="h-3 w-3" />
-                      </Link>
-                    ) : (
+                    {/* Left button: Find Decision Makers if not yet enriched */}
+                    {!hasLeads ? (
                       <button
                         onClick={() => handleEnrichCompany(c)}
                         disabled={isEnrichingThis}
@@ -856,16 +991,48 @@ export default function DiscoveryPage() {
                           </>
                         )}
                       </button>
+                    ) : (
+                      <Link
+                        href={`/decision-makers?search=${encodeURIComponent(c.name)}`}
+                        className="flex items-center gap-1.5 text-xs font-medium text-sky-400 hover:text-sky-300 transition"
+                      >
+                        <Users className="h-3.5 w-3.5" />
+                        <span>View Leads ({c.contact_count || (c.people ? c.people.length : 0)})</span>
+                        <ArrowRight className="h-3 w-3" />
+                      </Link>
                     )}
 
-                    <Link
-                      href={`/decision-makers?search=${encodeURIComponent(c.name)}`}
-                      className="text-xs text-slate-400 hover:text-white transition flex items-center gap-1"
-                      title="Open full prospect details"
-                    >
-                      <span>Pipeline</span>
-                      <ArrowRight className="h-3 w-3" />
-                    </Link>
+                    {/* Right button: Save to DB if unsaved, or View in Pipeline if saved */}
+                    {!c.is_existing ? (
+                      <button
+                        type="button"
+                        onClick={() => handleSaveLead(c)}
+                        disabled={isSavingThis}
+                        className="flex items-center gap-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-3 py-1.5 text-xs shadow-md shadow-emerald-500/20 transition cursor-pointer disabled:opacity-50"
+                        title="Permanently save this company & leads to database"
+                      >
+                        {isSavingThis ? (
+                          <>
+                            <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-950" />
+                            <span>Saving...</span>
+                          </>
+                        ) : (
+                          <>
+                            <BookmarkPlus className="h-3.5 w-3.5 text-slate-950" />
+                            <span>Save to DB</span>
+                          </>
+                        )}
+                      </button>
+                    ) : (
+                      <Link
+                        href={`/decision-makers?search=${encodeURIComponent(c.name)}`}
+                        className="text-xs text-slate-400 hover:text-white transition flex items-center gap-1"
+                        title="Open full prospect details"
+                      >
+                        <span>Pipeline</span>
+                        <ArrowRight className="h-3 w-3" />
+                      </Link>
+                    )}
                   </div>
                 </div>
               );

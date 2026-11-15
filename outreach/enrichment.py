@@ -279,7 +279,7 @@ class CompanyEnricher:
             return "contact"
         return "general"
 
-    async def enrich_url(self, raw_url: str) -> EnrichmentResult:
+    async def enrich_url(self, raw_url: str, persist: bool = True) -> EnrichmentResult:
         """Execute full company URL enrichment safely."""
         print(f"\n[🌐 ENRICHMENT START] Starting deep enrichment for URL: '{raw_url}'", flush=True)
         try:
@@ -533,42 +533,45 @@ class CompanyEnricher:
                 dp.email_status = best.deliverability_status
                 dp.email_match_confidence = best.match_confidence
 
-        # 6. Save or Update in Database
-        company.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
-        if is_new:
-            company_id = await self.state.add_company(company)
-            company.id = company_id
-        else:
-            # Update existing company record with enriched fields
-            await self.state.update_company(company)
-            print(f"  [💾 DB:COMPANY] Updated existing company record '{company.name}' -> ID: {company.id}", flush=True)
+        # 6. Save or Update in Database only if persist is True
+        if persist:
+            company.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+            if is_new:
+                company_id = await self.state.add_company(company)
+                company.id = company_id
+            else:
+                # Update existing company record with enriched fields
+                await self.state.update_company(company)
+                print(f"  [💾 DB:COMPANY] Updated existing company record '{company.name}' -> ID: {company.id}", flush=True)
 
-        # Save discovered people as Prospects if valid
-        for dp in discovered_people:
-            if dp.first_name and dp.last_name and dp.title:
-                notes = dp.evidence_snippet
-                if dp.email_match_confidence > 0:
-                    notes = f"{notes} | match_confidence: {dp.email_match_confidence:.2f}"
-                if dp.twitter_url:
-                    notes = f"{notes} | x: {dp.twitter_url}"
-                if dp.github_url:
-                    notes = f"{notes} | github: {dp.github_url}"
-                prospect = Prospect(
-                    company_id=company.id,
-                    first_name=dp.first_name,
-                    last_name=dp.last_name,
-                    email=dp.primary_email,
-                    email_status=dp.email_status,
-                    email_verified=(dp.email_status == "verified"),
-                    title=dp.title,
-                    company=company.name,
-                    linkedin_url=dp.linkedin_url,
-                    source="url_enrichment",
-                    source_url=dp.source_url,
-                    personalization_notes=notes,
-                    score=95 if dp.role_priority == 1 else (85 if dp.role_priority == 2 else (75 if dp.role_priority == 3 else 65)),
-                )
-                await self.state.add_prospect(prospect)
+            # Save discovered people as Prospects if valid
+            for dp in discovered_people:
+                if dp.first_name and dp.last_name and dp.title:
+                    notes = dp.evidence_snippet
+                    if dp.email_match_confidence > 0:
+                        notes = f"{notes} | match_confidence: {dp.email_match_confidence:.2f}"
+                    if dp.twitter_url:
+                        notes = f"{notes} | x: {dp.twitter_url}"
+                    if dp.github_url:
+                        notes = f"{notes} | github: {dp.github_url}"
+                    prospect = Prospect(
+                        company_id=company.id,
+                        first_name=dp.first_name,
+                        last_name=dp.last_name,
+                        email=dp.primary_email,
+                        email_status=dp.email_status,
+                        email_verified=(dp.email_status == "verified"),
+                        title=dp.title,
+                        company=company.name,
+                        linkedin_url=dp.linkedin_url,
+                        source="url_enrichment",
+                        source_url=dp.source_url,
+                        personalization_notes=notes,
+                        score=95 if dp.role_priority == 1 else (85 if dp.role_priority == 2 else (75 if dp.role_priority == 3 else 65)),
+                    )
+                    await self.state.add_prospect(prospect)
+        else:
+            print(f"  [⚡ STAGING] Enriched '{company.name}' ({domain}) in-memory: {len(discovered_people)} decision-makers (not persisted to DB)", flush=True)
 
         print(f"[🎉 ENRICHMENT COMPLETE] '{company.name}' ({domain}) enriched: {len(discovered_people)} decision-makers, {len(pages)} pages crawled\n", flush=True)
         return EnrichmentResult(

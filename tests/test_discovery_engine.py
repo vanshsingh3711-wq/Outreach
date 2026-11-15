@@ -233,7 +233,7 @@ async def test_filtered_discovery_with_auto_enrichment(monkeypatch, tmp_path):
     async def mock_fetch_ddg(client, q_str, limit=20):
         return mock_items
 
-    async def mock_enrich(url):
+    async def mock_enrich(url, persist=True):
         co = Company(domain="ai-frontier.io", name="AI Frontier", website=url, industry="Artificial Intelligence")
         return EnrichmentResult(
             company=co,
