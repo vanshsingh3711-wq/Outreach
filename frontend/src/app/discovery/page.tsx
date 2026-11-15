@@ -24,6 +24,13 @@ import {
 import { LinkedInIcon, TwitterXIcon } from "@/components/ui/brand-icons";
 import Link from "next/link";
 
+function formatLinkedInUrl(url?: string): string {
+  if (!url) return "";
+  const cleaned = url.replace(/https?:\/\/([a-z]{2,3}\.)?linkedin\.com/i, "https://www.linkedin.com");
+  const base = cleaned.split("?")[0];
+  return `${base}?locale=en_US`;
+}
+
 interface DecisionMakerPreview {
   id?: string;
   first_name: string;
@@ -560,7 +567,7 @@ export default function DiscoveryPage() {
 
                                 {p.linkedin_url && (
                                   <a
-                                    href={p.linkedin_url}
+                                    href={formatLinkedInUrl(p.linkedin_url)}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="flex items-center gap-1 text-[#0A66C2] hover:underline text-[10px] shrink-0"

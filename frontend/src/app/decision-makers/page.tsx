@@ -24,6 +24,13 @@ import {
 } from "lucide-react";
 import { LinkedInIcon, GitHubIcon, TwitterXIcon } from "@/components/ui/brand-icons";
 
+function formatLinkedInUrl(url?: string): string {
+  if (!url) return "";
+  const cleaned = url.replace(/https?:\/\/([a-z]{2,3}\.)?linkedin\.com/i, "https://www.linkedin.com");
+  const base = cleaned.split("?")[0];
+  return `${base}?locale=en_US`;
+}
+
 export default function DecisionMakersPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
@@ -295,7 +302,7 @@ export default function DecisionMakersPage() {
                         <div className="flex items-center gap-2.5">
                           {dm.linkedin_url && (
                             <a
-                              href={dm.linkedin_url}
+                              href={formatLinkedInUrl(dm.linkedin_url)}
                               target="_blank"
                               rel="noreferrer"
                               title="LinkedIn Profile"

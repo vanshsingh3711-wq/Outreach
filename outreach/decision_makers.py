@@ -93,6 +93,23 @@ _GITHUB_PROFILE_RE = re.compile(
 )
 
 
+def clean_canonical_linkedin_url(url: str, force_locale: bool = False) -> str:
+    """Normalize any localized LinkedIn profile URL (e.g. ae.linkedin.com, au.linkedin.com)
+    to a canonical global URL (https://www.linkedin.com/in/{slug}), stripping regional country
+    subdomains. Optionally appends ?locale=en_US to force the English UI."""
+    if not url:
+        return ""
+    m = _LINKEDIN_PROFILE_RE.search(url)
+    if m:
+        slug = m.group(1).strip()
+        base = f"https://www.linkedin.com/in/{slug}"
+        return f"{base}?locale=en_US" if force_locale else base
+    cleaned = re.sub(r"https?://(?:[a-z]{2,3}\.)?linkedin\.com", "https://www.linkedin.com", url)
+    if force_locale and "locale=" not in cleaned:
+        cleaned += ("&" if "?" in cleaned else "?") + "locale=en_US"
+    return cleaned
+
+
 @dataclass
 class DecisionMakerConfig:
     """Configuration for decision-maker extraction and prioritization."""
@@ -281,7 +298,7 @@ class DecisionMakerExtractor:
         linkedin_url = ""
         m_li = _LINKEDIN_PROFILE_RE.search(html_block)
         if m_li:
-            linkedin_url = f"https://www.linkedin.com/in/{m_li.group(1)}"
+            linkedin_url = clean_canonical_linkedin_url(m_li.group(0))
 
         twitter_url = ""
         m_tw = _TWITTER_PROFILE_RE.search(html_block)
@@ -369,7 +386,7 @@ class DecisionMakerExtractor:
         linkedin_map: dict[str, str] = {}
         for m in _LINKEDIN_PROFILE_RE.finditer(html):
             handle = m.group(1).lower()
-            linkedin_map[handle] = f"https://www.linkedin.com/in/{m.group(1)}"
+            linkedin_map[handle] = clean_canonical_linkedin_url(m.group(0))
 
         twitter_map: dict[str, str] = {}
         for m in _TWITTER_PROFILE_RE.finditer(html):
@@ -555,14 +572,14 @@ async def enrich_social_profiles_via_search(
                         r = await client.post(
                             "https://google.serper.dev/search",
                             headers=headers,
-                            json={"q": q_li, "num": 1},
+                            json={"q": q_li, "num": 1, "gl": "us", "hl": "en"},
                         )
                         if r.status_code == 200:
                             for item in r.json().get("organic") or []:
                                 link = item.get("link", "")
                                 if "linkedin.com/in/" in link:
-                                    p.linkedin_url = link
-                                    print(f"    ↳ Found LinkedIn: {link}", flush=True)
+                                    p.linkedin_url = clean_canonical_linkedin_url(link)
+                                    print(f"    ↳ Found LinkedIn: {p.linkedin_url}", flush=True)
                                     break
                         lookups_done += 1
                     except Exception as err:
@@ -617,7 +634,11 @@ async def discover_executives_via_linkedin_search(
 
     try:
         async with public_http_client(timeout=10.0) as client:
-            resp = await client.post("https://google.serper.dev/search", headers=headers, json={"q": q, "num": limit + 4})
+            resp = await client.post(
+                "https://google.serper.dev/search",
+                headers=headers,
+                json={"q": q, "num": limit + 4, "gl": "us", "hl": "en"},
+            )
             if resp.status_code != 200:
                 print(f"    ↳ ⚠️ Serper search returned status {resp.status_code}", flush=True)
                 return []
@@ -632,6 +653,7 @@ async def discover_executives_via_linkedin_search(
                     print(f"      ↳ ⏭️ Skipping non-profile URL: {link}", flush=True)
                     continue
 
+                canonical_link = clean_canonical_linkedin_url(link)
                 title = item.get("title", "")
                 subtitle = item.get("subtitle", "")
                 snippet = item.get("snippet", "")
@@ -679,14 +701,14 @@ async def discover_executives_via_linkedin_search(
                     role_priority=priority,
                     company_name=company_name,
                     company_domain=domain,
-                    linkedin_url=link,
-                    source_url=link,
+                    linkedin_url=canonical_link,
+                    source_url=canonical_link,
                     evidence_snippet=evidence[:280],
                     confidence=0.92,
                     seniority=seniority,
                 )
                 results.append(dm)
-                print(f"      ↳ ✅ Discovered Executive: {first} {last} | Title: '{clean_title}' (P{priority}, {seniority}) | Loc: '{loc or 'Unknown'}' | LinkedIn: {link}", flush=True)
+                print(f"      ↳ ✅ Discovered Executive: {first} {last} | Title: '{clean_title}' (P{priority}, {seniority}) | Loc: '{loc or 'Unknown'}' | LinkedIn: {canonical_link}", flush=True)
                 if len(results) >= limit:
                     break
     except Exception as exc:
