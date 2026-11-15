@@ -89,12 +89,16 @@ def test_query_builder_langgraph_agent_products():
 
 
 def test_is_junk_domain():
-    # Should be rejected
+    # Should be rejected (aggregators, job boards, gig platforms)
     assert is_junk_domain("linkedin.com") is True
     assert is_junk_domain("www.linkedin.com") is True
     assert is_junk_domain("clutch.co") is True
     assert is_junk_domain("upwork.com") is True
+    assert is_junk_domain("fiverr.com") is True
     assert is_junk_domain("indeed.com") is True
+    assert is_junk_domain("jobright.ai") is True
+    assert is_junk_domain("remoteok.com") is True
+    assert is_junk_domain("levels.fyi") is True
     assert is_junk_domain("boards.greenhouse.io") is True
     assert is_junk_domain("jobs.lever.co") is True
     assert is_junk_domain("crunchbase.com") is True
@@ -103,6 +107,47 @@ def test_is_junk_domain():
     assert is_junk_domain("agentflow.ai") is False
     assert is_junk_domain("synthetica.de") is False
     assert is_junk_domain("customdevstudio.com") is False
+
+
+def test_query_builder_startups_for_jobs():
+    """Verify startups query excludes job boards and searches product/platform."""
+    criteria = DiscoveryCriteria(
+        target_type="startup",
+        industries=["AI", "SaaS"],
+        tech_stack=["Python", "Next.js"],
+        locations=["United States"],
+        company_size_tier="11-50",
+        revenue_tier="Bootstrapped",
+    )
+    queries = DiscoveryQueryBuilder.build_queries(criteria)
+    assert len(queries) >= 1
+    q = queries[0]
+    assert "AI startup" in q or "SaaS" in q
+    assert "Python" in q
+    assert '"United States"' in q
+    assert '"11-50 employees"' in q
+    assert '"Bootstrapped"' in q
+    assert "-site:jobright.ai" in q
+    assert "-site:indeed.com" in q
+    assert "-site:upwork.com" in q
+
+
+def test_query_builder_agencies_for_freelance():
+    """Verify agencies query focuses on services, clients, and case studies."""
+    criteria = DiscoveryCriteria(
+        target_type="agency",
+        industries=["digital agency"],
+        tech_stack=["React"],
+        locations=["Remote"],
+        company_size_tier="1-10",
+    )
+    queries = DiscoveryQueryBuilder.build_queries(criteria)
+    assert len(queries) >= 1
+    q = queries[0]
+    assert "software development agency" in q or "digital agency" in q
+    assert "our clients" in q or "our work" in q or "case studies" in q
+    assert "remote" in q
+    assert "-site:upwork.com" in q
 
 
 @pytest.mark.asyncio

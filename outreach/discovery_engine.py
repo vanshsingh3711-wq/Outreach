@@ -37,9 +37,13 @@ logger = logging.getLogger("outreach.discovery_engine")
 
 # Aggregator and noise exclusions appended to queries
 DEFAULT_EXCLUSIONS = (
-    "-site:linkedin.com -site:indeed.com -site:glassdoor.com "
-    "-site:crunchbase.com -site:clutch.co -site:upwork.com "
-    "-site:fiverr.com -site:github.com -site:medium.com"
+    "-site:linkedin.com/jobs -site:indeed.com -site:glassdoor.com "
+    "-site:ziprecruiter.com -site:jobright.ai -site:wellfound.com/jobs "
+    "-site:upwork.com -site:fiverr.com -site:freelancer.com "
+    "-site:crunchbase.com -site:clutch.co -site:levels.fyi "
+    "-site:ycombinator.com/jobs -site:remoteok.com -site:weworkremotely.com "
+    "-site:github.com -site:medium.com "
+    '-"apply now" -"job description" -"job opening" -"apply for this role"'
 )
 
 
@@ -47,13 +51,15 @@ DEFAULT_EXCLUSIONS = (
 class DiscoveryCriteria:
     """Filter criteria used to generate targeted discovery queries."""
 
+    target_type: str = "all"      # "startup" (for jobs), "agency" (for freelance), "all"
     industries: list[str] = field(default_factory=list)
     roles: list[str] = field(default_factory=list)
     tech_stack: list[str] = field(default_factory=list)
     locations: list[str] = field(default_factory=list)
     funding_stage: str = ""       # e.g. "Seed", "Series A", "Bootstrapped"
+    revenue_tier: str = ""        # e.g. "Bootstrapped", "< $1M", "$1M - $10M"
     business_model: str = ""      # e.g. "agency", "product", "consulting"
-    company_size_tier: str = ""   # e.g. "1-10", "11-50", "10-100"
+    company_size_tier: str = ""   # e.g. "1-10", "11-50", "51-200"
     custom_query: str = ""        # optional override
     limit: int = 15               # max companies to discover
     auto_enrich: bool = False     # whether to enrich discovered companies immediately
@@ -74,6 +80,10 @@ class DiscoveredCandidate:
     is_existing: bool = False
     company_id: str = ""
     enrichment_result: Any = None
+    target_type: str = ""
+    industry: str = ""
+    location: str = ""
+    size: str = ""
 
     def to_dict(self) -> dict:
         people_data = []
@@ -106,6 +116,10 @@ class DiscoveredCandidate:
             "enriched": self.enrichment_result is not None,
             "people": people_data,
             "contact_count": len(people_data),
+            "target_type": self.target_type,
+            "industry": self.industry,
+            "location": self.location,
+            "size": self.size,
         }
 
 
@@ -120,42 +134,63 @@ class DiscoveryQueryBuilder:
 
         queries: list[str] = []
 
-        industries = criteria.industries or ["AI startups", "software companies"]
+        industries = criteria.industries or ["AI", "SaaS", "software"]
         locations = criteria.locations or [""]
-        roles = criteria.roles or [""]
         techs = criteria.tech_stack or [""]
 
-        for ind in industries:
-            for loc in locations:
-                loc_part = f'"{loc}"' if loc and loc.lower() != "remote" else ("remote" if loc.lower() == "remote" else "")
-
-                # 1. Role-specific hiring query
-                if criteria.roles:
+        # 1. Role-specific hiring query (if explicit role provided)
+        if criteria.roles:
+            for ind in industries:
+                for loc in locations:
+                    loc_part = f'"{loc}"' if loc and loc.lower() != "remote" else ("remote" if loc.lower() == "remote" else "")
                     for role in criteria.roles:
                         tech_part = f'"{techs[0]}"' if techs and techs[0] else ""
                         q = f'("{ind}") ("hiring {role}" OR "{role}") {tech_part} {loc_part} ("careers" OR "team") {DEFAULT_EXCLUSIONS}'
                         queries.append(cls._clean_query(q))
-                # 2. Technology-focused query
-                elif criteria.tech_stack:
-                    for tech in criteria.tech_stack:
-                        q = f'("{ind}") ("{tech}") ("product" OR "platform" OR "clients") {loc_part} {DEFAULT_EXCLUSIONS}'
-                        queries.append(cls._clean_query(q))
-                # 3. Agency vs Product query
-                elif criteria.business_model == "agency":
-                    q = f'("{ind}" OR "software development agency" OR "custom software") ("our clients" OR "case studies") {loc_part} {DEFAULT_EXCLUSIONS}'
-                    queries.append(cls._clean_query(q))
-                elif criteria.business_model == "product":
-                    q = f'("{ind}" OR "SaaS platform") ("pricing" OR "our product" OR "platform") {loc_part} {DEFAULT_EXCLUSIONS}'
-                    queries.append(cls._clean_query(q))
-                # 4. Funding-focused query
+            return queries[:5]
+
+        # Target Type Routing
+        is_agency_mode = criteria.target_type == "agency" or criteria.business_model == "agency"
+        is_startup_mode = criteria.target_type == "startup" or criteria.business_model == "product"
+        is_both = (criteria.target_type == "all" and criteria.business_model not in ("agency", "product"))
+
+        for ind in industries:
+            for loc in locations:
+                loc_part = f'"{loc}"' if loc and loc.lower() != "remote" else ("remote" if loc.lower() == "remote" else "")
+                tech_part = f'"{techs[0]}"' if techs and techs[0] else ""
+
+                size_part = ""
+                if criteria.company_size_tier:
+                    size_part = f'"{criteria.company_size_tier} employees"'
+
+                rev_part = ""
+                if criteria.revenue_tier:
+                    rev_part = f'"{criteria.revenue_tier}"'
                 elif criteria.funding_stage:
-                    q = f'("{ind}") ("{criteria.funding_stage} round" OR "{criteria.funding_stage} funded") {loc_part} {DEFAULT_EXCLUSIONS}'
-                    queries.append(cls._clean_query(q))
-                # 5. General firmographic query
-                else:
-                    size_part = f'"{criteria.company_size_tier} employees"' if criteria.company_size_tier else ""
-                    q = f'("{ind}") {loc_part} {size_part} ("about us" OR "careers") {DEFAULT_EXCLUSIONS}'
-                    queries.append(cls._clean_query(q))
+                    rev_part = f'("{criteria.funding_stage} round" OR "{criteria.funding_stage} funded")'
+
+                # A. Tech Startups (for Job Outreach - Founder/CTO pitching)
+                if is_startup_mode or is_both:
+                    q_prod = f'("{ind} startup" OR "{ind} SaaS") {tech_part} ("our product" OR "our platform" OR "about us") {loc_part} {size_part} {rev_part} {DEFAULT_EXCLUSIONS}'
+                    queries.append(cls._clean_query(q_prod))
+
+                    if tech_part:
+                        q_tech = f'("{ind}") ({tech_part}) ("product" OR "platform" OR "pricing") {loc_part} {DEFAULT_EXCLUSIONS}'
+                        queries.append(cls._clean_query(q_tech))
+                    elif rev_part:
+                        q_fund = f'("{ind} startup") {rev_part} {loc_part} {DEFAULT_EXCLUSIONS}'
+                        queries.append(cls._clean_query(q_fund))
+                    else:
+                        q_plat = f'("{ind} startup" OR "tech startup") ("built for" OR "platform") {loc_part} {DEFAULT_EXCLUSIONS}'
+                        queries.append(cls._clean_query(q_plat))
+
+                # B. Agencies & Dev Studios (for Freelance Work - Owner/Partner pitching)
+                if is_agency_mode or is_both:
+                    q_agency = f'("{ind}" OR "software development agency" OR "digital agency") {tech_part} ("our clients" OR "our work" OR "case studies") {loc_part} {size_part} {DEFAULT_EXCLUSIONS}'
+                    queries.append(cls._clean_query(q_agency))
+
+                    q_studio = f'("custom software agency" OR "web development agency" OR "product studio") {tech_part} ("our services" OR "case studies") {loc_part} {DEFAULT_EXCLUSIONS}'
+                    queries.append(cls._clean_query(q_studio))
 
         # Deduplicate queries while preserving order
         unique_queries = []
@@ -175,6 +210,9 @@ class DiscoveryQueryBuilder:
 ADDITIONAL_JUNK_PATTERNS = tuple(re.compile(p, re.I) for p in (
     r"(^|\.)(clutch|goodfirms|designrush|sortlist|topdevelopers|themanifest)\.",
     r"(^|\.)(g2|capterra|softwareadvice|trustradius|sourceforge)\.",
+    r"(^|\.)(jobright|levels|remoteok|weworkremotely|simplyhired|dice|monster|careerbuilder)\.",
+    r"(^|\.)(boards\.greenhouse|jobs\.lever|apply\.workable|jobs\.ashbyhq)\.",
+    r"(^|\.)(fiverr|freelancer|toptal|guru|upwork)\.",
 ))
 
 
@@ -298,7 +336,7 @@ class FilteredDiscoveryEngine:
                         resp = await client.post(
                             "https://google.serper.dev/search",
                             headers={"X-API-KEY": serper_key, "Content-Type": "application/json"},
-                            json={"q": q_str, "num": min(criteria.limit, 10)},
+                            json={"q": q_str, "num": min(criteria.limit, 10), "gl": "us", "hl": "en"},
                         )
                         if resp.status_code == 200:
                             data = resp.json()
@@ -346,6 +384,20 @@ class FilteredDiscoveryEngine:
                     is_existing = existing is not None
                     b_name = business_name(item.get("title", ""), domain)
 
+                    # Determine target type (Startup vs Agency)
+                    detected_type = criteria.target_type
+                    snippet_lower = (item.get("snippet", "") + " " + item.get("title", "")).lower()
+                    if "agency" in snippet_lower or "studio" in snippet_lower or "consultancy" in snippet_lower:
+                        detected_type = "agency"
+                    elif criteria.target_type in ("startup", "agency"):
+                        detected_type = criteria.target_type
+                    else:
+                        detected_type = "startup"
+
+                    cand_industry = criteria.industries[0] if criteria.industries else ("Digital Agency" if detected_type == "agency" else "Technology")
+                    cand_location = criteria.locations[0] if criteria.locations else "Remote"
+                    cand_size = criteria.company_size_tier if criteria.company_size_tier else ""
+
                     cand = DiscoveredCandidate(
                         domain=domain,
                         name=existing.name if existing and existing.name else b_name,
@@ -357,11 +409,15 @@ class FilteredDiscoveryEngine:
                         rank=rank,
                         is_existing=is_existing,
                         company_id=existing.id if existing else "",
+                        target_type=detected_type,
+                        industry=cand_industry,
+                        location=cand_location,
+                        size=cand_size,
                     )
 
                     # Persist company record in database
                     if not is_existing:
-                        print(f"    ↳ ✅ Accepted fresh company candidate: '{cand.name}' ({domain})", flush=True)
+                        print(f"    ↳ ✅ Accepted fresh company candidate: '{cand.name}' ({domain}) [{detected_type.upper()}]", flush=True)
                         company_record = Company(
                             domain=domain,
                             name=cand.name,
@@ -370,6 +426,9 @@ class FilteredDiscoveryEngine:
                             source="company_discovery",
                             source_url=raw_link,
                             notes=f"Discovered via query: {q_str[:200]}",
+                            industry=cand_industry,
+                            location=cand_location,
+                            size=cand_size,
                         )
                         cid = await self.state.add_company(company_record)
                         cand.company_id = cid

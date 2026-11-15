@@ -850,11 +850,13 @@ async def discover_companies_endpoint(request: Request):
         return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
 
     criteria = DiscoveryCriteria(
+        target_type=body.get("target_type") or "all",
         industries=body.get("industries") or [],
         roles=body.get("roles") or [],
         tech_stack=body.get("tech_stack") or [],
         locations=body.get("locations") or [],
         funding_stage=body.get("funding_stage") or "",
+        revenue_tier=body.get("revenue_tier") or "",
         business_model=body.get("business_model") or "",
         company_size_tier=body.get("company_size_tier") or "",
         custom_query=body.get("custom_query") or "",
@@ -862,7 +864,7 @@ async def discover_companies_endpoint(request: Request):
         auto_enrich=bool(body.get("auto_enrich", False)),
     )
 
-    print(f"\n[🌐 DASHBOARD API] Received POST /api/prospecting/discover (limit={criteria.limit}, auto_enrich={criteria.auto_enrich})", flush=True)
+    print(f"\n[🌐 DASHBOARD API] Received POST /api/prospecting/discover (target_type={criteria.target_type}, size={criteria.company_size_tier}, locs={criteria.locations}, auto_enrich={criteria.auto_enrich})", flush=True)
     state = StateManager()
     await state.init_db()
     engine = FilteredDiscoveryEngine(state)

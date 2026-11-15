@@ -20,6 +20,9 @@ import {
   PlusCircle,
   Briefcase,
   ShieldCheck,
+  Target,
+  Send,
+  Zap,
 } from "lucide-react";
 import { LinkedInIcon, TwitterXIcon } from "@/components/ui/brand-icons";
 import Link from "next/link";
@@ -51,6 +54,9 @@ interface DiscoveredCompany {
   website?: string;
   industry?: string;
   location?: string;
+  size?: string;
+  revenue?: string;
+  target_type?: string;
   description?: string;
   snippet?: string;
   contact_count?: number;
@@ -61,10 +67,16 @@ interface DiscoveredCompany {
 }
 
 export default function DiscoveryPage() {
-  const [industries, setIndustries] = useState("AI, SaaS, Developer Tools");
-  const [techStack, setTechStack] = useState("Python, FastAPI, Next.js");
+  // Primary targeting intent: "startup" (job outreach), "agency" (freelance work), or "all"
+  const [targetType, setTargetType] = useState<"startup" | "agency" | "all">("startup");
+
+  // User requested filters
+  const [companySize, setCompanySize] = useState("11-50");
   const [location, setLocation] = useState("United States, Remote");
+  const [revenueTier, setRevenueTier] = useState("");
+  const [techSpecialization, setTechSpecialization] = useState("AI, SaaS, Python, Next.js");
   const [customQuery, setCustomQuery] = useState("");
+
   const [autoEnrich, setAutoEnrich] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [results, setResults] = useState<DiscoveredCompany[]>([]);
@@ -83,6 +95,16 @@ export default function DiscoveryPage() {
     setCopiedEmail(email);
     setTimeout(() => setCopiedEmail(null), 2000);
   };
+
+  // Quick preset pills
+  const LOCATION_PRESETS = ["Remote", "United States", "Europe", "United Kingdom", "India", "Canada"];
+  const TECH_PRESETS = [
+    "AI & Machine Learning",
+    "Full-Stack (Next.js/React)",
+    "Python / FastAPI Backend",
+    "Mobile (iOS/Android)",
+    "Cloud & DevOps",
+  ];
 
   // Load saved companies and their decision-makers on mount so nothing ever disappears
   const loadSavedAccounts = async () => {
@@ -123,14 +145,22 @@ export default function DiscoveryPage() {
       const mapped: DiscoveredCompany[] = (companies || []).map((c) => {
         const dom = (c.domain || "").toLowerCase().trim();
         const attachedPeople = dmsByDomain[dom] || dmsByCompId[c.id] || [];
+        const isAgency =
+          (c.name || "").toLowerCase().includes("agency") ||
+          (c.name || "").toLowerCase().includes("studio") ||
+          (c.description || "").toLowerCase().includes("agency") ||
+          (c.industry || "").toLowerCase().includes("agency");
+
         return {
           id: c.id,
           company_id: c.id,
           name: c.name || c.domain,
           domain: c.domain,
           website: c.website || `https://${c.domain}`,
-          industry: c.industry,
+          industry: c.industry || (isAgency ? "Agency" : "Tech Startup"),
           location: c.location,
+          size: c.size,
+          target_type: isAgency ? "agency" : "startup",
           description: c.description || c.notes,
           contact_count: attachedPeople.length || c.contact_count || 0,
           people: attachedPeople,
@@ -158,9 +188,12 @@ export default function DiscoveryPage() {
 
     try {
       const payload = {
-        industries: industries.split(",").map((s) => s.trim()).filter(Boolean),
-        tech_stack: techStack.split(",").map((s) => s.trim()).filter(Boolean),
+        target_type: targetType,
+        company_size_tier: companySize,
+        revenue_tier: revenueTier,
         locations: location.split(",").map((s) => s.trim()).filter(Boolean),
+        industries: techSpecialization.split(",").map((s) => s.trim()).filter(Boolean),
+        tech_stack: techSpecialization.split(",").map((s) => s.trim()).filter(Boolean),
         custom_query: customQuery.trim(),
         limit: 12,
         auto_enrich: autoEnrich,
@@ -182,7 +215,9 @@ export default function DiscoveryPage() {
         website: c.website,
         description: c.description || c.snippet,
         industry: c.industry,
-        location: c.location,
+        location: c.location || location,
+        size: c.size || companySize,
+        target_type: c.target_type || targetType,
         contact_count: c.contact_count || (c.people ? c.people.length : 0),
         people: c.people || [],
         is_existing: c.is_existing,
@@ -201,7 +236,7 @@ export default function DiscoveryPage() {
       // Reload from DB to ensure complete sync
       setTimeout(() => loadSavedAccounts(), 1500);
     } catch (err: any) {
-      setError(err.message || "Failed to run ICP discovery.");
+      setError(err.message || "Failed to run discovery.");
     } finally {
       setIsRunning(false);
     }
@@ -248,13 +283,14 @@ export default function DiscoveryPage() {
     }
   };
 
-  // Filter accounts
+  // Filter accounts in the list
   const filteredResults = results.filter((c) => {
     const matchesSearch =
       !searchFilter ||
       c.name.toLowerCase().includes(searchFilter.toLowerCase()) ||
       c.domain.toLowerCase().includes(searchFilter.toLowerCase()) ||
       (c.industry && c.industry.toLowerCase().includes(searchFilter.toLowerCase())) ||
+      (c.location && c.location.toLowerCase().includes(searchFilter.toLowerCase())) ||
       (c.people && c.people.some((p) => `${p.first_name} ${p.last_name}`.toLowerCase().includes(searchFilter.toLowerCase())));
 
     if (!matchesSearch) return false;
@@ -276,13 +312,13 @@ export default function DiscoveryPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2.5">
-            <h1 className="text-2xl font-bold tracking-tight text-white">ICP Account Discovery</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-white">Direct Company & Lead Discovery</h1>
             <span className="rounded-full bg-sky-500/10 px-2.5 py-0.5 text-xs font-semibold text-sky-400 border border-sky-500/20">
-              DeepSeek Scout
+              Job & Freelance Outreach
             </span>
           </div>
           <p className="mt-1 text-sm text-slate-400">
-            Identify high-fit target companies matching your ideal customer profile, extract verified decision-makers, and auto-save leads to your pipeline.
+            Find real tech startups (for jobs) and agencies (for freelance work) and their decision-maker emails. No job board gig noise.
           </p>
         </div>
 
@@ -306,54 +342,188 @@ export default function DiscoveryPage() {
       {/* Discovery Criteria Form */}
       <form
         onSubmit={handleRunDiscovery}
-        className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 shadow-sm space-y-4"
+        className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 shadow-sm space-y-5"
       >
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {/* 1. Primary Target Intent Selection */}
+        <div>
+          <label className="block text-xs font-semibold text-slate-300 mb-2">
+            Target Focus: What are you looking to find?
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setTargetType("startup");
+                if (companySize === "") setCompanySize("11-50");
+              }}
+              className={`flex flex-col text-left p-3.5 rounded-xl border transition cursor-pointer ${
+                targetType === "startup"
+                  ? "bg-sky-500/15 border-sky-500 text-white shadow-md shadow-sky-500/10"
+                  : "bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+              }`}
+            >
+              <div className="flex items-center justify-between w-full">
+                <span className="text-xs font-bold text-sky-400 flex items-center gap-1.5">
+                  <Briefcase className="h-4 w-4" />
+                  Tech Startups
+                </span>
+                <span className="text-[10px] font-semibold bg-sky-500/20 text-sky-300 px-2 py-0.5 rounded-full">
+                  For Job
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1.5 line-clamp-2">
+                Discover SaaS & product startups to cold email Founders, CTOs, and Engineering Leads for jobs.
+              </p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setTargetType("agency");
+                if (companySize === "") setCompanySize("1-10");
+              }}
+              className={`flex flex-col text-left p-3.5 rounded-xl border transition cursor-pointer ${
+                targetType === "agency"
+                  ? "bg-purple-500/15 border-purple-500 text-white shadow-md shadow-purple-500/10"
+                  : "bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+              }`}
+            >
+              <div className="flex items-center justify-between w-full">
+                <span className="text-xs font-bold text-purple-400 flex items-center gap-1.5">
+                  <Building2 className="h-4 w-4" />
+                  Agencies & Dev Studios
+                </span>
+                <span className="text-[10px] font-semibold bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full">
+                  For Freelance
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1.5 line-clamp-2">
+                Discover digital agencies and custom dev consultancies to pitch Agency Owners & Partners for freelance work.
+              </p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setTargetType("all")}
+              className={`flex flex-col text-left p-3.5 rounded-xl border transition cursor-pointer ${
+                targetType === "all"
+                  ? "bg-emerald-500/15 border-emerald-500 text-white shadow-md shadow-emerald-500/10"
+                  : "bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+              }`}
+            >
+              <div className="flex items-center justify-between w-full">
+                <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                  <Target className="h-4 w-4" />
+                  Both (Startups & Agencies)
+                </span>
+                <span className="text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full">
+                  Combined
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1.5 line-clamp-2">
+                Discover high-fit candidates across both fast-growing tech companies and dev studios.
+              </p>
+            </button>
+          </div>
+        </div>
+
+        {/* 2. Primary 4 Filters Grid */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 pt-1">
+          {/* Company / Agency Size */}
           <div>
-            <label className="block text-xs font-medium text-slate-400">Target Industries</label>
-            <input
-              type="text"
-              value={industries}
-              onChange={(e) => setIndustries(e.target.value)}
-              placeholder="e.g. AI, B2B SaaS, HealthTech"
+            <label className="block text-xs font-medium text-slate-300">
+              {targetType === "agency" ? "Agency Size" : "Company / Team Size"}
+            </label>
+            <select
+              value={companySize}
+              onChange={(e) => setCompanySize(e.target.value)}
               className="mt-1.5 block w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2 text-xs text-white focus:border-sky-500 focus:outline-none"
-            />
+            >
+              <option value="">Any Size</option>
+              <option value="1-10">1 - 10 (Early / Boutique Studio)</option>
+              <option value="11-50">11 - 50 (Small Studio / Seed Startup)</option>
+              <option value="51-200">51 - 200 (Mid-sized / Established)</option>
+              <option value="200+">200+ (Scaleup / Enterprise)</option>
+            </select>
           </div>
 
+          {/* Location / Headquarters */}
           <div>
-            <label className="block text-xs font-medium text-slate-400">Tech Stack Signals</label>
-            <input
-              type="text"
-              value={techStack}
-              onChange={(e) => setTechStack(e.target.value)}
-              placeholder="e.g. Next.js, Postgres, Kubernetes"
-              className="mt-1.5 block w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2 text-xs text-white focus:border-sky-500 focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-slate-400">Headquarters / Location</label>
+            <label className="block text-xs font-medium text-slate-300">Headquarters / Location</label>
             <input
               type="text"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
-              placeholder="e.g. San Francisco, US, Europe"
+              placeholder="e.g. United States, Remote"
               className="mt-1.5 block w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2 text-xs text-white focus:border-sky-500 focus:outline-none"
             />
+            <div className="flex flex-wrap gap-1 mt-1.5">
+              {LOCATION_PRESETS.slice(0, 4).map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setLocation(preset)}
+                  className="text-[10px] text-slate-400 hover:text-sky-300 transition cursor-pointer"
+                >
+                  +{preset}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Revenue / Funding (Optional) */}
+          <div>
+            <label className="block text-xs font-medium text-slate-300">
+              Revenue / Funding <span className="text-slate-500">(Optional)</span>
+            </label>
+            <select
+              value={revenueTier}
+              onChange={(e) => setRevenueTier(e.target.value)}
+              className="mt-1.5 block w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2 text-xs text-white focus:border-sky-500 focus:outline-none"
+            >
+              <option value="">Any Revenue / Stage</option>
+              <option value="Bootstrapped">Bootstrapped / Profitable</option>
+              <option value="Seed">Pre-Seed / Seed Funded</option>
+              <option value="Series A">Series A+ High Growth</option>
+              <option value="< $1M ARR">&lt; $1M ARR</option>
+              <option value="$1M - $10M ARR">$1M - $10M ARR</option>
+            </select>
+          </div>
+
+          {/* Tech Specialization / Domain */}
+          <div>
+            <label className="block text-xs font-medium text-slate-300">Tech Stack / Domain</label>
+            <input
+              type="text"
+              value={techSpecialization}
+              onChange={(e) => setTechSpecialization(e.target.value)}
+              placeholder="e.g. AI, Python, Next.js, FastAPI"
+              className="mt-1.5 block w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2 text-xs text-white focus:border-sky-500 focus:outline-none"
+            />
+            <div className="flex flex-wrap gap-1 mt-1.5">
+              {TECH_PRESETS.slice(0, 2).map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setTechSpecialization(preset)}
+                  className="text-[10px] text-slate-400 hover:text-sky-300 transition cursor-pointer"
+                >
+                  +{preset.split(" ")[0]}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
-        <div>
-          <label className="block text-xs font-medium text-slate-400">
-            Custom Prompt / Ideal Persona Query
-          </label>
-          <input
-            type="text"
-            value={customQuery}
-            onChange={(e) => setCustomQuery(e.target.value)}
-            placeholder="e.g. Fast-growing Series A/B engineering teams shipping developer infrastructure"
-            className="mt-1.5 block w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2 text-xs text-white focus:border-sky-500 focus:outline-none"
-          />
+        {/* 3. Anti-Job-Listing Guarantee Banner */}
+        <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 px-4 py-3 flex items-start gap-3 text-xs text-slate-300">
+          <ShieldCheck className="h-5 w-5 text-sky-400 shrink-0 mt-0.5" />
+          <div className="space-y-0.5">
+            <span className="font-semibold text-sky-300">Direct Company & Executive Intelligence Guarantee</span>
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              Queries are tuned strictly to discover actual company websites and client portfolios. All job board postings (Indeed, Glassdoor, Jobright), gig marketplaces (Upwork, Fiverr), and aggregator noise are 100% blocked so you only get real decision-makers to email directly.
+            </p>
+          </div>
         </div>
 
         {error && (
@@ -369,7 +539,8 @@ export default function DiscoveryPage() {
           </div>
         )}
 
-        <div className="flex items-center justify-between pt-2">
+        {/* 4. Controls & Submit */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
           <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer select-none hover:text-slate-200 transition">
             <input
               type="checkbox"
@@ -382,17 +553,23 @@ export default function DiscoveryPage() {
           <button
             type="submit"
             disabled={isRunning}
-            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 px-5 py-2 text-xs font-semibold text-white shadow-lg shadow-sky-500/25 hover:opacity-95 transition cursor-pointer disabled:opacity-50"
+            className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 px-6 py-2.5 text-xs font-semibold text-white shadow-lg shadow-sky-500/25 hover:opacity-95 transition cursor-pointer disabled:opacity-50"
           >
             {isRunning ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                <span>DeepSeek Scout Searching & Saving...</span>
+                <span>Searching & Auto-Saving to DB...</span>
               </>
             ) : (
               <>
                 <Sparkles className="h-4 w-4" />
-                <span>Run AI Discovery</span>
+                <span>
+                  {targetType === "agency"
+                    ? "Find Agencies for Freelance"
+                    : targetType === "startup"
+                    ? "Find Startups for Jobs"
+                    : "Discover Startups & Agencies"}
+                </span>
               </>
             )}
           </button>
@@ -441,7 +618,7 @@ export default function DiscoveryPage() {
               type="text"
               value={searchFilter}
               onChange={(e) => setSearchFilter(e.target.value)}
-              placeholder="Search companies or leads..."
+              placeholder="Search companies, domains, leads..."
               className="w-full rounded-xl border border-slate-800 bg-slate-950 pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:border-sky-500 focus:outline-none"
             />
           </div>
@@ -455,13 +632,14 @@ export default function DiscoveryPage() {
           </div>
         ) : filteredResults.length === 0 ? (
           <div className="rounded-2xl border border-slate-800 bg-slate-900/30 p-12 text-center text-slate-500">
-            {searchFilter ? "No companies matched your search filter." : 'No accounts found yet. Adjust criteria above and click "Run AI Discovery".'}
+            {searchFilter ? "No companies matched your search filter." : 'No accounts found yet. Adjust criteria above and click search.'}
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
             {filteredResults.map((c) => {
               const hasLeads = (c.people && c.people.length > 0) || (c.contact_count || 0) > 0;
               const isEnrichingThis = enrichingDomain === c.domain;
+              const isAgency = c.target_type === "agency" || (c.name || "").toLowerCase().includes("agency");
 
               return (
                 <div
@@ -472,8 +650,12 @@ export default function DiscoveryPage() {
                     {/* Header */}
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2.5">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-500/10 text-sky-400">
-                          <Building2 className="h-5 w-5" />
+                        <div
+                          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+                            isAgency ? "bg-purple-500/10 text-purple-400" : "bg-sky-500/10 text-sky-400"
+                          }`}
+                        >
+                          {isAgency ? <Building2 className="h-5 w-5" /> : <Briefcase className="h-5 w-5" />}
                         </div>
                         <div className="min-w-0">
                           <h3 className="font-semibold text-white text-sm truncate" title={c.name}>
@@ -504,24 +686,38 @@ export default function DiscoveryPage() {
                       </div>
                     </div>
 
+                    {/* Target Intent & Firmographics Badges */}
+                    <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                      <span
+                        className={`rounded-lg px-2 py-0.5 font-medium ${
+                          isAgency
+                            ? "bg-purple-500/10 text-purple-300 border border-purple-500/20"
+                            : "bg-sky-500/10 text-sky-300 border border-sky-500/20"
+                        }`}
+                      >
+                        {isAgency ? "🏢 Agency (Freelance)" : "🚀 Tech Startup (Job)"}
+                      </span>
+                      {c.size && (
+                        <span className="rounded-lg bg-slate-800/60 px-2 py-0.5 text-slate-300">
+                          👥 {c.size} team
+                        </span>
+                      )}
+                      <span className="rounded-lg bg-slate-800/60 px-2 py-0.5 text-slate-400">
+                        📍 {c.location || "Remote / US"}
+                      </span>
+                      {c.industry && c.industry !== (isAgency ? "Agency" : "Tech Startup") && (
+                        <span className="rounded-lg bg-slate-800/60 px-2 py-0.5 text-slate-400">
+                          {c.industry}
+                        </span>
+                      )}
+                    </div>
+
                     {/* Description */}
                     {c.description && (
                       <p className="text-xs text-slate-300 line-clamp-2 leading-relaxed">
                         {c.description}
                       </p>
                     )}
-
-                    {/* Metadata Badges */}
-                    <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400">
-                      {c.industry && (
-                        <span className="rounded-lg bg-slate-800/60 px-2 py-0.5 text-slate-300">
-                          {c.industry}
-                        </span>
-                      )}
-                      <span className="rounded-lg bg-slate-800/60 px-2 py-0.5 text-slate-400">
-                        {c.location || "Remote / US"}
-                      </span>
-                    </div>
 
                     {/* Verified Decision Makers Section */}
                     {c.people && c.people.length > 0 ? (
@@ -598,7 +794,7 @@ export default function DiscoveryPage() {
                         className="flex items-center gap-1.5 text-xs font-medium text-sky-400 hover:text-sky-300 transition"
                       >
                         <Users className="h-3.5 w-3.5" />
-                        <span>View All Leads ({c.contact_count || (c.people ? c.people.length : 0)})</span>
+                        <span>View Leads ({c.contact_count || (c.people ? c.people.length : 0)})</span>
                         <ArrowRight className="h-3 w-3" />
                       </Link>
                     ) : (
@@ -639,5 +835,3 @@ export default function DiscoveryPage() {
     </div>
   );
 }
-
-
