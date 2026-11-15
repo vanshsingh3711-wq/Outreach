@@ -4,6 +4,8 @@ import React from "react";
 import Link from "next/link";
 import { useToday } from "@/hooks/use-today";
 import { useOutreachStatus } from "@/hooks/use-outreach-status";
+import { useQuery } from "@tanstack/react-query";
+import { fetchApi } from "@/lib/api-client";
 import { formatNumber } from "@/lib/utils";
 import {
   Sparkles,
@@ -17,17 +19,35 @@ import {
   ArrowRight,
   Play,
   Square,
-  ShieldCheck,
   Search,
   ExternalLink,
+  Flame,
+  CalendarCheck,
+  TrendingUp,
 } from "lucide-react";
 
 export default function TodayPage() {
-  const { data, isLoading, error } = useToday();
+  const { data, isLoading } = useToday();
   const { isRunning, startOutreach, stopOutreach, isStarting, isStopping } = useOutreachStatus();
+
+  // Fetch pipeline funnel breakdown
+  const { data: statsData } = useQuery<any>({
+    queryKey: ["pipeline-stats"],
+    queryFn: () => fetchApi("/api/stats"),
+    refetchInterval: 5000,
+  });
 
   const stats = data?.stats;
   const items = data?.items || [];
+  const pipeline = statsData?.pipeline || {};
+
+  const funnelStages = [
+    { key: "to_write", label: "To Write", count: pipeline.to_write || 0, color: "bg-slate-700 text-slate-300" },
+    { key: "contacted", label: "Contacted", count: pipeline.contacted || 0, color: "bg-sky-500/20 text-sky-400 border-sky-500/30" },
+    { key: "replied", label: "Replied", count: pipeline.replied || 0, color: "bg-indigo-500/20 text-indigo-400 border-indigo-500/30" },
+    { key: "interested", label: "Interested", count: pipeline.interested || 0, color: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" },
+    { key: "ready_to_meet", label: "Meeting Ready", count: pipeline.ready_to_meet || 0, color: "bg-purple-500/20 text-purple-400 border-purple-500/30" },
+  ];
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
@@ -37,7 +57,7 @@ export default function TodayPage() {
           <div className="flex items-center gap-2.5">
             <h1 className="text-2xl font-bold tracking-tight text-white">Today's Pipeline</h1>
             <span className="rounded-full bg-sky-500/10 px-2.5 py-0.5 text-xs font-semibold text-sky-400 ring-1 ring-sky-500/20">
-              Live
+              Live Engine
             </span>
           </div>
           <p className="mt-1 text-sm text-slate-400">
@@ -189,11 +209,11 @@ export default function TodayPage() {
 
         {/* Prospects */}
         <Link
-          href="/prospects"
+          href="/decision-makers"
           className="group rounded-2xl border border-slate-800 bg-slate-900/60 p-5 hover:border-slate-700 hover:bg-slate-900 transition-all shadow-sm"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400">Total Prospects</span>
+            <span className="text-xs font-medium text-slate-400">Total Decision-Makers</span>
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-400 group-hover:scale-105 transition-transform">
               <Users className="h-4 w-4" />
             </div>
@@ -226,7 +246,7 @@ export default function TodayPage() {
             <span className="text-xs text-amber-400 font-medium">pending review</span>
           </div>
           <p className="mt-1 text-[11px] text-slate-400">
-            {stats?.outbox_approved ?? 0} ready to dispatch
+            {stats?.outbox_approved ?? 0} approved for dispatch
           </p>
         </Link>
 
@@ -248,9 +268,41 @@ export default function TodayPage() {
             <span className="text-xs text-emerald-400 font-medium">open replies</span>
           </div>
           <p className="mt-1 text-[11px] text-slate-400">
-            {stats?.needs_human ? `${stats.needs_human} need your reply` : "0 waiting on human"}
+            {stats?.needs_human ? `${stats.needs_human} waiting on you` : "0 waiting on human"}
           </p>
         </Link>
+      </div>
+
+      {/* Funnel Progression Bar */}
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-sky-400" />
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Pipeline Stage Progression
+            </h2>
+          </div>
+          <span className="text-[11px] text-slate-400">
+            End-to-End Account Conversion
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+          {funnelStages.map((stage) => (
+            <div
+              key={stage.key}
+              className={`rounded-xl border border-slate-800 bg-slate-950/70 p-3.5 flex flex-col justify-between`}
+            >
+              <span className="text-[11px] font-medium text-slate-400">{stage.label}</span>
+              <div className="mt-2 flex items-baseline justify-between">
+                <span className="text-xl font-bold text-white">{stage.count}</span>
+                <span className={`text-[10px] font-medium rounded px-1.5 py-0.5 border ${stage.color}`}>
+                  {stage.count > 0 ? "Active" : "Idle"}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Quick Launchpad & Workflows */}

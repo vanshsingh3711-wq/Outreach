@@ -1,18 +1,42 @@
 "use client";
 
 import React, { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchApi } from "@/lib/api-client";
-import { MessageSquare, Mail, User, AlertCircle, CheckCircle, Clock, Loader2 } from "lucide-react";
+import {
+  MessageSquare,
+  Mail,
+  User,
+  AlertCircle,
+  CheckCircle,
+  Clock,
+  Loader2,
+  Check,
+  RotateCcw,
+  Sparkles,
+} from "lucide-react";
 
 export default function ConversationsPage() {
+  const queryClient = useQueryClient();
+  const [selectedConvoId, setSelectedConvoId] = useState<string | null>(null);
+
   const { data, isLoading } = useQuery<any[]>({
     queryKey: ["conversations-list"],
     queryFn: () => fetchApi<any[]>("/api/conversations"),
-    refetchInterval: 5000,
+    refetchInterval: 4000,
   });
 
-  const [selectedConvoId, setSelectedConvoId] = useState<string | null>(null);
+  const statusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: "open" | "closed" }) =>
+      fetchApi(`/api/conversations/${id}/status`, {
+        method: "POST",
+        body: JSON.stringify({ status }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["conversations-list"] });
+      queryClient.invalidateQueries({ queryKey: ["today-dashboard"] });
+    },
+  });
 
   const convos = data || [];
   const selectedConvo = convos.find((c) => c.id === selectedConvoId) || convos[0];
@@ -47,6 +71,7 @@ export default function ConversationsPage() {
             {convos.map((convo) => {
               const isSelected = selectedConvo?.id === convo.id;
               const needsHuman = convo.status === "needs_human";
+              const isClosed = convo.status === "closed";
 
               return (
                 <div
@@ -59,16 +84,24 @@ export default function ConversationsPage() {
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-semibold text-white text-xs">
+                    <span className="font-semibold text-white text-xs truncate max-w-[150px]">
                       {convo.first_name ? `${convo.first_name} ${convo.last_name || ""}` : convo.prospect_email}
                     </span>
-                    {needsHuman && (
+                    {needsHuman ? (
                       <span className="rounded bg-rose-500/15 px-1.5 py-0.5 text-[9px] font-semibold text-rose-400 border border-rose-500/30">
                         Needs You
                       </span>
+                    ) : isClosed ? (
+                      <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[9px] font-medium text-slate-400">
+                        Closed
+                      </span>
+                    ) : (
+                      <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-medium text-emerald-400">
+                        Open
+                      </span>
                     )}
                   </div>
-                  <div className="mt-1 text-[11px] text-slate-400">
+                  <div className="mt-1 text-[11px] text-slate-400 truncate">
                     {convo.company || "Company"}
                   </div>
                   <div className="mt-2 text-xs font-medium text-slate-300 truncate">
@@ -92,9 +125,33 @@ export default function ConversationsPage() {
                       {selectedConvo.prospect_email} · {selectedConvo.company}
                     </p>
                   </div>
-                  <span className="rounded-full bg-slate-800 px-3 py-1 font-mono text-[11px] text-slate-300">
-                    Stage: {selectedConvo.stage || selectedConvo.status || "open"}
-                  </span>
+
+                  {/* Close / Reopen Actions */}
+                  <div className="flex items-center gap-2">
+                    {selectedConvo.status === "closed" ? (
+                      <button
+                        onClick={() =>
+                          statusMutation.mutate({ id: selectedConvo.id, status: "open" })
+                        }
+                        disabled={statusMutation.isPending}
+                        className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700 transition"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" />
+                        <span>Reopen</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() =>
+                          statusMutation.mutate({ id: selectedConvo.id, status: "closed" })
+                        }
+                        disabled={statusMutation.isPending}
+                        className="flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/20 transition"
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                        <span>Mark Handled / Close</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Email History / Exchange */}
@@ -105,7 +162,7 @@ export default function ConversationsPage() {
                       className="rounded-xl border border-slate-800 bg-slate-950/70 p-4 space-y-1.5"
                     >
                       <div className="flex items-center justify-between text-[11px] text-slate-400">
-                        <span className="font-semibold text-sky-400">Outreach Sent</span>
+                        <span className="font-semibold text-sky-400">Outbound Sent</span>
                         <span>{e.sent_at || "Recent"}</span>
                       </div>
                       <div className="font-semibold text-xs text-white">Subject: {e.subject}</div>
@@ -146,4 +203,3 @@ export default function ConversationsPage() {
     </div>
   );
 }
-

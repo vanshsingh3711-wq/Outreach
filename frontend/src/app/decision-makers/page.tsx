@@ -18,6 +18,9 @@ import {
   Send,
   X,
   Loader2,
+  Copy,
+  Check,
+  FileText,
 } from "lucide-react";
 import { LinkedInIcon, GitHubIcon, TwitterXIcon } from "@/components/ui/brand-icons";
 
@@ -26,6 +29,10 @@ export default function DecisionMakersPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [deliverabilityFilter, setDeliverabilityFilter] = useState("");
   const [rolePriorityFilter, setRolePriorityFilter] = useState("");
+  const [copiedEmail, setCopiedEmail] = useState<string | null>(null);
+
+  // Evidence notes modal
+  const [viewingEvidence, setViewingEvidence] = useState<{ name: string; notes: string } | null>(null);
 
   // Modal state for drafting pitch
   const [selectedProspect, setSelectedProspect] = useState<DecisionMaker | null>(null);
@@ -50,6 +57,12 @@ export default function DecisionMakersPage() {
   });
 
   const decisionMakers = data?.decision_makers || [];
+
+  const handleCopy = (email: string) => {
+    navigator.clipboard.writeText(email);
+    setCopiedEmail(email);
+    setTimeout(() => setCopiedEmail(null), 2000);
+  };
 
   const handleOpenDraftModal = async (prospect: DecisionMaker) => {
     setSelectedProspect(prospect);
@@ -91,6 +104,7 @@ export default function DecisionMakersPage() {
       setProposalDraft(null);
       queryClient.invalidateQueries({ queryKey: ["decision-makers"] });
       queryClient.invalidateQueries({ queryKey: ["pipeline-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["outbox-items"] });
     } catch (err: any) {
       setModalError(err.message || "Failed to approve proposal.");
     } finally {
@@ -175,8 +189,8 @@ export default function DecisionMakersPage() {
               <tr>
                 <th className="px-5 py-3.5 font-medium">Decision-Maker</th>
                 <th className="px-5 py-3.5 font-medium">Company</th>
-                <th className="px-5 py-3.5 font-medium">Email & Verification</th>
-                <th className="px-5 py-3.5 font-medium">Profiles</th>
+                <th className="px-5 py-3.5 font-medium">Email & Deliverability</th>
+                <th className="px-5 py-3.5 font-medium">Signals / Dossier</th>
                 <th className="px-5 py-3.5 text-right font-medium">AI Action</th>
               </tr>
             </thead>
@@ -239,6 +253,19 @@ export default function DecisionMakersPage() {
                         <div className="flex items-center gap-1.5 font-mono text-[11px] text-slate-300">
                           <Mail className="h-3.5 w-3.5 text-slate-500" />
                           <span>{dm.email || "No direct email"}</span>
+                          {dm.email && (
+                            <button
+                              onClick={() => handleCopy(dm.email)}
+                              title="Copy email address"
+                              className="text-slate-500 hover:text-white transition ml-1 cursor-pointer"
+                            >
+                              {copiedEmail === dm.email ? (
+                                <Check className="h-3 w-3 text-emerald-400" />
+                              ) : (
+                                <Copy className="h-3 w-3" />
+                              )}
+                            </button>
+                          )}
                         </div>
                         <div className="mt-1 flex items-center gap-2">
                           <span
@@ -263,15 +290,15 @@ export default function DecisionMakersPage() {
                         </div>
                       </td>
 
-                      {/* Social Links */}
+                      {/* Profiles & Evidence */}
                       <td className="px-5 py-3.5">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2.5">
                           {dm.linkedin_url && (
                             <a
                               href={dm.linkedin_url}
                               target="_blank"
                               rel="noreferrer"
-                              title="LinkedIn"
+                              title="LinkedIn Profile"
                               className="text-slate-400 hover:text-sky-400 transition"
                             >
                               <LinkedInIcon className="h-3.5 w-3.5" />
@@ -282,7 +309,7 @@ export default function DecisionMakersPage() {
                               href={dm.github_url}
                               target="_blank"
                               rel="noreferrer"
-                              title="GitHub"
+                              title="GitHub Profile"
                               className="text-slate-400 hover:text-white transition"
                             >
                               <GitHubIcon className="h-3.5 w-3.5" />
@@ -293,11 +320,26 @@ export default function DecisionMakersPage() {
                               href={dm.twitter_url}
                               target="_blank"
                               rel="noreferrer"
-                              title="Twitter / X"
+                              title="Twitter / X Profile"
                               className="text-slate-400 hover:text-sky-400 transition"
                             >
                               <TwitterXIcon className="h-3.5 w-3.5" />
                             </a>
+                          )}
+                          {dm.evidence && (
+                            <button
+                              onClick={() =>
+                                setViewingEvidence({
+                                  name: dm.full_name,
+                                  notes: dm.evidence || "",
+                                })
+                              }
+                              title="View buying signals evidence"
+                              className="flex items-center gap-1 rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-300 hover:bg-slate-700 transition"
+                            >
+                              <FileText className="h-3 w-3 text-sky-400" />
+                              <span>Evidence</span>
+                            </button>
                           )}
                         </div>
                       </td>
@@ -320,6 +362,36 @@ export default function DecisionMakersPage() {
           </table>
         </div>
       </div>
+
+      {/* Evidence Viewer Modal */}
+      {viewingEvidence && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-900/95 p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="font-semibold text-white text-sm">
+                Signals & Evidence: {viewingEvidence.name}
+              </h3>
+              <button
+                onClick={() => setViewingEvidence(null)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="rounded-xl border border-slate-800 bg-slate-950 p-4 font-mono text-xs text-slate-300 whitespace-pre-wrap leading-relaxed max-h-[300px] overflow-y-auto">
+              {viewingEvidence.notes}
+            </div>
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => setViewingEvidence(null)}
+                className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-medium text-slate-300 hover:bg-slate-700"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* AI Proposal Drafting Modal */}
       {selectedProspect && (

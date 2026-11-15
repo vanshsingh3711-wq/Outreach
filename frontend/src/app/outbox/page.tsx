@@ -18,6 +18,9 @@ import {
   Loader2,
   ChevronDown,
   ChevronUp,
+  Zap,
+  ShieldCheck,
+  AlertTriangle,
 } from "lucide-react";
 
 interface OutboxResponse {
@@ -26,6 +29,12 @@ interface OutboxResponse {
   approved: OutboxItem[];
   sent: OutboxItem[];
   failed: OutboxItem[];
+}
+
+interface SendingModeResponse {
+  mode: "approval" | "autopilot";
+  provider: string;
+  held: number;
 }
 
 export default function OutboxPage() {
@@ -39,10 +48,37 @@ export default function OutboxPage() {
   const [editBody, setEditBody] = useState("");
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
+  // Autopilot confirmation modal
+  const [showAutopilotModal, setShowAutopilotModal] = useState(false);
+  const [autopilotConfirmInput, setAutopilotConfirmInput] = useState("");
+
   const { data, isLoading } = useQuery<OutboxResponse>({
     queryKey: ["outbox-items"],
     queryFn: () => fetchApi<OutboxResponse>("/api/outbox"),
+    refetchInterval: 4000,
+  });
+
+  const { data: sendingModeData } = useQuery<SendingModeResponse>({
+    queryKey: ["sending-mode"],
+    queryFn: () => fetchApi<SendingModeResponse>("/api/sending-mode"),
     refetchInterval: 5000,
+  });
+
+  const currentMode = sendingModeData?.mode || "approval";
+
+  const sendingModeMutation = useMutation({
+    mutationFn: (newMode: "approval" | "autopilot") => {
+      const payload: any = { mode: newMode };
+      if (newMode === "autopilot") payload.confirm = "autopilot";
+      return fetchApi("/api/sending-mode", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sending-mode"] });
+      queryClient.invalidateQueries({ queryKey: ["outbox-items"] });
+    },
   });
 
   const approveMutation = useMutation({
@@ -92,6 +128,21 @@ export default function OutboxPage() {
     }
   };
 
+  const handleToggleMode = () => {
+    if (currentMode === "approval") {
+      setShowAutopilotModal(true);
+      setAutopilotConfirmInput("");
+    } else {
+      sendingModeMutation.mutate("approval");
+    }
+  };
+
+  const handleConfirmAutopilot = () => {
+    if (autopilotConfirmInput.trim().toLowerCase() !== "autopilot") return;
+    sendingModeMutation.mutate("autopilot");
+    setShowAutopilotModal(false);
+  };
+
   const pending = data?.pending || [];
   const approved = data?.approved || [];
   const sent = data?.sent || [];
@@ -99,7 +150,7 @@ export default function OutboxPage() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
-      {/* Page Title */}
+      {/* Page Title & Sending Mode Controller */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2.5">
@@ -119,19 +170,43 @@ export default function OutboxPage() {
           </p>
         </div>
 
-        {/* Global Action */}
-        {pending.length > 0 && (
+        {/* Global Actions */}
+        <div className="flex items-center gap-3">
+          {/* Sending Mode Toggle Button */}
           <button
-            onClick={() => approveAllMutation.mutate()}
-            disabled={approveAllMutation.isPending}
-            className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-emerald-600/20 hover:bg-emerald-500 transition cursor-pointer disabled:opacity-50"
+            onClick={handleToggleMode}
+            className={`flex items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-semibold transition cursor-pointer ${
+              currentMode === "autopilot"
+                ? "border-amber-500/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20"
+                : "border-sky-500/40 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20"
+            }`}
           >
-            <CheckCircle className="h-4 w-4" />
-            <span>
-              {approveAllMutation.isPending ? "Approving All..." : `Approve All (${pending.length})`}
-            </span>
+            {currentMode === "autopilot" ? (
+              <>
+                <Zap className="h-4 w-4 text-amber-400 fill-amber-400" />
+                <span>Mode: Autopilot Active</span>
+              </>
+            ) : (
+              <>
+                <ShieldCheck className="h-4 w-4 text-sky-400" />
+                <span>Mode: Manual Review</span>
+              </>
+            )}
           </button>
-        )}
+
+          {pending.length > 0 && (
+            <button
+              onClick={() => approveAllMutation.mutate()}
+              disabled={approveAllMutation.isPending}
+              className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-emerald-600/20 hover:bg-emerald-500 transition cursor-pointer disabled:opacity-50"
+            >
+              <CheckCircle className="h-4 w-4" />
+              <span>
+                {approveAllMutation.isPending ? "Approving All..." : `Approve All (${pending.length})`}
+              </span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Tabs */}
@@ -185,7 +260,7 @@ export default function OutboxPage() {
         </button>
       </div>
 
-      {/* Main List */}
+      {/* Main Outbox List */}
       <div className="space-y-3">
         {isLoading ? (
           <div className="py-16 text-center text-slate-500">
@@ -304,6 +379,58 @@ export default function OutboxPage() {
         )}
       </div>
 
+      {/* Autopilot Confirmation Modal */}
+      {showAutopilotModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-md rounded-2xl border border-amber-500/30 bg-slate-900/95 p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-white text-base">Enable Autopilot Mode?</h3>
+                <p className="text-xs text-slate-400">Automatic dispatch without manual review</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              In autopilot mode, Outreach will dispatch approved cold emails directly to prospects
+              without waiting for you to click "Approve" on each one.
+            </p>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-400">
+                Type <span className="font-mono text-amber-300 font-bold">autopilot</span> to confirm:
+              </label>
+              <input
+                type="text"
+                value={autopilotConfirmInput}
+                onChange={(e) => setAutopilotConfirmInput(e.target.value)}
+                placeholder="autopilot"
+                className="mt-1.5 block w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2 text-xs text-white focus:border-amber-500 focus:outline-none"
+                autoFocus
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                onClick={() => setShowAutopilotModal(false)}
+                className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-medium text-slate-300 hover:bg-slate-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmAutopilot}
+                disabled={autopilotConfirmInput.trim().toLowerCase() !== "autopilot"}
+                className="rounded-xl bg-amber-500 px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-amber-400 transition disabled:opacity-40"
+              >
+                Switch to Autopilot
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Edit Modal */}
       {editingItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 animate-in fade-in duration-150">
@@ -358,4 +485,3 @@ export default function OutboxPage() {
     </div>
   );
 }
-
