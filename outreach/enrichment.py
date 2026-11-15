@@ -442,9 +442,19 @@ class CompanyEnricher:
             company_size=company.company_size,
         )
 
-        # 4b. Optional Serper search for missing social profiles (LinkedIn / X)
+        # 4b. Discover real LinkedIn executives if site yielded few or no decision-makers
         env = load_env()
         serper_key = getattr(env, "serper_api_key", "") or os.environ.get("SERPER_API_KEY", "")
+        if serper_key and len(extracted_dms) < 2:
+            from outreach.decision_makers import discover_executives_via_linkedin_search
+            exec_dms = await discover_executives_via_linkedin_search(
+                company_name=company.name or domain,
+                domain=domain,
+                serper_api_key=serper_key,
+                limit=3 - len(extracted_dms),
+            )
+            extracted_dms.extend(exec_dms)
+
         if serper_key and extracted_dms:
             from outreach.decision_makers import enrich_social_profiles_via_search
             await enrich_social_profiles_via_search(

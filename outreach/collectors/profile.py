@@ -176,6 +176,14 @@ entretien reparation reparations urgence soumission soumissions estimation
 residentiel residentielle commercial commerciale industriel industrielle
 produits produit garantie garanties financement subventions subvention
 realisations accueil equipe equipes propos joindre contactez
+google slides docs drive sheet sheets presentation presentations
+delivery model python backend frontend fullstack developer developers engineering
+membership talent verified proof project management cloud platform software
+solution solutions inquiries inquiry support sales security devops api app ai mobile
+web agile sprint scrum demo pricing product products feature features integration
+integrations customer customers success resource resources enterprise startup startups
+data analytics intelligence automation workflow workflows pipeline pipelines
+learning machine deep agent agents bot bots framework stack tool tools
 """.split())
 
 # Tokens that are words, not names, whatever the vertical: abstract nouns

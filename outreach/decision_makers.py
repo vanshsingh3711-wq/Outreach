@@ -589,3 +589,95 @@ async def enrich_social_profiles_via_search(
         logger.debug("Social search enrichment error: %s", exc)
 
 
+async def discover_executives_via_linkedin_search(
+    company_name: str,
+    domain: str,
+    serper_api_key: str,
+    limit: int = 3,
+) -> list[DecisionMaker]:
+    """Discover real human executives and decision-makers using Google Serper LinkedIn search."""
+    if not serper_api_key or not company_name:
+        return []
+
+    from outreach.collectors.people import split_person_name
+    from outreach.public_http import public_http_client
+
+    headers = {"X-API-KEY": serper_api_key, "Content-Type": "application/json"}
+    q = f'site:linkedin.com/in ("Founder" OR "Co-Founder" OR "CEO" OR "CTO" OR "VP" OR "Head of" OR "Managing Director") "{company_name}"'
+
+    results: list[DecisionMaker] = []
+    seen_names: set[tuple[str, str]] = set()
+
+    try:
+        async with public_http_client(timeout=10.0) as client:
+            resp = await client.post("https://google.serper.dev/search", headers=headers, json={"q": q, "num": limit + 4})
+            if resp.status_code != 200:
+                return []
+
+            data = resp.json()
+            for item in data.get("organic") or []:
+                link = item.get("link", "")
+                if "linkedin.com/in/" not in link:
+                    continue
+
+                title = item.get("title", "")
+                subtitle = item.get("subtitle", "")
+                snippet = item.get("snippet", "")
+
+                # Clean name: remove suffixes, nicknames in parens
+                raw_name = title.split(" - ")[0].split(" | ")[0].split(" – ")[0].strip()
+                raw_name = re.sub(r"\(.*?\)", "", raw_name)
+                raw_name = re.sub(r"[^\w\s\-\x27]", "", raw_name).strip()
+                name_parts = split_person_name(raw_name)
+                if not name_parts:
+                    continue
+                first, last = name_parts
+                name_key = (first.lower(), last.lower())
+                if name_key in seen_names:
+                    continue
+                seen_names.add(name_key)
+
+                # Extract title
+                role = ""
+                if len(title.split(" - ")) > 1:
+                    role = title.split(" - ")[1].split(" | ")[0].split("@")[0].strip()
+                elif subtitle and "·" in subtitle:
+                    parts = subtitle.split("·")
+                    role = parts[1].strip() if len(parts) > 1 else parts[0].strip()
+
+                clean_title, _, seniority = normalize_technical_title(role or "Executive")
+                priority = classify_role_priority(clean_title)
+
+                loc = ""
+                if subtitle and "·" in subtitle:
+                    loc = subtitle.split("·")[0].strip()
+
+                evidence = f"LinkedIn: {clean_title} at {company_name}"
+                if loc:
+                    evidence += f" ({loc})"
+                if snippet:
+                    evidence += f" — {snippet[:150]}"
+
+                dm = DecisionMaker(
+                    first_name=first,
+                    last_name=last,
+                    title=clean_title,
+                    role_priority=priority,
+                    company_name=company_name,
+                    company_domain=domain,
+                    linkedin_url=link,
+                    source_url=link,
+                    evidence_snippet=evidence[:280],
+                    confidence=0.92,
+                    seniority=seniority,
+                )
+                results.append(dm)
+                if len(results) >= limit:
+                    break
+    except Exception as exc:
+        logger.debug("LinkedIn executive discovery error for %s: %s", company_name, exc)
+
+    return results
+
+
+

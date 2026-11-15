@@ -106,6 +106,10 @@ JUNK_DOMAIN_PATTERNS = tuple(re.compile(p, re.I) for p in (
     # infrastructure that is never a prospect
     r"(^|\.)(google|bing|yahoo|duckduckgo|amazon|apple|microsoft)\.",
     r"(wordpress|wix|squarespace|shopify|godaddy|weebly|webflow)\.com$",
+    # software directories, review aggregators & listicles
+    r"(^|\.)(g2|capterra|softwareadvice|trustradius|getapp|peerspot|slashdot|sourceforge)\.",
+    r"(^|\.)(mikesonders|topstartups|builtin[a-z]*|getlatka|latka|designrush|eqvista|datamation|themanifest)\.",
+    r"(^|\.)(theirstack|wearedevelopers|hire[a-z]*|find[a-z]*agency|top[a-z]*companies)\.",
 ))
 
 # Names that mean the row is a category page or an aggregator, not a business.

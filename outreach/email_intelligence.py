@@ -11,6 +11,7 @@ Never marks an email as verified via LLM guesswork or MX lookup alone.
 from __future__ import annotations
 
 import logging
+import os
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone

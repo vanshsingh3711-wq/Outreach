@@ -251,6 +251,8 @@ async def test_enrich_existing_company_updates_record(monkeypatch, tmp_path):
 
 def test_api_enrich_url_route(tmp_path, monkeypatch):
     from outreach.dashboard import app, token_store
+    import outreach.email_intelligence as ei_mod
+    import outreach.decision_makers as dm_mod
 
     async def mock_fetch(self, client, url):
         return """
@@ -263,7 +265,15 @@ def test_api_enrich_url_route(tmp_path, monkeypatch):
         </html>
         """
 
+    async def mock_mx(domain):
+        return "aspmx.l.google.com"
+
+    async def mock_execs(*args, **kwargs):
+        return []
+
     monkeypatch.setattr(CompanyEnricher, "_safe_fetch", mock_fetch)
+    monkeypatch.setattr(ei_mod, "get_mx_host", mock_mx)
+    monkeypatch.setattr(dm_mod, "discover_executives_via_linkedin_search", mock_execs)
 
     headers = {"Authorization": f"Bearer {token_store.get()}"}
     client = TestClient(app, base_url="http://127.0.0.1:5555", headers=headers)

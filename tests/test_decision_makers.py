@@ -1,5 +1,6 @@
 """Tests for technical decision-maker discovery, role prioritization, and anti-confusion guards."""
 
+from unittest.mock import AsyncMock
 import pytest
 
 from outreach.decision_makers import (
@@ -230,5 +231,61 @@ async def test_enrich_social_profiles_via_search_mocked(monkeypatch):
 
     assert dm.linkedin_url == "https://www.linkedin.com/in/marcus-vance-ai"
     assert dm.twitter_url == "https://x.com/marcus_vance"
+
+
+@pytest.mark.asyncio
+async def test_discover_executives_via_linkedin_search(monkeypatch):
+    from outreach.decision_makers import discover_executives_via_linkedin_search
+
+    class MockResp:
+        status_code = 200
+        def json(self):
+            return {
+                "organic": [
+                    {
+                        "title": "Ethan Zheng - Co-Founder & CTO - Jobright AI | LinkedIn",
+                        "subtitle": "San Francisco Bay Area · Co-Founder & CTO",
+                        "snippet": "Co-Founder & CTO at Jobright AI. Leading engineering and AI architecture.",
+                        "link": "https://www.linkedin.com/in/ethan-zheng-test",
+                    },
+                    {
+                        "title": "Google Slides - Presentation Software",
+                        "subtitle": "Mountain View, CA",
+                        "snippet": "Create beautiful slides.",
+                        "link": "https://www.linkedin.com/in/google-slides-fake",
+                    },
+                    {
+                        "title": "Eric Cheng - Co-Founder & CEO - Jobright AI | LinkedIn",
+                        "subtitle": "San Francisco Bay Area · Co-Founder & CEO",
+                        "snippet": "Co-Founder and CEO of Jobright AI.",
+                        "link": "https://www.linkedin.com/in/eric-cheng-test",
+                    },
+                ]
+            }
+
+    mock_client = AsyncMock()
+    mock_client.post = AsyncMock(return_value=MockResp())
+    mock_client.__aenter__.return_value = mock_client
+
+    monkeypatch.setattr("outreach.public_http.public_http_client", lambda timeout=10.0: mock_client)
+
+    execs = await discover_executives_via_linkedin_search(
+        company_name="Jobright AI",
+        domain="jobright.ai",
+        serper_api_key="sk-test",
+        limit=3,
+    )
+
+    assert len(execs) == 2
+    assert execs[0].first_name == "Ethan"
+    assert execs[0].last_name == "Zheng"
+    assert "CTO" in execs[0].title
+    assert execs[0].linkedin_url == "https://www.linkedin.com/in/ethan-zheng-test"
+
+    assert execs[1].first_name == "Eric"
+    assert execs[1].last_name == "Cheng"
+    assert "CEO" in execs[1].title
+    assert execs[1].linkedin_url == "https://www.linkedin.com/in/eric-cheng-test"
+
 
 
