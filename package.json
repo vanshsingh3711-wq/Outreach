@@ -9,7 +9,8 @@
     "lint": "pnpm --dir frontend lint",
     "test": ".venv/bin/pytest tests/",
     "test:dashboard": ".venv/bin/pytest tests/test_dashboard*.py",
-    "backend": ".venv/bin/python -m outreach dashboard --cors --api-only",
+    "backend": ".venv/bin/python -m outreach dashboard --cors --api-only --no-auth",
+    "frontend": "pnpm --dir frontend dev",
     "outreach": ".venv/bin/python -m outreach"
   }
 }
