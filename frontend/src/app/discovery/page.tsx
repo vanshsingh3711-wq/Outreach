@@ -74,7 +74,7 @@ export default function DiscoveryPage() {
   const [companySize, setCompanySize] = useState("11-50");
   const [location, setLocation] = useState("United States, Remote");
   const [revenueTier, setRevenueTier] = useState("");
-  const [techSpecialization, setTechSpecialization] = useState("AI, SaaS, Python, Next.js");
+  const [businessDomain, setBusinessDomain] = useState("Fintech, Healthcare, Cybersecurity, B2B SaaS");
   const [customQuery, setCustomQuery] = useState("");
 
   const [autoEnrich, setAutoEnrich] = useState(false);
@@ -96,14 +96,17 @@ export default function DiscoveryPage() {
     setTimeout(() => setCopiedEmail(null), 2000);
   };
 
-  // Quick preset pills
+  // Quick preset pills for real business domains (Fintech, Health, Security, SaaS, etc.)
   const LOCATION_PRESETS = ["Remote", "United States", "Europe", "United Kingdom", "India", "Canada"];
-  const TECH_PRESETS = [
-    "AI & Machine Learning",
-    "Full-Stack (Next.js/React)",
-    "Python / FastAPI Backend",
-    "Mobile (iOS/Android)",
-    "Cloud & DevOps",
+  const DOMAIN_PRESETS = [
+    "Cybersecurity",
+    "Fintech",
+    "Healthcare",
+    "B2B SaaS",
+    "AI",
+    "Developer Tools",
+    "E-commerce",
+    "EdTech",
   ];
 
   // Load saved companies and their decision-makers on mount so nothing ever disappears
@@ -187,13 +190,14 @@ export default function DiscoveryPage() {
     setSuccessMsg(null);
 
     try {
+      const domains = businessDomain.split(",").map((s) => s.trim()).filter(Boolean);
       const payload = {
         target_type: targetType,
         company_size_tier: companySize,
         revenue_tier: revenueTier,
         locations: location.split(",").map((s) => s.trim()).filter(Boolean),
-        industries: techSpecialization.split(",").map((s) => s.trim()).filter(Boolean),
-        tech_stack: techSpecialization.split(",").map((s) => s.trim()).filter(Boolean),
+        industries: domains,
+        tech_stack: [],
         custom_query: customQuery.trim(),
         limit: 12,
         auto_enrich: autoEnrich,
@@ -490,29 +494,66 @@ export default function DiscoveryPage() {
             </select>
           </div>
 
-          {/* Tech Specialization / Domain */}
+          {/* Business Domain / Industry */}
           <div>
-            <label className="block text-xs font-medium text-slate-300">Tech Stack / Domain</label>
+            <label className="block text-xs font-medium text-slate-300">
+              Business Domain / Industry
+            </label>
             <input
               type="text"
-              value={techSpecialization}
-              onChange={(e) => setTechSpecialization(e.target.value)}
-              placeholder="e.g. AI, Python, Next.js, FastAPI"
+              value={businessDomain}
+              onChange={(e) => setBusinessDomain(e.target.value)}
+              placeholder="e.g. Fintech, Healthcare, Cybersecurity, B2B SaaS"
               className="mt-1.5 block w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2 text-xs text-white focus:border-sky-500 focus:outline-none"
             />
             <div className="flex flex-wrap gap-1 mt-1.5">
-              {TECH_PRESETS.slice(0, 2).map((preset) => (
+              {DOMAIN_PRESETS.slice(0, 4).map((preset) => (
                 <button
                   key={preset}
                   type="button"
-                  onClick={() => setTechSpecialization(preset)}
+                  onClick={() => {
+                    const current = businessDomain.split(",").map((s) => s.trim()).filter(Boolean);
+                    if (!current.includes(preset)) {
+                      setBusinessDomain(current.length > 0 ? `${businessDomain}, ${preset}` : preset);
+                    }
+                  }}
                   className="text-[10px] text-slate-400 hover:text-sky-300 transition cursor-pointer"
                 >
-                  +{preset.split(" ")[0]}
+                  +{preset}
                 </button>
               ))}
             </div>
           </div>
+        </div>
+
+        {/* Quick Business Domain Pills */}
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          <span className="text-slate-400 font-medium text-[11px]">Popular Domains:</span>
+          {DOMAIN_PRESETS.map((domain) => {
+            const isSelected = businessDomain.toLowerCase().includes(domain.toLowerCase());
+            return (
+              <button
+                key={domain}
+                type="button"
+                onClick={() => {
+                  const current = businessDomain.split(",").map((s) => s.trim()).filter(Boolean);
+                  if (isSelected) {
+                    const next = current.filter((s) => s.toLowerCase() !== domain.toLowerCase());
+                    setBusinessDomain(next.join(", "));
+                  } else {
+                    setBusinessDomain([...current, domain].join(", "));
+                  }
+                }}
+                className={`rounded-lg px-2.5 py-1 text-xs font-medium transition cursor-pointer border ${
+                  isSelected
+                    ? "bg-sky-500/15 border-sky-500 text-sky-300 shadow-sm shadow-sky-500/10"
+                    : "bg-slate-950/60 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700"
+                }`}
+              >
+                {isSelected ? `✓ ${domain}` : `+ ${domain}`}
+              </button>
+            );
+          })}
         </div>
 
         {/* 3. Anti-Job-Listing Guarantee Banner */}

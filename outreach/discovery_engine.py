@@ -171,25 +171,25 @@ class DiscoveryQueryBuilder:
 
                 # A. Tech Startups (for Job Outreach - Founder/CTO pitching)
                 if is_startup_mode or is_both:
-                    q_prod = f'("{ind} startup" OR "{ind} SaaS") {tech_part} ("our product" OR "our platform" OR "about us") {loc_part} {size_part} {rev_part} {DEFAULT_EXCLUSIONS}'
+                    q_prod = f'("{ind} startup" OR "{ind} company" OR "{ind} platform" OR "{ind} SaaS") {tech_part} ("our product" OR "our platform" OR "about us") {loc_part} {size_part} {rev_part} {DEFAULT_EXCLUSIONS}'
                     queries.append(cls._clean_query(q_prod))
 
                     if tech_part:
                         q_tech = f'("{ind}") ({tech_part}) ("product" OR "platform" OR "pricing") {loc_part} {DEFAULT_EXCLUSIONS}'
                         queries.append(cls._clean_query(q_tech))
                     elif rev_part:
-                        q_fund = f'("{ind} startup") {rev_part} {loc_part} {DEFAULT_EXCLUSIONS}'
+                        q_fund = f'("{ind} startup" OR "{ind} company") {rev_part} {loc_part} {DEFAULT_EXCLUSIONS}'
                         queries.append(cls._clean_query(q_fund))
                     else:
-                        q_plat = f'("{ind} startup" OR "tech startup") ("built for" OR "platform") {loc_part} {DEFAULT_EXCLUSIONS}'
+                        q_plat = f'("{ind} startup" OR "{ind} SaaS" OR "{ind} platform") ("pricing" OR "customers" OR "solutions") {loc_part} {DEFAULT_EXCLUSIONS}'
                         queries.append(cls._clean_query(q_plat))
 
                 # B. Agencies & Dev Studios (for Freelance Work - Owner/Partner pitching)
                 if is_agency_mode or is_both:
-                    q_agency = f'("{ind}" OR "software development agency" OR "digital agency") {tech_part} ("our clients" OR "our work" OR "case studies") {loc_part} {size_part} {DEFAULT_EXCLUSIONS}'
+                    q_agency = f'("{ind} agency" OR "software development agency" OR "digital agency") {tech_part} ("our clients" OR "our work" OR "case studies") {loc_part} {size_part} {DEFAULT_EXCLUSIONS}'
                     queries.append(cls._clean_query(q_agency))
 
-                    q_studio = f'("custom software agency" OR "web development agency" OR "product studio") {tech_part} ("our services" OR "case studies") {loc_part} {DEFAULT_EXCLUSIONS}'
+                    q_studio = f'("custom software studio" OR "{ind} development agency" OR "product studio") {tech_part} ("our services" OR "case studies") {loc_part} {DEFAULT_EXCLUSIONS}'
                     queries.append(cls._clean_query(q_studio))
 
         # Deduplicate queries while preserving order
