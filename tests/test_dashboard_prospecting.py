@@ -229,4 +229,17 @@ def test_save_leads_batch_endpoint(client):
     assert data["saved_count"] == 2
 
 
+def test_company_detail_endpoint(client):
+    # Query for existing company c1
+    r = client.get("/api/prospecting/company-detail?id=c1")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["success"] is True
+    assert data["is_saved"] is True
+    assert data["company"]["name"] == "Cognitive Labs"
+    assert len(data["people"]) == 2
+    assert any(p["first_name"] == "Alex" for p in data["people"])
+
+
+
 

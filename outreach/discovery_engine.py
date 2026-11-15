@@ -43,6 +43,9 @@ DEFAULT_EXCLUSIONS = (
     "-site:crunchbase.com -site:clutch.co -site:levels.fyi "
     "-site:ycombinator.com/jobs -site:remoteok.com -site:weworkremotely.com "
     "-site:github.com -site:medium.com "
+    "-site:ibm.com -site:stripe.com -site:adyen.com -site:mastercard.com "
+    "-site:visa.com -site:paypal.com -site:microsoft.com -site:google.com "
+    "-site:amazon.com -site:apple.com -site:oracle.com -site:salesforce.com "
     '-"apply now" -"job description" -"job opening" -"apply for this role"'
 )
 
@@ -214,6 +217,8 @@ ADDITIONAL_JUNK_PATTERNS = tuple(re.compile(p, re.I) for p in (
     r"(^|\.)(jobright|levels|remoteok|weworkremotely|simplyhired|dice|monster|careerbuilder)\.",
     r"(^|\.)(boards\.greenhouse|jobs\.lever|apply\.workable|jobs\.ashbyhq)\.",
     r"(^|\.)(fiverr|freelancer|toptal|guru|upwork)\.",
+    r"(^|\.)(ibm|stripe|adyen|mastercard|visa|paypal|microsoft|google|amazon|apple|oracle|salesforce|cisco|intel|meta|facebook|netflix|accenture|deloitte|mckinsey)\.",
+    r"(^|\.)(angelinvestor|angelinvestorsnetwork|venturecapital|techstars)\.",
 ))
 
 

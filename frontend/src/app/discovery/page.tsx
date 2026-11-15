@@ -26,9 +26,11 @@ import {
   BookmarkPlus,
   Save,
   X,
+  FileText,
 } from "lucide-react";
 import { LinkedInIcon, TwitterXIcon } from "@/components/ui/brand-icons";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 function formatLinkedInUrl(url?: string): string {
   if (!url) return "";
@@ -95,10 +97,21 @@ export default function DiscoveryPage() {
   const [activeTab, setActiveTab] = useState<"all" | "saved" | "temporary" | "with_leads">("all");
   const [copiedEmail, setCopiedEmail] = useState<string | null>(null);
 
+  const router = useRouter();
+
   const handleCopyEmail = (email: string) => {
     navigator.clipboard.writeText(email);
     setCopiedEmail(email);
     setTimeout(() => setCopiedEmail(null), 2000);
+  };
+
+  const handleViewDetails = (c: DiscoveredCompany) => {
+    try {
+      sessionStorage.setItem(`discovery_company_${c.domain.toLowerCase()}`, JSON.stringify(c));
+    } catch (err) {
+      console.warn("sessionStorage save error:", err);
+    }
+    router.push(`/discovery/company?domain=${encodeURIComponent(c.domain)}&name=${encodeURIComponent(c.name)}`);
   };
 
   // Quick preset pills for real business domains (Fintech, Health, Security, SaaS, etc.)
@@ -967,42 +980,47 @@ export default function DiscoveryPage() {
                           )}
                         </div>
                       </div>
-                    ) : null}
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-slate-800 bg-slate-950/40 p-2.5 flex items-center justify-between gap-2 mt-2">
+                        <span className="text-[11px] text-slate-400">
+                          Decision-makers ready to extract
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleEnrichCompany(c)}
+                          disabled={isEnrichingThis}
+                          className="flex items-center gap-1 rounded-lg bg-sky-500/10 border border-sky-500/30 px-2 py-1 text-[11px] font-semibold text-sky-300 hover:bg-sky-500/20 transition cursor-pointer disabled:opacity-50"
+                        >
+                          {isEnrichingThis ? (
+                            <>
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                              <span>Scanning...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="h-3 w-3 text-sky-400" />
+                              <span>Find Decision-Makers</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Card Actions Footer */}
                   <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between gap-2">
-                    {/* Left button: Find Decision Makers if not yet enriched */}
-                    {!hasLeads ? (
-                      <button
-                        onClick={() => handleEnrichCompany(c)}
-                        disabled={isEnrichingThis}
-                        className="flex items-center gap-1.5 rounded-lg bg-sky-500/10 border border-sky-500/30 px-3 py-1.5 text-xs font-semibold text-sky-300 hover:bg-sky-500/20 transition cursor-pointer disabled:opacity-50"
-                      >
-                        {isEnrichingThis ? (
-                          <>
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            <span>Finding Decision-Makers...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Sparkles className="h-3.5 w-3.5 text-sky-400" />
-                            <span>Find Decision-Makers & Emails</span>
-                          </>
-                        )}
-                      </button>
-                    ) : (
-                      <Link
-                        href={`/decision-makers?search=${encodeURIComponent(c.name)}`}
-                        className="flex items-center gap-1.5 text-xs font-medium text-sky-400 hover:text-sky-300 transition"
-                      >
-                        <Users className="h-3.5 w-3.5" />
-                        <span>View Leads ({c.contact_count || (c.people ? c.people.length : 0)})</span>
-                        <ArrowRight className="h-3 w-3" />
-                      </Link>
-                    )}
+                    {/* View Details Button */}
+                    <button
+                      type="button"
+                      onClick={() => handleViewDetails(c)}
+                      className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-200 font-semibold px-3 py-1.5 text-xs transition cursor-pointer"
+                      title="Open full company analysis & decision-maker profiles"
+                    >
+                      <FileText className="h-3.5 w-3.5 text-sky-400" />
+                      <span>View Details</span>
+                    </button>
 
-                    {/* Right button: Save to DB if unsaved, or View in Pipeline if saved */}
+                    {/* Right button: Save to DB or Saved Indicator */}
                     {!c.is_existing ? (
                       <button
                         type="button"
@@ -1026,10 +1044,11 @@ export default function DiscoveryPage() {
                     ) : (
                       <Link
                         href={`/decision-makers?search=${encodeURIComponent(c.name)}`}
-                        className="text-xs text-slate-400 hover:text-white transition flex items-center gap-1"
-                        title="Open full prospect details"
+                        className="text-xs text-emerald-400 hover:text-emerald-300 transition flex items-center gap-1 font-medium"
+                        title="Saved in database - view in pipeline"
                       >
-                        <span>Pipeline</span>
+                        <Check className="h-3.5 w-3.5" />
+                        <span>Saved in DB</span>
                         <ArrowRight className="h-3 w-3" />
                       </Link>
                     )}

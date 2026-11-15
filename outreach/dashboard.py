@@ -1040,6 +1040,108 @@ async def save_leads_batch_endpoint(request: Request):
     }
 
 
+@app.get("/api/prospecting/company-detail")
+async def get_company_detail_endpoint(domain: str = "", id: str = "", enrich: bool = False):
+    """Retrieve full detail analysis for a company: profile, mission, tech stack, and decision makers."""
+    domain = (domain or "").strip().lower()
+    company_id = (id or "").strip()
+    state = _state()
+    await state.init_db()
+
+    company = None
+    if company_id:
+        company = await state.get_company(company_id)
+    if not company and domain:
+        company = await state.get_company_by_domain(domain)
+
+    # 1. If company is saved in SQLite database and fresh enrichment not explicitly requested
+    if company and not enrich:
+        contacts = await state.get_contacts_for_company(company.id)
+        raw_obs = await state.get_observations(company_id=company.id)
+        people = [
+            {
+                "id": p.id,
+                "first_name": p.first_name,
+                "last_name": p.last_name,
+                "title": p.title,
+                "email": p.email,
+                "email_status": p.email_status,
+                "email_verified": p.email_verified,
+                "linkedin_url": p.linkedin_url,
+                "score": p.score,
+                "personalization_notes": p.personalization_notes,
+                "evidence_snippet": p.personalization_notes,
+                "primary_email": p.email,
+            }
+            for p in contacts
+        ]
+        return {
+            "success": True,
+            "is_saved": True,
+            "company": company.model_dump(),
+            "people": people,
+            "observations": raw_obs,
+            "tech_stack": getattr(company, "tech_stack", []) or [],
+        }
+
+    # 2. If not saved in DB or live enrichment requested
+    if domain or company_id:
+        from outreach.enrichment import CompanyEnricher
+        target_url = (company.website if company else f"https://{domain}") if (company or domain) else ""
+        enricher = CompanyEnricher(state)
+        try:
+            res = await enricher.enrich_url(target_url, persist=False)
+            return {
+                "success": True,
+                "is_saved": bool(company),
+                "company": res.company.model_dump(),
+                "people": [
+                    {
+                        "first_name": p.first_name,
+                        "last_name": p.last_name,
+                        "title": p.title,
+                        "role_priority": p.role_priority,
+                        "evidence_snippet": p.evidence_snippet,
+                        "linkedin_url": getattr(p, "linkedin_url", ""),
+                        "twitter_url": getattr(p, "twitter_url", ""),
+                        "github_url": getattr(p, "github_url", ""),
+                        "primary_email": getattr(p, "primary_email", ""),
+                        "email": getattr(p, "primary_email", ""),
+                        "email_status": getattr(p, "email_status", ""),
+                        "email_match_confidence": getattr(p, "email_match_confidence", 0.0),
+                    }
+                    for p in res.people
+                ],
+                "pages_crawled": res.pages_crawled,
+                "firmographics": getattr(res, "firmographics", {}),
+                "tech_stack": getattr(res.company, "tech_stack", []) or [],
+            }
+        except Exception as e:
+            logger.warning("Live company detail enrichment error for %s: %s", target_url, e)
+            if company:
+                contacts = await state.get_contacts_for_company(company.id)
+                return {
+                    "success": True,
+                    "is_saved": True,
+                    "company": company.model_dump(),
+                    "people": [
+                        {
+                            "first_name": p.first_name,
+                            "last_name": p.last_name,
+                            "title": p.title,
+                            "email": p.email,
+                            "email_status": p.email_status,
+                            "linkedin_url": p.linkedin_url,
+                        }
+                        for p in contacts
+                    ],
+                    "tech_stack": getattr(company, "tech_stack", []) or [],
+                }
+            return JSONResponse({"error": str(e)}, status_code=500)
+
+    return JSONResponse({"error": "Missing domain or id parameter"}, status_code=400)
+
+
 @app.get("/api/prospecting/decision-makers")
 async def get_decision_makers_endpoint(
     role_priority: str = "",
