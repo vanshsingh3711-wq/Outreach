@@ -194,6 +194,7 @@ def cmd_mcp(args):
 
 def cmd_dashboard(args):
     """Launch the local web dashboard."""
+    import socket
     from outreach.dashboard import DashboardSetupError, dashboard_url, start_dashboard
     from outreach.dashboard_auth import TokenError
 
@@ -207,25 +208,38 @@ def cmd_dashboard(args):
         print(f"  Invalid port: {args.port}. Must be 1-65535.")
         sys.exit(2)
 
+    if getattr(args, "url", False):
+        # The unlock link for an already-running dashboard.
+        print(dashboard_url(host=args.host, port=args.port))
+        return
+
+    # Check if backend port is already in use
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        if s.connect_ex((args.host, args.port)) == 0:
+            print(f"\n  Port {args.port} is already in use by another process.")
+            print("  If Outreach is already running, get the dashboard link with:")
+            print(f"    .venv/bin/python -m outreach dashboard --url\n")
+            print(f"  Or free the port before starting:")
+            print(f"    fuser -k {args.port}/tcp 3000/tcp\n")
+            sys.exit(1)
+
     frontend_proc = None
-    if launch_frontend and not getattr(args, "url", False):
+    if launch_frontend:
         frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
         if frontend_dir.is_dir():
             print("  Starting Next.js frontend on http://localhost:3000 ...")
             try:
+                import signal
                 frontend_proc = subprocess.Popen(
                     ["pnpm", "--dir", str(frontend_dir), "dev", "--port", "3000"],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
+                    preexec_fn=os.setsid if hasattr(os, "setsid") else None,
                 )
             except Exception as e:
                 print(f"  Note: Could not start Next.js automatically ({e}). Run 'pnpm dev' manually.")
 
     try:
-        if getattr(args, "url", False):
-            # The unlock link for an already-running dashboard.
-            print(dashboard_url(host=args.host, port=args.port))
-            return
         start_dashboard(host=args.host, port=args.port)
     except (DashboardSetupError, TokenError) as e:
         print(f"\n  Dashboard not started: {e}\n")
@@ -233,7 +247,11 @@ def cmd_dashboard(args):
     finally:
         if frontend_proc:
             try:
-                frontend_proc.terminate()
+                import signal
+                if hasattr(os, "killpg") and hasattr(os, "getpgid"):
+                    os.killpg(os.getpgid(frontend_proc.pid), signal.SIGTERM)
+                else:
+                    frontend_proc.terminate()
             except Exception:
                 pass
 
