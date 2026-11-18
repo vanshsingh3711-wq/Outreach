@@ -47,6 +47,7 @@ dev = [
 
 [project.urls]
 Homepage = "https://github.com/vanshsingh3711-wq/Outreach"
+Demo = "https://outreach-alpha-gules.vercel.app/"
 Issues = "https://github.com/vanshsingh3711-wq/Outreach/issues"
 
 [project.scripts]

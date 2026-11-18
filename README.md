@@ -13,6 +13,7 @@
 </p>
 
 <p align="center">
+  <a href="https://outreach-alpha-gules.vercel.app/"><img alt="Live Demo" src="https://img.shields.io/badge/Live%20Demo-outreach--alpha--gules.vercel.app-10B981?style=flat-square&logo=vercel&logoColor=white"></a>
   <a href="https://github.com/vanshsingh3711-wq/Outreach"><img alt="Version" src="https://img.shields.io/badge/version-0.5.0-blue?style=flat-square"></a>
   <a href="LICENSE"><img alt="License: AGPL-3.0" src="https://img.shields.io/badge/license-AGPL--3.0-0F172A?style=flat-square"></a>
   <img alt="Python 3.11+" src="https://img.shields.io/badge/python-3.11%2B-0284C7?style=flat-square&logo=python&logoColor=white">
@@ -23,6 +24,7 @@
 </p>
 
 <p align="center">
+  <a href="https://outreach-alpha-gules.vercel.app/">🌐 <strong>Live Demo</strong></a> &nbsp;•&nbsp;
   <a href="#quick-start">🚀 Quick Start</a> &nbsp;•&nbsp;
   <a href="#platform-features">✨ Features</a> &nbsp;•&nbsp;
   <a href="#modern-b2b-web-application">🖥️ Web Application</a> &nbsp;•&nbsp;
@@ -33,8 +35,12 @@
 </p>
 
 <p align="center">
-  <img src="docs/assets/banner-hero-outbound.jpg" alt="Outreach - Autonomous Outbound With a Human Gate" width="100%">
+  <a href="https://outreach-alpha-gules.vercel.app/">
+    <img src="docs/assets/banner-hero-outbound.jpg" alt="Outreach - Autonomous Outbound With a Human Gate (Click to Open Live App)" width="100%">
+  </a>
 </p>
+
+> 🚀 **Live Interactive Application**: Test the live deployment at [**outreach-alpha-gules.vercel.app**](https://outreach-alpha-gules.vercel.app/) — test the keyboard-driven outbox review desk (<kbd>A</kbd>/<kbd>R</kbd>/<kbd>E</kbd>), collapsible navigation (<kbd>⌘B</kbd>), global command palette (<kbd>⌘K</kbd>), and DeepSeek AI pitch generation.
 
 ---
 
@@ -55,6 +61,8 @@ Modern B2B growth teams waste thousands of dollars per month on fragmented, opaq
 ---
 
 ## Modern B2B Web Application
+
+> 🌐 **Live Demo Application**: [**https://outreach-alpha-gules.vercel.app**](https://outreach-alpha-gules.vercel.app/)
 
 Outreach includes a high-performance web dashboard built with **Next.js 16**, **React 19**, **Tailwind CSS v4**, and **Lucide Icons**. It delivers a clean, keyboard-first B2B interface with full light and dark mode parity.
 
