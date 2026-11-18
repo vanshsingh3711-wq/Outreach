@@ -53,7 +53,13 @@ export default function DecisionMakersPage() {
 
   // Modal state for drafting pitch
   const [selectedProspect, setSelectedProspect] = useState<DecisionMaker | null>(null);
-  const [proposalDraft, setProposalDraft] = useState<{ subject: string; body: string } | null>(null);
+  const [proposalDraft, setProposalDraft] = useState<{
+    subject: string;
+    body: string;
+    ai_generated?: boolean;
+    rate_limited?: boolean;
+    notice?: string;
+  } | null>(null);
   const [isDrafting, setIsDrafting] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
@@ -436,6 +442,19 @@ export default function DecisionMakersPage() {
             </div>
           ) : proposalDraft ? (
             <div className="space-y-3">
+              {proposalDraft.rate_limited && (
+                <div className="rounded-lg border border-warning/30 bg-warning/10 p-2.5 text-xs text-warning flex items-center gap-2">
+                  <Sparkles className="h-3.5 w-3.5 shrink-0" />
+                  <span>{proposalDraft.notice || "Demo Limit: 1 DeepSeek AI generation allowed per 24 hours per visitor. Pitch synthesized via template engine."}</span>
+                </div>
+              )}
+              {proposalDraft.ai_generated && (
+                <div className="rounded-lg border border-primary/20 bg-primary/10 p-2.5 text-xs text-primary flex items-center gap-2">
+                  <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary" />
+                  <span>Personalized via DeepSeek-V3 AI (1 free generation per visitor every 24 hours).</span>
+                </div>
+              )}
+
               <div className="space-y-1">
                 <label className="text-[11px] font-medium text-muted-foreground">Subject Line</label>
                 <Input

@@ -73,11 +73,123 @@ class DeepSeekConfig:
         return bool(self.api_key and len(self.api_key) > 5)
 
 
-class DeepSeekClient:
-    """Async client for DeepSeek API with retry policies and heuristic fallbacks."""
+class DeepSeekRateLimiter:
+    """Limits DeepSeek API calls per IP to 1 call per 24 hours (86,400s) with SQLite persistence.
 
-    def __init__(self, config: DeepSeekConfig | None = None) -> None:
+    Also enforces a global daily cap (default: 30 calls/day across all visitors)
+    to protect the user's API key and wallet from credit exhaustion.
+    """
+
+    def __init__(
+        self,
+        window_seconds: float = 86400.0,
+        max_calls_per_window: int = 1,
+        global_daily_cap: int = 30,
+    ) -> None:
+        import time
+        self._time = time
+        self.window_seconds = float(os.environ.get("DEEPSEEK_RATE_LIMIT_SECONDS", window_seconds))
+        self.max_calls_per_window = int(os.environ.get("DEEPSEEK_MAX_CALLS_PER_IP", max_calls_per_window))
+        self.global_daily_cap = int(os.environ.get("DEEPSEEK_GLOBAL_DAILY_CAP", global_daily_cap))
+        self._ip_cache: dict[str, list[float]] = {}
+        self._global_calls_today: list[float] = []
+        self._init_sqlite()
+
+    def _init_sqlite(self) -> None:
+        try:
+            import sqlite3
+            from outreach.paths import DB_PATH
+            if DB_PATH.parent.exists():
+                with sqlite3.connect(str(DB_PATH)) as conn:
+                    conn.execute("""
+                        CREATE TABLE IF NOT EXISTS deepseek_rate_limits (
+                            ip TEXT PRIMARY KEY,
+                            last_called_at REAL,
+                            calls_count INTEGER DEFAULT 1
+                        )
+                    """)
+                    conn.commit()
+        except Exception as e:
+            logger.debug("Rate limiter SQLite init skipped: %s", e)
+
+    def can_call(self, client_ip: str = "") -> tuple[bool, str]:
+        if os.environ.get("DEEPSEEK_RATE_LIMIT_DISABLED") == "1":
+            return True, "Rate limit disabled"
+
+        now = self._time.time()
+        ip = (client_ip or "unknown").strip().lower()
+        cutoff = now - self.window_seconds
+
+        # Clean timestamps older than window
+        self._global_calls_today = [t for t in self._global_calls_today if t > cutoff]
+
+        # 1. Global cap check
+        if len(self._global_calls_today) >= self.global_daily_cap:
+            return False, f"Global demo cap reached ({self.global_daily_cap} calls/24h). Resets tomorrow."
+
+        # 2. Check in-memory cache
+        if ip in self._ip_cache:
+            self._ip_cache[ip] = [t for t in self._ip_cache[ip] if t > cutoff]
+            if len(self._ip_cache[ip]) >= self.max_calls_per_window:
+                elapsed = now - self._ip_cache[ip][-1]
+                remaining_hours = max(1, int((self.window_seconds - elapsed) / 3600))
+                return False, f"Demo limit: 1 AI generation per 24 hours per visitor. Resets in ~{remaining_hours}h."
+
+        # 3. Check persistent SQLite database
+        try:
+            import sqlite3
+            from outreach.paths import DB_PATH
+            if DB_PATH.exists():
+                with sqlite3.connect(str(DB_PATH)) as conn:
+                    cur = conn.cursor()
+                    cur.execute("SELECT last_called_at FROM deepseek_rate_limits WHERE ip = ?", (ip,))
+                    row = cur.fetchone()
+                    if row and row[0]:
+                        last_t = float(row[0])
+                        if last_t > cutoff:
+                            elapsed = now - last_t
+                            remaining_hours = max(1, int((self.window_seconds - elapsed) / 3600))
+                            return False, f"Demo limit: 1 AI generation per 24 hours per visitor. Resets in ~{remaining_hours}h."
+        except Exception:
+            pass
+
+        return True, "OK"
+
+    def record_call(self, client_ip: str = "") -> None:
+        now = self._time.time()
+        ip = (client_ip or "unknown").strip().lower()
+        self._global_calls_today.append(now)
+        if ip not in self._ip_cache:
+            self._ip_cache[ip] = []
+        self._ip_cache[ip].append(now)
+
+        try:
+            import sqlite3
+            from outreach.paths import DB_PATH
+            if DB_PATH.parent.exists():
+                with sqlite3.connect(str(DB_PATH)) as conn:
+                    conn.execute("""
+                        INSERT INTO deepseek_rate_limits (ip, last_called_at, calls_count)
+                        VALUES (?, ?, 1)
+                        ON CONFLICT(ip) DO UPDATE SET
+                            last_called_at = excluded.last_called_at,
+                            calls_count = calls_count + 1
+                    """, (ip, now))
+                    conn.commit()
+        except Exception as e:
+            logger.debug("Failed to record rate limit in SQLite: %s", e)
+
+
+class DeepSeekClient:
+    """Async client for DeepSeek API with retry policies, rate-limiting, and heuristic fallbacks."""
+
+    def __init__(
+        self,
+        config: DeepSeekConfig | None = None,
+        rate_limiter: DeepSeekRateLimiter | None = None,
+    ) -> None:
         self.config = config or DeepSeekConfig()
+        self.rate_limiter = rate_limiter or DeepSeekRateLimiter()
 
     def is_available(self) -> bool:
         """Check if DeepSeek is configured and ready for queries."""

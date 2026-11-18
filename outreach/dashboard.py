@@ -1397,6 +1397,15 @@ async def draft_proposal_endpoint(request: Request):
                 hiring_roles.append(val)
 
     use_ai = bool(body.get("use_ai", True))
+
+    # Extract client IP for 24-hour demo rate limiting
+    forwarded = request.headers.get("x-forwarded-for", "")
+    client_ip = (
+        request.headers.get("cf-connecting-ip")
+        or (forwarded.split(",")[0].strip() if forwarded else "")
+        or (request.client.host if request.client else "127.0.0.1")
+    )
+
     draft = await ProposalGenerator.generate_draft_async(
         first_name=prospect.get("first_name") or "",
         last_name=prospect.get("last_name") or "",
@@ -1409,11 +1418,21 @@ async def draft_proposal_endpoint(request: Request):
         sender_name=sender_name,
         custom_angle=custom_angle,
         use_ai=use_ai,
+        client_ip=client_ip,
     )
     draft.recipient_email = prospect.get("email") or ""
 
+    ai_gen = getattr(draft, "ai_generated", False)
+    is_limited = getattr(draft, "rate_limited", False)
+    notice = getattr(draft, "rate_limit_reason", "")
+
     return {
         "success": True,
+        "subject": draft.subject,
+        "body": draft.body,
+        "ai_generated": ai_gen,
+        "rate_limited": is_limited,
+        "notice": notice,
         "draft": {
             "opportunity_type": draft.opportunity_type,
             "opportunity_label": draft.opportunity_label,
@@ -1428,6 +1447,9 @@ async def draft_proposal_endpoint(request: Request):
             "body": draft.body,
             "target_role": draft.target_role,
             "tech_stack": draft.tech_stack,
+            "ai_generated": ai_gen,
+            "rate_limited": is_limited,
+            "notice": notice,
         },
     }
 

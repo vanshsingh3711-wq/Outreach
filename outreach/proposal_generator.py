@@ -34,6 +34,9 @@ class ProposalDraft:
     opportunity_label: str
     target_role: str = ""
     tech_stack: list[str] = field(default_factory=list)
+    ai_generated: bool = False
+    rate_limited: bool = False
+    rate_limit_reason: str = ""
 
 
 OPPORTUNITY_LABELS = {
@@ -169,6 +172,7 @@ class ProposalGenerator:
         sender_name: str = "Vansh Singh",
         custom_angle: str = "",
         use_ai: bool = True,
+        client_ip: str = "",
     ) -> ProposalDraft:
         """Create a targeted proposal draft, with optional DeepSeek AI enhancement if available."""
         # Baseline deterministic draft
@@ -196,6 +200,14 @@ class ProposalGenerator:
             if not client.is_available():
                 return base_draft
 
+            # Rate limit check (max 1 DeepSeek call per IP per 24 hours)
+            allowed, reason = client.rate_limiter.can_call(client_ip)
+            if not allowed:
+                logger.info("DeepSeek rate limited for IP %s: %s (using deterministic heuristic)", client_ip, reason)
+                base_draft.rate_limited = True
+                base_draft.rate_limit_reason = reason
+                return base_draft
+
             fn = f"{first_name} {last_name}".strip() or first_name or "there"
             ai_pitch = await client.tailor_pitch(
                 prospect_name=fn,
@@ -210,6 +222,8 @@ class ProposalGenerator:
             if ai_pitch and ai_pitch.get("body") and ai_pitch.get("subject"):
                 base_draft.subject = ai_pitch["subject"]
                 base_draft.body = ai_pitch["body"]
+                base_draft.ai_generated = True
+                client.rate_limiter.record_call(client_ip)
         except Exception as exc:
             logger.debug("DeepSeek pitch tailoring skipped: %s", exc)
 
