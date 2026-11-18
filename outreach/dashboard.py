@@ -3659,11 +3659,12 @@ class DashboardSetupError(Exception):
 
 
 def _check_loopback_bind(host: str) -> str:
-    """The host to bind, which must be a loopback address. The dashboard has
-    no remote-access mode: from another machine, use an SSH tunnel."""
+    """The host to bind, which must be a loopback address unless remote hosting is explicitly enabled."""
     name = (host or "").strip().lower()
     if name.startswith("[") and name.endswith("]"):
         name = name[1:-1]
+    if os.environ.get("OUTREACH_ALLOW_REMOTE") == "1" or os.environ.get("OUTREACH_NO_AUTH") == "1":
+        return name or "0.0.0.0"
     if not auth.is_loopback(name):
         raise DashboardSetupError(
             f"Refusing to listen on {host!r}: the dashboard only listens on this machine "

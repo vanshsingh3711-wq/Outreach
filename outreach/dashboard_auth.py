@@ -293,7 +293,9 @@ def is_loopback(host: str) -> bool:
 
 
 def is_dev_cors_origin(origin: str) -> bool:
-    """Check if an origin is a trusted local loopback development origin (e.g. Next.js on port 3000)."""
+    """Check if an origin is a trusted local loopback development origin or remote deployment origin."""
+    if os.environ.get("OUTREACH_ALLOW_REMOTE") == "1" or os.environ.get("OUTREACH_NO_AUTH") == "1":
+        return True
     if not (os.environ.get("OUTREACH_DEV_CORS") == "1" or os.environ.get("OUTREACH_ALLOW_CORS") == "1"):
         return False
     origin = origin.strip().rstrip("/").lower()
@@ -394,10 +396,11 @@ class DashboardGuard:
         # 1. Host, before anything else.
         hosts = headers.get("host", [])
         host = parse_host(hosts[0]) if len(hosts) == 1 else None
-        if host is None or not is_loopback(host):
+        allow_remote = (os.environ.get("OUTREACH_ALLOW_REMOTE") == "1" or os.environ.get("OUTREACH_NO_AUTH") == "1")
+        if not allow_remote and (host is None or not is_loopback(host)):
             return await deny(400, "bad_host",
                               "This dashboard only answers to localhost / 127.0.0.1.")
-        host_header = hosts[0].lower()
+        host_header = hosts[0].lower() if hosts else "localhost"
 
         if method == "OPTIONS" and dev_cors_allowed:
             cors_headers = [
