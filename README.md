@@ -32,6 +32,10 @@
   <a href="#enterprise-security--compliance">🔒 Security</a>
 </p>
 
+<p align="center">
+  <img src="docs/assets/banner-hero-outbound.jpg" alt="Outreach - Autonomous Outbound With a Human Gate" width="100%">
+</p>
+
 ---
 
 ## Executive Overview
@@ -88,6 +92,11 @@ Outreach includes a high-performance web dashboard built with **Next.js 16**, **
 ```
 
 ### 1. High-Intent Account Discovery
+
+<p align="center">
+  <img src="docs/assets/banner-discovery.jpg" alt="Smart Prospecting - Target and Extract Leads" width="100%">
+</p>
+
 Find companies matching exact firmographic criteria, tech stacks, and job openings. Filter targets adopting cutting-edge tools (e.g. LangChain, Qdrant, FastAPI, PyTorch) or experiencing engineering hiring crunches.
 
 ### 2. SSRF-Defended Corporate Enrichment
@@ -307,6 +316,17 @@ Outreach features a robust command-line interface for automation, cron jobs, and
                                   └───────────────────┘                        └───────────────────┘
 ```
 
+### Autonomous Agent Reasoning & Execution
+
+<p align="center">
+  <img src="docs/assets/banner-agent-console.jpg" alt="Autonomous Agent Reasoning and Execution" width="100%">
+</p>
+
+Inspect real-time telemetry, trace agent reasoning chains, and monitor autonomous pipeline execution with total visibility:
+- **Live Streaming Terminal & Logs**: Watch the Scout agent discover accounts, enrich domains, and probe MX records in real time.
+- **Engine State & Process Control**: Start, stop, or toggle between Autonomous mode and Standby with instant background process control.
+- **Reasoning Chains & Multi-Agent Orchestration**: Complete visibility into whether pitches were synthesized via DeepSeek-V3 or generated through structured heuristics.
+
 ---
 
 ## Multi-Provider Support
@@ -321,6 +341,17 @@ Outreach is designed with zero vendor lock-in. Swap or cascade providers effortl
 | **Email Verification** | **Native MX Handshake** | Reoon, ZeroBounce, Hunter.io |
 | **Email Dispatch** | **Gmail API (OAuth 2.0)** | Microsoft 365 (Graph API), Custom SMTP/IMAP |
 | **Mailbox Warmup** | **TrulyInbox** integration | Native ramp-up schedule & throttles |
+
+### AI Cost Telemetry & Token Accounting
+
+<p align="center">
+  <img src="docs/assets/banner-ai-telemetry.jpg" alt="AI Cost Telemetry and Token Expense Monitoring" width="100%">
+</p>
+
+Keep track of token throughput, prompt/completion ratios, and operational LLM expenses in real time:
+- **Live Expense Tracking**: Monitor aggregate 30-day and per-routine inference costs for DeepSeek and Claude models.
+- **Token Efficiency Metrics**: Track token consumption broken down by routine (Scout, Researcher, Copywriter) and task type (`score_contacts`, `draft_pitch`).
+- **Cost-Per-Lead Analytics**: Optimize your prospecting ROI with precise per-account unit economics.
 
 ---
 
