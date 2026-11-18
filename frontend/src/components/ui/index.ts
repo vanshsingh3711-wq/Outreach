@@ -11,3 +11,4 @@ export * from "./metric-card";
 export * from "./skeleton";
 export * from "./status-dot";
 export * from "./brand-icons";
+export * from "./logo";

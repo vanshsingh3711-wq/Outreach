@@ -7,6 +7,7 @@ import { useOutreachStatus } from "@/hooks/use-outreach-status";
 import { useToday } from "@/hooks/use-today";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { Logo } from "@/components/ui/logo";
 import {
   Home,
   Building2,
@@ -185,19 +186,7 @@ export function Sidebar({
           className="flex items-center gap-2.5 group overflow-hidden"
           title="Outreach Home"
         >
-          <div className="flex h-7.5 w-7.5 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-2xs group-hover:scale-105 transition-transform">
-            <Sparkles className="h-3.5 w-3.5" />
-          </div>
-          {!isCollapsed && (
-            <div className="flex items-center gap-1.5 truncate">
-              <span className="font-semibold tracking-tight text-foreground text-sm">
-                outreach
-              </span>
-              <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-mono font-medium text-muted-foreground border border-border">
-                v0.5
-              </span>
-            </div>
-          )}
+          <Logo size={isCollapsed ? 28 : 24} showWordmark={!isCollapsed} version="v0.5" />
         </Link>
 
         {/* Mobile Close Button (shown on mobile drawer only) */}
