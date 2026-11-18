@@ -1,9 +1,23 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchApi } from "@/lib/api-client";
 import { OutboxItem } from "@/lib/types";
+import {
+  Button,
+  Badge,
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  Tabs,
+  Modal,
+  Input,
+  Textarea,
+  Skeleton,
+} from "@/components/ui";
 import {
   Send,
   CheckCircle,
@@ -11,16 +25,19 @@ import {
   Edit3,
   Clock,
   AlertOctagon,
-  Eye,
   MailCheck,
   Check,
   X,
-  Loader2,
-  ChevronDown,
-  ChevronUp,
   Zap,
   ShieldCheck,
   AlertTriangle,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  Mail,
+  Building2,
+  Copy,
+  Sparkles,
 } from "lucide-react";
 
 interface OutboxResponse {
@@ -39,8 +56,10 @@ interface SendingModeResponse {
 
 export default function OutboxPage() {
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<"pending" | "approved" | "sent" | "failed">("pending");
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<string>("pending");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [searchFilter, setSearchFilter] = useState("");
+  const [copiedSubject, setCopiedSubject] = useState(false);
 
   // Edit modal state
   const [editingItem, setEditingItem] = useState<OutboxItem | null>(null);
@@ -105,6 +124,87 @@ export default function OutboxPage() {
     },
   });
 
+  const pending = data?.pending || [];
+  const approved = data?.approved || [];
+  const sent = data?.sent || [];
+  const failed = data?.failed || [];
+
+  const currentList = useMemo(() => {
+    const raw =
+      activeTab === "pending"
+        ? pending
+        : activeTab === "approved"
+        ? approved
+        : activeTab === "sent"
+        ? sent
+        : failed;
+
+    if (!searchFilter.trim()) return raw;
+    const lower = searchFilter.toLowerCase();
+    return raw.filter(
+      (item) =>
+        item.to_email?.toLowerCase().includes(lower) ||
+        item.prospect_name?.toLowerCase().includes(lower) ||
+        item.company_name?.toLowerCase().includes(lower) ||
+        item.subject?.toLowerCase().includes(lower)
+    );
+  }, [activeTab, pending, approved, sent, failed, searchFilter]);
+
+  // Keep selected item valid
+  const selectedItem = useMemo(() => {
+    if (!currentList.length) return null;
+    return currentList.find((item) => item.id === selectedId) || currentList[0];
+  }, [currentList, selectedId]);
+
+  const selectedIndex = useMemo(() => {
+    if (!selectedItem) return -1;
+    return currentList.findIndex((item) => item.id === selectedItem.id);
+  }, [currentList, selectedItem]);
+
+  // Keyboard navigation shortcuts: A (approve), R (reject), E (edit), J/K (next/prev)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if typing in an input or modal is open
+      if (
+        editingItem ||
+        showAutopilotModal ||
+        ["INPUT", "TEXTAREA"].includes((e.target as HTMLElement)?.tagName)
+      ) {
+        return;
+      }
+
+      if (e.key === "j" || e.key === "ArrowDown") {
+        e.preventDefault();
+        if (selectedIndex < currentList.length - 1) {
+          setSelectedId(currentList[selectedIndex + 1].id);
+        }
+      } else if (e.key === "k" || e.key === "ArrowUp") {
+        e.preventDefault();
+        if (selectedIndex > 0) {
+          setSelectedId(currentList[selectedIndex - 1].id);
+        }
+      } else if (e.key === "a" || e.key === "A") {
+        if (activeTab === "pending" && selectedItem) {
+          e.preventDefault();
+          approveMutation.mutate(selectedItem.id);
+        }
+      } else if (e.key === "r" || e.key === "R") {
+        if (activeTab === "pending" && selectedItem) {
+          e.preventDefault();
+          rejectMutation.mutate(selectedItem.id);
+        }
+      } else if (e.key === "e" || e.key === "E") {
+        if (selectedItem) {
+          e.preventDefault();
+          handleOpenEdit(selectedItem);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedItem, selectedIndex, currentList, activeTab, editingItem, showAutopilotModal]);
+
   const handleOpenEdit = (item: OutboxItem) => {
     setEditingItem(item);
     setEditSubject(item.subject);
@@ -143,345 +243,416 @@ export default function OutboxPage() {
     setShowAutopilotModal(false);
   };
 
-  const pending = data?.pending || [];
-  const approved = data?.approved || [];
-  const sent = data?.sent || [];
-  const failed = data?.failed || [];
+  const handleCopySubject = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedSubject(true);
+    setTimeout(() => setCopiedSubject(false), 2000);
+  };
+
+  const tabItems = [
+    {
+      id: "pending",
+      label: "Pending Review",
+      icon: <Clock className="h-3.5 w-3.5" />,
+      badge: pending.length,
+    },
+    {
+      id: "approved",
+      label: "Ready to Dispatch",
+      icon: <Send className="h-3.5 w-3.5" />,
+      badge: approved.length,
+    },
+    {
+      id: "sent",
+      label: "Dispatched",
+      icon: <MailCheck className="h-3.5 w-3.5" />,
+      badge: sent.length,
+    },
+    {
+      id: "failed",
+      label: "Issues / Bounced",
+      icon: <AlertOctagon className="h-3.5 w-3.5" />,
+      badge: failed.length,
+    },
+  ];
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
-      {/* Page Title & Sending Mode Controller */}
+    <div className="space-y-5 animate-in fade-in duration-200">
+      {/* Page Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2.5">
-            <h1 className="text-2xl font-bold tracking-tight text-white">Outbox & Draft Review</h1>
-            {data?.paused ? (
-              <span className="rounded-full bg-rose-500/15 px-2.5 py-0.5 text-xs font-semibold text-rose-400 border border-rose-500/30">
-                Sending Paused
-              </span>
-            ) : (
-              <span className="rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-xs font-semibold text-emerald-400 border border-emerald-500/30">
-                Dispatch Active
-              </span>
-            )}
+            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">
+              Outbox & Draft Review
+            </h1>
+            <Badge
+              variant={data?.paused ? "destructive" : "success"}
+              size="sm"
+              dot
+              pulseDot={!data?.paused}
+            >
+              {data?.paused ? "Dispatch Paused" : "Dispatch Active"}
+            </Badge>
           </div>
-          <p className="mt-1 text-sm text-slate-400">
-            Review, edit, and approve personalized outbound emails generated by DeepSeek.
+          <p className="mt-1 text-xs text-muted-foreground">
+            Review, edit, and authorize personalized emails generated by DeepSeek.
           </p>
         </div>
 
-        {/* Global Actions */}
-        <div className="flex items-center gap-3">
-          {/* Sending Mode Toggle Button */}
-          <button
+        {/* Global Controls & Mode Switcher */}
+        <div className="flex items-center gap-2.5">
+          {/* Autopilot Switcher */}
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleToggleMode}
-            className={`flex items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-semibold transition cursor-pointer ${
-              currentMode === "autopilot"
-                ? "border-amber-500/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20"
-                : "border-sky-500/40 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20"
-            }`}
+            leftIcon={
+              currentMode === "autopilot" ? (
+                <Zap className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />
+              ) : (
+                <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
+              )
+            }
           >
-            {currentMode === "autopilot" ? (
-              <>
-                <Zap className="h-4 w-4 text-amber-400 fill-amber-400" />
-                <span>Mode: Autopilot Active</span>
-              </>
-            ) : (
-              <>
-                <ShieldCheck className="h-4 w-4 text-sky-400" />
-                <span>Mode: Manual Review</span>
-              </>
-            )}
-          </button>
+            <span>{currentMode === "autopilot" ? "Autopilot Active" : "Human Approval Mode"}</span>
+          </Button>
 
-          {pending.length > 0 && (
-            <button
+          {activeTab === "pending" && pending.length > 0 && (
+            <Button
+              variant="primary"
+              size="sm"
               onClick={() => approveAllMutation.mutate()}
-              disabled={approveAllMutation.isPending}
-              className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-emerald-600/20 hover:bg-emerald-500 transition cursor-pointer disabled:opacity-50"
+              isLoading={approveAllMutation.isPending}
+              leftIcon={<CheckCircle className="h-3.5 w-3.5" />}
             >
-              <CheckCircle className="h-4 w-4" />
-              <span>
-                {approveAllMutation.isPending ? "Approving All..." : `Approve All (${pending.length})`}
-              </span>
-            </button>
+              <span>Approve All ({pending.length})</span>
+            </Button>
           )}
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
-        <button
-          onClick={() => setActiveTab("pending")}
-          className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-medium transition ${
-            activeTab === "pending"
-              ? "bg-sky-500/15 text-sky-400 border border-sky-500/30 font-semibold"
-              : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
-          }`}
-        >
-          <Clock className="h-4 w-4" />
-          <span>Pending Review ({pending.length})</span>
-        </button>
+      {/* Navigation Tabs */}
+      <div className="flex items-center justify-between border-b border-border pb-3">
+        <Tabs
+          items={tabItems}
+          value={activeTab}
+          onChange={(tab) => {
+            setActiveTab(tab);
+            setSelectedId(null);
+          }}
+          variant="pill"
+        />
 
-        <button
-          onClick={() => setActiveTab("approved")}
-          className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-medium transition ${
-            activeTab === "approved"
-              ? "bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 font-semibold"
-              : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
-          }`}
-        >
-          <Send className="h-4 w-4" />
-          <span>Ready to Send ({approved.length})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab("sent")}
-          className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-medium transition ${
-            activeTab === "sent"
-              ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-semibold"
-              : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
-          }`}
-        >
-          <MailCheck className="h-4 w-4" />
-          <span>Dispatched ({sent.length})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab("failed")}
-          className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-medium transition ${
-            activeTab === "failed"
-              ? "bg-rose-500/15 text-rose-400 border border-rose-500/30 font-semibold"
-              : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
-          }`}
-        >
-          <AlertOctagon className="h-4 w-4" />
-          <span>Failed / Discarded ({failed.length})</span>
-        </button>
+        {/* Keyboard hints banner */}
+        <div className="hidden lg:flex items-center gap-2 text-[11px] text-muted-foreground">
+          <span>Shortcuts:</span>
+          <kbd className="rounded border border-border bg-card px-1 text-[10px] font-mono">A</kbd> Approve
+          <kbd className="rounded border border-border bg-card px-1 text-[10px] font-mono">R</kbd> Reject
+          <kbd className="rounded border border-border bg-card px-1 text-[10px] font-mono">E</kbd> Edit
+          <kbd className="rounded border border-border bg-card px-1 text-[10px] font-mono">J/K</kbd> Prev/Next
+        </div>
       </div>
 
-      {/* Main Outbox List */}
-      <div className="space-y-3">
-        {isLoading ? (
-          <div className="py-16 text-center text-slate-500">
-            <Loader2 className="mx-auto h-6 w-6 animate-spin text-sky-400 mb-2" />
-            <span>Loading outbox items...</span>
+      {/* Master-Detail Split Stage */}
+      {isLoading ? (
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
+          <div className="space-y-3 lg:col-span-5">
+            <Skeleton className="h-9 w-full" />
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-20 w-full" />
           </div>
-        ) : (
-          (() => {
-            const currentList =
-              activeTab === "pending"
-                ? pending
-                : activeTab === "approved"
-                ? approved
-                : activeTab === "sent"
-                ? sent
-                : failed;
+          <div className="lg:col-span-7">
+            <Skeleton className="h-96 w-full" />
+          </div>
+        </div>
+      ) : currentList.length === 0 ? (
+        <Card className="p-12 text-center">
+          <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-muted text-muted-foreground mb-3">
+            <Mail className="h-5 w-5" />
+          </div>
+          <h3 className="text-sm font-semibold text-foreground">No emails in queue</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            The {activeTab} queue is completely cleared. Newly generated drafts will appear here automatically.
+          </p>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 items-start">
+          {/* Left Master List (5 cols) */}
+          <div className="space-y-2.5 lg:col-span-5">
+            {/* Search filter input */}
+            <Input
+              value={searchFilter}
+              onChange={(e) => setSearchFilter(e.target.value)}
+              placeholder="Filter recipient, company, subject..."
+              leftIcon={<Search className="h-3.5 w-3.5" />}
+              className="h-8.5"
+            />
 
-            if (currentList.length === 0) {
-              return (
-                <div className="rounded-2xl border border-slate-800 bg-slate-900/30 p-12 text-center text-slate-500">
-                  No emails in the {activeTab} queue.
-                </div>
-              );
-            }
+            {/* Scrollable List */}
+            <div className="space-y-1.5 max-h-[calc(100vh-280px)] overflow-y-auto pr-1">
+              {currentList.map((item, idx) => {
+                const isSelected = selectedItem?.id === item.id;
 
-            return currentList.map((item) => {
-              const isExpanded = expandedId === item.id;
-
-              return (
-                <div
-                  key={item.id}
-                  className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5 shadow-sm transition hover:border-slate-700"
-                >
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-white text-sm">
-                          {item.prospect_name || item.to_email}
-                        </span>
-                        {item.company_name && (
-                          <span className="text-xs text-slate-400">
-                            at <span className="text-slate-200">{item.company_name}</span>
+                return (
+                  <div
+                    key={item.id}
+                    onClick={() => setSelectedId(item.id)}
+                    className={`rounded-lg border p-3 transition-all cursor-pointer select-none ${
+                      isSelected
+                        ? "border-primary/40 bg-secondary shadow-2xs"
+                        : "border-border bg-card hover:bg-muted/40 hover:border-border/80"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="truncate">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-foreground truncate">
+                            {item.prospect_name || item.to_email}
                           </span>
-                        )}
-                        <span className="rounded bg-slate-800 px-2 py-0.5 text-[10px] font-mono text-slate-300">
+                          {item.company_name && (
+                            <span className="text-[10px] text-muted-foreground truncate">
+                              at {item.company_name}
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-0.5 text-[11px] font-mono text-muted-foreground truncate">
                           {item.to_email}
-                        </span>
+                        </p>
                       </div>
 
-                      <div className="mt-2 text-xs font-medium text-sky-300">
-                        Subject: {item.subject}
-                      </div>
+                      <span className="text-[10px] text-muted-foreground/60 font-mono shrink-0">
+                        #{idx + 1}
+                      </span>
                     </div>
 
-                    {/* Action Controls for Pending */}
-                    {activeTab === "pending" && (
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button
-                          onClick={() => handleOpenEdit(item)}
-                          className="flex items-center gap-1 rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700 transition cursor-pointer"
-                        >
-                          <Edit3 className="h-3.5 w-3.5" />
-                          <span>Edit</span>
-                        </button>
+                    <div className="mt-2 text-xs font-medium text-foreground/90 truncate">
+                      {item.subject}
+                    </div>
 
-                        <button
-                          onClick={() => rejectMutation.mutate(item.id)}
-                          disabled={rejectMutation.isPending}
-                          title="Reject draft"
-                          className="flex h-8 w-8 items-center justify-center rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition cursor-pointer"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
+                    <p className="mt-1 text-[11px] text-muted-foreground line-clamp-2 leading-relaxed">
+                      {item.body.replace(/\n+/g, " ").slice(0, 140)}...
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
 
-                        <button
-                          onClick={() => approveMutation.mutate(item.id)}
-                          disabled={approveMutation.isPending}
-                          className="flex items-center gap-1 rounded-xl bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500 transition cursor-pointer shadow-sm shadow-emerald-600/20"
-                        >
-                          <Check className="h-3.5 w-3.5" />
-                          <span>Approve</span>
-                        </button>
-                      </div>
+          {/* Right Detail Stage (7 cols) */}
+          <div className="lg:col-span-7 sticky top-20">
+            {selectedItem ? (
+              <Card className="flex flex-col overflow-hidden">
+                {/* Header Action Ribbon */}
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-muted/20 p-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-foreground">
+                      {selectedItem.prospect_name || selectedItem.to_email}
+                    </span>
+                    {selectedItem.company_name && (
+                      <Badge variant="outline" size="sm">
+                        <Building2 className="h-3 w-3 mr-1" />
+                        {selectedItem.company_name}
+                      </Badge>
                     )}
                   </div>
 
-                  {/* Body Preview with Toggle */}
-                  <div className="mt-4 pt-3 border-t border-slate-800/80">
-                    <button
-                      onClick={() => setExpandedId(isExpanded ? null : item.id)}
-                      className="flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 cursor-pointer"
-                    >
-                      {isExpanded ? (
-                        <>
-                          <ChevronUp className="h-3.5 w-3.5" />
-                          <span>Hide message body</span>
-                        </>
-                      ) : (
-                        <>
-                          <ChevronDown className="h-3.5 w-3.5" />
-                          <span>Preview message body</span>
-                        </>
-                      )}
-                    </button>
+                  {/* Actions for Pending Drafts */}
+                  {activeTab === "pending" && (
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        variant="secondary"
+                        size="xs"
+                        onClick={() => handleOpenEdit(selectedItem)}
+                        leftIcon={<Edit3 className="h-3 w-3" />}
+                      >
+                        Edit
+                      </Button>
 
-                    {isExpanded && (
-                      <div className="mt-3 rounded-xl border border-slate-800 bg-slate-950 p-4 font-mono text-xs text-slate-300 whitespace-pre-wrap leading-relaxed">
-                        {item.body}
-                      </div>
-                    )}
+                      <Button
+                        variant="destructive"
+                        size="xs"
+                        onClick={() => rejectMutation.mutate(selectedItem.id)}
+                        disabled={rejectMutation.isPending}
+                        leftIcon={<X className="h-3 w-3" />}
+                      >
+                        Reject
+                      </Button>
+
+                      <Button
+                        variant="primary"
+                        size="xs"
+                        onClick={() => approveMutation.mutate(selectedItem.id)}
+                        disabled={approveMutation.isPending}
+                        leftIcon={<Check className="h-3 w-3" />}
+                      >
+                        Approve
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Navigation next / prev */}
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => {
+                        if (selectedIndex > 0) {
+                          setSelectedId(currentList[selectedIndex - 1].id);
+                        }
+                      }}
+                      disabled={selectedIndex <= 0}
+                      title="Previous email (K)"
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </Button>
+                    <span className="text-[10px] font-mono text-muted-foreground px-1">
+                      {selectedIndex + 1} / {currentList.length}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => {
+                        if (selectedIndex < currentList.length - 1) {
+                          setSelectedId(currentList[selectedIndex + 1].id);
+                        }
+                      }}
+                      disabled={selectedIndex >= currentList.length - 1}
+                      title="Next email (J)"
+                    >
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
                 </div>
-              );
-            });
-          })()
-        )}
-      </div>
+
+                {/* Email Metadata Card */}
+                <div className="border-b border-border/70 p-4 space-y-2 bg-muted/10 text-xs">
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <span className="text-[11px]">To:</span>
+                    <span className="font-mono text-foreground">{selectedItem.to_email}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] text-muted-foreground">Subject:</span>
+                    <div className="flex items-center gap-2 text-foreground font-medium truncate">
+                      <span className="truncate">{selectedItem.subject}</span>
+                      <button
+                        onClick={() => handleCopySubject(selectedItem.subject)}
+                        title="Copy subject line"
+                        className="text-muted-foreground hover:text-foreground cursor-pointer"
+                      >
+                        {copiedSubject ? (
+                          <Check className="h-3 w-3 text-emerald-500" />
+                        ) : (
+                          <Copy className="h-3 w-3" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Email Body Canvas */}
+                <div className="p-5 max-h-[calc(100vh-420px)] overflow-y-auto">
+                  <div className="rounded-lg border border-border bg-background p-4 font-mono text-xs text-foreground leading-relaxed whitespace-pre-wrap selection:bg-primary/20">
+                    {selectedItem.body}
+                  </div>
+                </div>
+              </Card>
+            ) : (
+              <Card className="p-12 text-center text-muted-foreground">
+                <p className="text-xs">Select an email draft from the left column to preview.</p>
+              </Card>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Autopilot Confirmation Modal */}
-      {showAutopilotModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 animate-in fade-in duration-150">
-          <div className="w-full max-w-md rounded-2xl border border-amber-500/30 bg-slate-900/95 p-6 shadow-2xl space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400">
-                <AlertTriangle className="h-5 w-5" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-white text-base">Enable Autopilot Mode?</h3>
-                <p className="text-xs text-slate-400">Automatic dispatch without manual review</p>
-              </div>
-            </div>
+      <Modal
+        isOpen={showAutopilotModal}
+        onClose={() => setShowAutopilotModal(false)}
+        title="Enable Autopilot Sending Mode?"
+        description="Autonomous email dispatch without human pre-review"
+        footer={
+          <>
+            <Button variant="outline" size="sm" onClick={() => setShowAutopilotModal(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleConfirmAutopilot}
+              disabled={autopilotConfirmInput.trim().toLowerCase() !== "autopilot"}
+            >
+              Confirm Autopilot
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            In autopilot mode, Outreach will dispatch generated outbound pitches directly to verified prospects
+            as soon as they pass deliverability checks.
+          </p>
 
-            <p className="text-xs text-slate-300 leading-relaxed">
-              In autopilot mode, Outreach will dispatch approved cold emails directly to prospects
-              without waiting for you to click "Approve" on each one.
-            </p>
-
-            <div>
-              <label className="block text-xs font-medium text-slate-400">
-                Type <span className="font-mono text-amber-300 font-bold">autopilot</span> to confirm:
-              </label>
-              <input
-                type="text"
-                value={autopilotConfirmInput}
-                onChange={(e) => setAutopilotConfirmInput(e.target.value)}
-                placeholder="autopilot"
-                className="mt-1.5 block w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2 text-xs text-white focus:border-amber-500 focus:outline-none"
-                autoFocus
-              />
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
-                onClick={() => setShowAutopilotModal(false)}
-                className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-medium text-slate-300 hover:bg-slate-700"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirmAutopilot}
-                disabled={autopilotConfirmInput.trim().toLowerCase() !== "autopilot"}
-                className="rounded-xl bg-amber-500 px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-amber-400 transition disabled:opacity-40"
-              >
-                Switch to Autopilot
-              </button>
-            </div>
+          <div className="space-y-1">
+            <label className="text-[11px] font-medium text-muted-foreground">
+              Type <span className="font-mono font-semibold text-foreground">autopilot</span> to authorize:
+            </label>
+            <Input
+              value={autopilotConfirmInput}
+              onChange={(e) => setAutopilotConfirmInput(e.target.value)}
+              placeholder="autopilot"
+              autoFocus
+            />
           </div>
         </div>
-      )}
+      </Modal>
 
-      {/* Edit Modal */}
-      {editingItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 animate-in fade-in duration-150">
-          <div className="w-full max-w-2xl rounded-2xl border border-slate-800 bg-slate-900/95 p-6 shadow-2xl flex flex-col max-h-[90vh]">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-              <h3 className="text-base font-semibold text-white">Edit Outbound Email</h3>
-              <button onClick={() => setEditingItem(null)} className="text-slate-400 hover:text-white">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+      {/* Edit Email Modal */}
+      <Modal
+        isOpen={!!editingItem}
+        onClose={() => setEditingItem(null)}
+        title="Edit Outbound Email"
+        description="Fine-tune subject line and body before authorizing"
+        maxWidth="xl"
+        footer={
+          <>
+            <Button variant="outline" size="sm" onClick={() => setEditingItem(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleSaveEdit}
+              isLoading={isSavingEdit}
+            >
+              Save Changes
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3.5 py-1">
+          <div className="space-y-1">
+            <label className="text-[11px] font-medium text-muted-foreground">Subject Line</label>
+            <Input
+              value={editSubject}
+              onChange={(e) => setEditSubject(e.target.value)}
+              placeholder="Email subject line"
+            />
+          </div>
 
-            <div className="py-4 space-y-4 flex-1 overflow-y-auto">
-              <div>
-                <label className="block text-xs font-medium text-slate-400">Subject</label>
-                <input
-                  type="text"
-                  value={editSubject}
-                  onChange={(e) => setEditSubject(e.target.value)}
-                  className="mt-1.5 block w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2 text-xs text-white focus:border-sky-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-400">Body</label>
-                <textarea
-                  rows={10}
-                  value={editBody}
-                  onChange={(e) => setEditBody(e.target.value)}
-                  className="mt-1.5 block w-full rounded-xl border border-slate-700 bg-slate-950 p-3.5 font-mono text-xs text-slate-200 focus:border-sky-500 focus:outline-none"
-                />
-              </div>
-            </div>
-
-            <div className="border-t border-slate-800 pt-4 flex items-center justify-end gap-2">
-              <button
-                onClick={() => setEditingItem(null)}
-                className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-medium text-slate-300 hover:bg-slate-700 transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveEdit}
-                disabled={isSavingEdit}
-                className="flex items-center gap-1.5 rounded-xl bg-sky-500 px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-sky-400 transition disabled:opacity-50"
-              >
-                {isSavingEdit ? "Saving..." : "Save Changes"}
-              </button>
-            </div>
+          <div className="space-y-1">
+            <label className="text-[11px] font-medium text-muted-foreground">Email Body</label>
+            <Textarea
+              rows={12}
+              value={editBody}
+              onChange={(e) => setEditBody(e.target.value)}
+              className="font-mono"
+            />
           </div>
         </div>
-      )}
+      </Modal>
     </div>
   );
 }

@@ -5,22 +5,32 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchApi } from "@/lib/api-client";
 import { DecisionMaker } from "@/lib/types";
 import {
+  Table,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  TableCell,
+  Badge,
+  Button,
+  Input,
+  Modal,
+  Textarea,
+  Skeleton,
+} from "@/components/ui";
+import {
   Users,
   Search,
-  Filter,
   Download,
   Sparkles,
   ExternalLink,
   Mail,
-  CheckCircle,
-  AlertCircle,
-  HelpCircle,
-  Send,
-  X,
-  Loader2,
-  Copy,
   Check,
+  Copy,
   FileText,
+  AlertCircle,
+  Loader2,
+  Building2,
 } from "lucide-react";
 import { LinkedInIcon, GitHubIcon, TwitterXIcon } from "@/components/ui/brand-icons";
 
@@ -49,7 +59,7 @@ export default function DecisionMakersPage() {
   const [modalError, setModalError] = useState<string | null>(null);
 
   // Fetch decision makers
-  const { data, isLoading, refetch } = useQuery<{
+  const { data, isLoading } = useQuery<{
     total: number;
     decision_makers: DecisionMaker[];
   }>({
@@ -99,7 +109,7 @@ export default function DecisionMakersPage() {
     setModalError(null);
 
     try {
-      await fetchApi("/api/prospecting/approve-outreach", {
+      await fetchApi("/api/prospecting/approve-proposal", {
         method: "POST",
         body: JSON.stringify({
           prospect_id: selectedProspect.id,
@@ -107,66 +117,64 @@ export default function DecisionMakersPage() {
           body: proposalDraft.body,
         }),
       });
-      setSelectedProspect(null);
-      setProposalDraft(null);
+
       queryClient.invalidateQueries({ queryKey: ["decision-makers"] });
-      queryClient.invalidateQueries({ queryKey: ["pipeline-stats"] });
       queryClient.invalidateQueries({ queryKey: ["outbox-items"] });
+      queryClient.invalidateQueries({ queryKey: ["today-dashboard"] });
+      setSelectedProspect(null);
     } catch (err: any) {
-      setModalError(err.message || "Failed to approve proposal.");
+      setModalError(err.message || "Failed to queue draft to outbox.");
     } finally {
       setIsApproving(false);
     }
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
-      {/* Header */}
+    <div className="space-y-5 animate-in fade-in duration-200">
+      {/* Page Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2.5">
-            <h1 className="text-2xl font-bold tracking-tight text-white">Decision-Makers</h1>
-            <span className="rounded-full bg-indigo-500/10 px-2.5 py-0.5 text-xs font-semibold text-indigo-400 ring-1 ring-indigo-500/20">
+            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">
+              Decision-Makers & Leads
+            </h1>
+            <Badge variant="neutral" size="sm" className="font-mono">
               {data?.total ?? 0} Discovered
-            </span>
+            </Badge>
           </div>
-          <p className="mt-1 text-sm text-slate-400">
-            Enriched technical leadership and decision-makers discovered by DeepSeek Brain.
+          <p className="mt-1 text-xs text-muted-foreground">
+            Enriched technical leadership, executives, and buyers identified by DeepSeek Brain.
           </p>
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <a
             href="/api/prospecting/decision-makers?format=csv"
             download="decision-makers.csv"
-            className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/60 px-3.5 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-800 transition"
           >
-            <Download className="h-4 w-4" />
-            <span>Export CSV</span>
+            <Button variant="secondary" size="sm" leftIcon={<Download className="h-3.5 w-3.5" />}>
+              Export CSV
+            </Button>
           </a>
         </div>
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="flex flex-col gap-3 rounded-2xl border border-slate-800 bg-slate-900/40 p-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative flex-1">
-          <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-          <input
-            type="text"
-            placeholder="Search by name, title, company, or domain..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full rounded-xl border border-slate-700/80 bg-slate-950/60 py-2 pl-10 pr-4 text-xs text-white placeholder-slate-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-          />
-        </div>
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+        <Input
+          placeholder="Filter by name, title, company, or domain..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          leftIcon={<Search className="h-3.5 w-3.5" />}
+          className="max-w-md h-8.5"
+        />
 
         <div className="flex items-center gap-2">
           {/* Deliverability Filter */}
           <select
             value={deliverabilityFilter}
             onChange={(e) => setDeliverabilityFilter(e.target.value)}
-            className="rounded-xl border border-slate-700/80 bg-slate-950/60 px-3 py-2 text-xs text-slate-200 focus:border-sky-500 focus:outline-none"
+            className="h-8.5 rounded-lg border border-input bg-background/60 px-3 py-1 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             <option value="">All Deliverability</option>
             <option value="verified">Verified Only</option>
@@ -178,7 +186,7 @@ export default function DecisionMakersPage() {
           <select
             value={rolePriorityFilter}
             onChange={(e) => setRolePriorityFilter(e.target.value)}
-            className="rounded-xl border border-slate-700/80 bg-slate-950/60 px-3 py-2 text-xs text-slate-200 focus:border-sky-500 focus:outline-none"
+            className="h-8.5 rounded-lg border border-input bg-background/60 px-3 py-1 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             <option value="">All Role Priorities</option>
             <option value="1">Priority 1 (CTO / VP / Founder)</option>
@@ -189,312 +197,267 @@ export default function DecisionMakersPage() {
       </div>
 
       {/* Decision-Makers Table */}
-      <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/40 shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="border-b border-slate-800 bg-slate-950/60 uppercase tracking-wider text-[11px] text-slate-400">
-              <tr>
-                <th className="px-5 py-3.5 font-medium">Decision-Maker</th>
-                <th className="px-5 py-3.5 font-medium">Company</th>
-                <th className="px-5 py-3.5 font-medium">Email & Deliverability</th>
-                <th className="px-5 py-3.5 font-medium">Signals / Dossier</th>
-                <th className="px-5 py-3.5 text-right font-medium">AI Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={5} className="py-12 text-center text-slate-500">
-                    <Loader2 className="mx-auto h-6 w-6 animate-spin text-sky-400 mb-2" />
-                    <span>Loading decision-makers...</span>
-                  </td>
-                </tr>
-              ) : decisionMakers.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="py-12 text-center text-slate-500">
-                    No decision-makers matched your filters.
-                  </td>
-                </tr>
-              ) : (
-                decisionMakers.map((dm) => {
-                  const isVerified = dm.email_status === "verified";
-                  const isDeliverable = dm.email_status === "deliverable";
-                  const confidence = Math.round((dm.email_match_confidence || 0.85) * 100);
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-[30%]">Decision-Maker</TableHead>
+            <TableHead className="w-[22%]">Company</TableHead>
+            <TableHead className="w-[25%]">Email & Deliverability</TableHead>
+            <TableHead className="w-[10%]">Evidence</TableHead>
+            <TableHead className="w-[13%] text-right">AI Action</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {isLoading ? (
+            Array.from({ length: 6 }).map((_, i) => (
+              <TableRow key={i}>
+                <TableCell><Skeleton className="h-5 w-3/4" /></TableCell>
+                <TableCell><Skeleton className="h-5 w-1/2" /></TableCell>
+                <TableCell><Skeleton className="h-5 w-2/3" /></TableCell>
+                <TableCell><Skeleton className="h-5 w-10" /></TableCell>
+                <TableCell className="text-right"><Skeleton className="h-5 w-16 ml-auto" /></TableCell>
+              </TableRow>
+            ))
+          ) : decisionMakers.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={5} className="py-12 text-center text-xs text-muted-foreground">
+                No decision-makers matched your filters.
+              </TableCell>
+            </TableRow>
+          ) : (
+            decisionMakers.map((dm) => {
+              const isVerified = dm.email_status === "verified";
+              const isDeliverable = dm.email_status === "deliverable";
+              const isPatternGuess = dm.email_status === "guess";
 
-                  return (
-                    <tr
-                      key={dm.id}
-                      className="hover:bg-slate-800/30 transition-colors group"
-                    >
-                      {/* Name & Title */}
-                      <td className="px-5 py-3.5">
-                        <div className="font-semibold text-white group-hover:text-sky-300 transition-colors">
-                          {dm.full_name}
-                        </div>
-                        <div className="text-[11px] text-slate-400">{dm.title || "Leadership"}</div>
-                        {dm.role_priority && (
-                          <span className="mt-1 inline-block rounded bg-indigo-500/10 px-1.5 py-0.5 text-[10px] font-medium text-indigo-400 border border-indigo-500/20">
-                            P{dm.role_priority} Priority
+              return (
+                <TableRow key={dm.id} className="group">
+                  {/* Name and Title */}
+                  <TableCell>
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground font-mono text-[11px] font-semibold">
+                        {(dm.first_name?.[0] || "") + (dm.last_name?.[0] || "")}
+                      </div>
+                      <div className="truncate">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-semibold text-foreground text-xs group-hover:text-primary transition-colors">
+                            {dm.full_name}
                           </span>
-                        )}
-                      </td>
-
-                      {/* Company & Domain */}
-                      <td className="px-5 py-3.5">
-                        <div className="font-medium text-slate-200">{dm.company_name}</div>
-                        {dm.company_domain && (
-                          <a
-                            href={`https://${dm.company_domain}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-[11px] text-sky-400 hover:underline flex items-center gap-1 mt-0.5"
-                          >
-                            <span>{dm.company_domain}</span>
-                            <ExternalLink className="h-2.5 w-2.5" />
-                          </a>
-                        )}
-                      </td>
-
-                      {/* Email & Status */}
-                      <td className="px-5 py-3.5">
-                        <div className="flex items-center gap-1.5 font-mono text-[11px] text-slate-300">
-                          <Mail className="h-3.5 w-3.5 text-slate-500" />
-                          <span>{dm.email || "No direct email"}</span>
-                          {dm.email && (
-                            <button
-                              onClick={() => handleCopy(dm.email)}
-                              title="Copy email address"
-                              className="text-slate-500 hover:text-white transition ml-1 cursor-pointer"
-                            >
-                              {copiedEmail === dm.email ? (
-                                <Check className="h-3 w-3 text-emerald-400" />
-                              ) : (
-                                <Copy className="h-3 w-3" />
-                              )}
-                            </button>
+                          {dm.role_priority && (
+                            <span className="rounded bg-muted px-1 text-[9px] font-mono text-muted-foreground border border-border">
+                              P{dm.role_priority}
+                            </span>
                           )}
                         </div>
-                        <div className="mt-1 flex items-center gap-2">
-                          <span
-                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                              isVerified
-                                ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
-                                : isDeliverable
-                                ? "bg-sky-500/15 text-sky-300 border border-sky-500/30"
-                                : "bg-amber-500/15 text-amber-300 border border-amber-500/30"
-                            }`}
+                        <p className="text-[11px] text-muted-foreground truncate">{dm.title}</p>
+                      </div>
+                    </div>
+                  </TableCell>
+
+                  {/* Company */}
+                  <TableCell>
+                    <span className="font-medium text-foreground text-xs block truncate">
+                      {dm.company_name}
+                    </span>
+                    <span className="text-[11px] font-mono text-muted-foreground block truncate">
+                      {dm.company_domain}
+                    </span>
+                  </TableCell>
+
+                  {/* Email & Status */}
+                  <TableCell>
+                    {dm.email ? (
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono text-xs text-foreground truncate max-w-[190px]">
+                            {dm.email}
+                          </span>
+                          <button
+                            onClick={() => handleCopy(dm.email!)}
+                            title="Copy email address"
+                            className="text-muted-foreground hover:text-foreground cursor-pointer"
                           >
-                            {isVerified ? (
-                              <CheckCircle className="h-2.5 w-2.5" />
+                            {copiedEmail === dm.email ? (
+                              <Check className="h-3 w-3 text-emerald-500" />
                             ) : (
-                              <HelpCircle className="h-2.5 w-2.5" />
+                              <Copy className="h-3 w-3" />
                             )}
-                            <span className="capitalize">{dm.email_status || "Guess"}</span>
-                          </span>
-                          <span className="text-[10px] text-slate-500">
-                            {confidence}% match
-                          </span>
+                          </button>
                         </div>
-                      </td>
-
-                      {/* Profiles & Evidence */}
-                      <td className="px-5 py-3.5">
-                        <div className="flex items-center gap-2.5">
-                          {dm.linkedin_url && (
-                            <a
-                              href={formatLinkedInUrl(dm.linkedin_url)}
-                              target="_blank"
-                              rel="noreferrer"
-                              title="LinkedIn Profile"
-                              className="text-slate-400 hover:text-sky-400 transition"
-                            >
-                              <LinkedInIcon className="h-3.5 w-3.5" />
-                            </a>
-                          )}
-                          {dm.github_url && (
-                            <a
-                              href={dm.github_url}
-                              target="_blank"
-                              rel="noreferrer"
-                              title="GitHub Profile"
-                              className="text-slate-400 hover:text-white transition"
-                            >
-                              <GitHubIcon className="h-3.5 w-3.5" />
-                            </a>
-                          )}
-                          {dm.twitter_url && (
-                            <a
-                              href={dm.twitter_url}
-                              target="_blank"
-                              rel="noreferrer"
-                              title="Twitter / X Profile"
-                              className="text-slate-400 hover:text-sky-400 transition"
-                            >
-                              <TwitterXIcon className="h-3.5 w-3.5" />
-                            </a>
-                          )}
-                          {dm.evidence && (
-                            <button
-                              onClick={() =>
-                                setViewingEvidence({
-                                  name: dm.full_name,
-                                  notes: dm.evidence || "",
-                                })
-                              }
-                              title="View buying signals evidence"
-                              className="flex items-center gap-1 rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-300 hover:bg-slate-700 transition"
-                            >
-                              <FileText className="h-3 w-3 text-sky-400" />
-                              <span>Evidence</span>
-                            </button>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* AI Action */}
-                      <td className="px-5 py-3.5 text-right">
-                        <button
-                          onClick={() => handleOpenDraftModal(dm)}
-                          className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-3 py-1.5 text-xs font-semibold text-indigo-300 hover:bg-indigo-500/20 transition cursor-pointer"
+                        <Badge
+                          variant={isVerified ? "success" : isDeliverable ? "info" : isPatternGuess ? "warning" : "neutral"}
+                          size="sm"
+                          dot
                         >
-                          <Sparkles className="h-3.5 w-3.5 text-indigo-400" />
-                          <span>AI Pitch</span>
+                          {isVerified ? "Verified" : isDeliverable ? "Deliverable" : isPatternGuess ? "Pattern Guess" : "Unchecked"}
+                        </Badge>
+                      </div>
+                    ) : (
+                      <span className="text-[11px] text-muted-foreground italic">No email found</span>
+                    )}
+                  </TableCell>
+
+                  {/* Social Profile & Evidence */}
+                  <TableCell>
+                    <div className="flex items-center gap-1.5">
+                      {dm.linkedin_url && (
+                        <a
+                          href={formatLinkedInUrl(dm.linkedin_url)}
+                          target="_blank"
+                          rel="noreferrer"
+                          title="LinkedIn Profile"
+                          className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition"
+                        >
+                          <LinkedInIcon className="h-3.5 w-3.5 fill-current" />
+                        </a>
+                      )}
+                      {dm.github_url && (
+                        <a
+                          href={dm.github_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          title="GitHub Profile"
+                          className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition"
+                        >
+                          <GitHubIcon className="h-3.5 w-3.5 fill-current" />
+                        </a>
+                      )}
+                      {dm.twitter_url && (
+                        <a
+                          href={dm.twitter_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          title="Twitter Profile"
+                          className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition"
+                        >
+                          <TwitterXIcon className="h-3 w-3 fill-current" />
+                        </a>
+                      )}
+                      {dm.evidence && (
+                        <button
+                          onClick={() =>
+                            setViewingEvidence({
+                              name: dm.full_name,
+                              notes: dm.evidence || "",
+                            })
+                          }
+                          title="View evidence notes"
+                          className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer"
+                        >
+                          <FileText className="h-3.5 w-3.5" />
                         </button>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                      )}
+                    </div>
+                  </TableCell>
+
+                  {/* AI Action Pitch Button */}
+                  <TableCell className="text-right">
+                    <Button
+                      variant="outline"
+                      size="xs"
+                      onClick={() => handleOpenDraftModal(dm)}
+                      leftIcon={<Sparkles className="h-3 w-3 text-primary" />}
+                    >
+                      AI Pitch
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })
+          )}
+        </TableBody>
+      </Table>
 
       {/* Evidence Viewer Modal */}
-      {viewingEvidence && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 animate-in fade-in duration-150">
-          <div className="w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-900/95 p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="font-semibold text-white text-sm">
-                Signals & Evidence: {viewingEvidence.name}
-              </h3>
-              <button
-                onClick={() => setViewingEvidence(null)}
-                className="text-slate-400 hover:text-white"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="rounded-xl border border-slate-800 bg-slate-950 p-4 font-mono text-xs text-slate-300 whitespace-pre-wrap leading-relaxed max-h-[300px] overflow-y-auto">
-              {viewingEvidence.notes}
-            </div>
-            <div className="flex justify-end pt-2">
-              <button
-                onClick={() => setViewingEvidence(null)}
-                className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-medium text-slate-300 hover:bg-slate-700"
-              >
-                Close
-              </button>
-            </div>
-          </div>
+      <Modal
+        isOpen={!!viewingEvidence}
+        onClose={() => setViewingEvidence(null)}
+        title={`Signals & Evidence: ${viewingEvidence?.name}`}
+        description="Source observations and rationale from scraping & enrichment"
+        footer={
+          <Button variant="outline" size="sm" onClick={() => setViewingEvidence(null)}>
+            Close
+          </Button>
+        }
+      >
+        <div className="rounded-lg border border-border bg-muted/20 p-4 font-mono text-xs text-foreground leading-relaxed whitespace-pre-wrap max-h-72 overflow-y-auto">
+          {viewingEvidence?.notes}
         </div>
-      )}
+      </Modal>
 
       {/* AI Proposal Drafting Modal */}
-      {selectedProspect && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 animate-in fade-in duration-150">
-          <div className="w-full max-w-2xl rounded-2xl border border-slate-800 bg-slate-900/95 p-6 shadow-2xl flex flex-col max-h-[90vh]">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-400">
-                  <Sparkles className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-semibold text-white">
-                    Tailored Pitch for {selectedProspect.full_name}
-                  </h3>
-                  <p className="text-xs text-slate-400">
-                    {selectedProspect.title} at {selectedProspect.company_name}
-                  </p>
-                </div>
+      <Modal
+        isOpen={!!selectedProspect}
+        onClose={() => setSelectedProspect(null)}
+        title={selectedProspect ? `Personalized Pitch for ${selectedProspect.full_name}` : "Draft Pitch"}
+        description={
+          selectedProspect
+            ? `${selectedProspect.title} at ${selectedProspect.company_name}`
+            : undefined
+        }
+        maxWidth="xl"
+        footer={
+          proposalDraft && (
+            <div className="flex items-center justify-between w-full">
+              <span className="text-[11px] font-mono text-muted-foreground truncate max-w-[200px]">
+                To: {selectedProspect?.email}
+              </span>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => setSelectedProspect(null)}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleApproveAndQueue}
+                  isLoading={isApproving}
+                  leftIcon={<Check className="h-3.5 w-3.5" />}
+                >
+                  Approve & Queue to Outbox
+                </Button>
               </div>
-              <button
-                onClick={() => setSelectedProspect(null)}
-                className="text-slate-400 hover:text-white"
-              >
-                <X className="h-5 w-5" />
-              </button>
             </div>
-
-            <div className="flex-1 overflow-y-auto py-5 space-y-4">
-              {isDrafting ? (
-                <div className="py-16 text-center text-slate-400">
-                  <Loader2 className="mx-auto h-8 w-8 animate-spin text-indigo-400 mb-3" />
-                  <p className="text-sm font-medium text-white">DeepSeek Brain is thinking...</p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Analyzing profile, value proposition, and company pain points
-                  </p>
-                </div>
-              ) : modalError ? (
-                <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-xs text-rose-300">
-                  <AlertCircle className="h-4 w-4 inline mr-1 text-rose-400" />
-                  <span>{modalError}</span>
-                </div>
-              ) : proposalDraft ? (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-400">Subject Line</label>
-                    <input
-                      type="text"
-                      value={proposalDraft.subject}
-                      onChange={(e) =>
-                        setProposalDraft({ ...proposalDraft, subject: e.target.value })
-                      }
-                      className="mt-1.5 block w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-slate-400">Email Pitch</label>
-                    <textarea
-                      rows={10}
-                      value={proposalDraft.body}
-                      onChange={(e) =>
-                        setProposalDraft({ ...proposalDraft, body: e.target.value })
-                      }
-                      className="mt-1.5 block w-full rounded-xl border border-slate-700 bg-slate-950 p-3.5 font-mono text-xs text-slate-200 focus:border-indigo-500 focus:outline-none"
-                    />
-                  </div>
-                </div>
-              ) : null}
+          )
+        }
+      >
+        <div className="py-2 space-y-3.5">
+          {isDrafting ? (
+            <div className="py-14 text-center">
+              <Loader2 className="mx-auto h-7 w-7 animate-spin text-primary mb-2.5" />
+              <p className="text-xs font-semibold text-foreground">DeepSeek Brain is crafting pitch...</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Connecting ICP value proposition, recent company signals, and prospect role pain points.
+              </p>
             </div>
-
-            {proposalDraft && (
-              <div className="border-t border-slate-800 pt-4 flex items-center justify-between">
-                <span className="text-[11px] text-slate-400">
-                  Recipient: {selectedProspect.email}
-                </span>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setSelectedProspect(null)}
-                    className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-medium text-slate-300 hover:bg-slate-700 transition"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleApproveAndQueue}
-                    disabled={isApproving}
-                    className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-500 transition disabled:opacity-50 cursor-pointer shadow-lg shadow-indigo-600/20"
-                  >
-                    <Send className="h-3.5 w-3.5" />
-                    <span>{isApproving ? "Queuing..." : "Approve & Send to Outbox"}</span>
-                  </button>
-                </div>
+          ) : modalError ? (
+            <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-3.5 text-xs text-destructive flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>{modalError}</span>
+            </div>
+          ) : proposalDraft ? (
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-[11px] font-medium text-muted-foreground">Subject Line</label>
+                <Input
+                  value={proposalDraft.subject}
+                  onChange={(e) => setProposalDraft({ ...proposalDraft, subject: e.target.value })}
+                  placeholder="Subject line"
+                />
               </div>
-            )}
-          </div>
+
+              <div className="space-y-1">
+                <label className="text-[11px] font-medium text-muted-foreground">Email Pitch</label>
+                <Textarea
+                  rows={10}
+                  value={proposalDraft.body}
+                  onChange={(e) => setProposalDraft({ ...proposalDraft, body: e.target.value })}
+                  className="font-mono leading-relaxed"
+                />
+              </div>
+            </div>
+          ) : null}
         </div>
-      )}
+      </Modal>
     </div>
   );
 }

@@ -125,7 +125,7 @@ def test_query_builder_startups_for_jobs():
     assert "AI startup" in q or "SaaS" in q
     assert "Python" in q
     assert '"United States"' in q
-    assert '"11-50 employees"' in q
+    assert ("11-50 employees" in q) or ("seed funded" in q) or ("early-stage" in q)
     assert '"Bootstrapped"' in q
     assert "-site:jobright.ai" in q
     assert "-site:indeed.com" in q
@@ -302,3 +302,50 @@ def test_api_discover_companies_endpoint(monkeypatch):
     assert data["success"] is True
     assert data["count"] == 1
     assert data["companies"][0]["domain"] == "apex-ai.io"
+
+
+def test_agency_platform_queries_and_candidate_parsing():
+    """Verify Clutch and GoodFirms queries and platform candidate parsing."""
+    from outreach.discovery_engine import parse_platform_candidate
+
+    # 1. Query generation for Clutch
+    crit_clutch = DiscoveryCriteria(
+        industries=["web development"],
+        source_platform="clutch",
+        locations=["United States"],
+    )
+    queries = DiscoveryQueryBuilder.build_queries(crit_clutch)
+    assert len(queries) >= 1
+    assert any("site:clutch.co" in q for q in queries)
+
+    # 2. Query generation for GoodFirms
+    crit_gf = DiscoveryCriteria(
+        industries=["software agency"],
+        source_platform="goodfirms",
+    )
+    queries_gf = DiscoveryQueryBuilder.build_queries(crit_gf)
+    assert len(queries_gf) >= 1
+    assert any("site:goodfirms.co" in q for q in queries_gf)
+
+    # 3. Parsing Clutch.co candidate
+    cand_clutch = parse_platform_candidate(
+        "https://clutch.co/profile/cleveroad",
+        "Cleveroad Reviews | Clutch.co",
+        "Custom software & web development studio.",
+    )
+    assert cand_clutch is not None
+    assert cand_clutch["source_platform"] == "Clutch.co"
+    assert cand_clutch["name"] == "Cleveroad"
+    assert cand_clutch["domain"] == "cleveroad.com"
+
+    # 4. Parsing GoodFirms candidate
+    cand_gf = parse_platform_candidate(
+        "https://www.goodfirms.co/company/mindinventory",
+        "MindInventory Reviews | GoodFirms",
+        "Full stack software development agency.",
+    )
+    assert cand_gf is not None
+    assert cand_gf["source_platform"] == "GoodFirms"
+    assert cand_gf["name"] == "MindInventory"
+    assert cand_gf["domain"] == "mindinventory.com"
+

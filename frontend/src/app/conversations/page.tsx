@@ -4,16 +4,26 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchApi } from "@/lib/api-client";
 import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  Badge,
+  Button,
+  Skeleton,
+} from "@/components/ui";
+import {
   MessageSquare,
   Mail,
   User,
-  AlertCircle,
-  CheckCircle,
-  Clock,
-  Loader2,
   Check,
   RotateCcw,
   Sparkles,
+  Building2,
+  Send,
+  Clock,
+  ArrowRight,
 } from "lucide-react";
 
 export default function ConversationsPage() {
@@ -42,32 +52,49 @@ export default function ConversationsPage() {
   const selectedConvo = convos.find((c) => c.id === selectedConvoId) || convos[0];
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
-      <div>
-        <div className="flex items-center gap-2.5">
-          <h1 className="text-2xl font-bold tracking-tight text-white">Conversations & Replies</h1>
-          <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-400 border border-emerald-500/20">
-            {convos.length} Threads
-          </span>
+    <div className="space-y-5 animate-in fade-in duration-200">
+      {/* Page Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">
+              Conversations & Inbound Replies
+            </h1>
+            <Badge variant="neutral" size="sm" className="font-mono">
+              {convos.length} Threads
+            </Badge>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Inbound prospect responses, sentiment classification, and human handoff threads.
+          </p>
         </div>
-        <p className="mt-1 text-sm text-slate-400">
-          Inbound replies, sentiment analysis, and intelligent human handoff threads.
-        </p>
       </div>
 
       {isLoading ? (
-        <div className="py-20 text-center text-slate-500">
-          <Loader2 className="mx-auto h-6 w-6 animate-spin text-emerald-400 mb-2" />
-          <span>Loading email conversations...</span>
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
+          <div className="space-y-3 lg:col-span-4">
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-20 w-full" />
+          </div>
+          <div className="lg:col-span-8">
+            <Skeleton className="h-96 w-full" />
+          </div>
         </div>
       ) : convos.length === 0 ? (
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/30 p-12 text-center text-slate-500">
-          No conversations recorded yet. Outbound replies will stream here automatically.
-        </div>
+        <Card className="p-12 text-center text-muted-foreground">
+          <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-muted text-muted-foreground mb-3">
+            <MessageSquare className="h-5 w-5" />
+          </div>
+          <h3 className="text-sm font-semibold text-foreground">No conversations recorded yet</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            When prospects reply to outbound emails, their response threads and sentiment analysis will stream here.
+          </p>
+        </Card>
       ) : (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          {/* Conversation list */}
-          <div className="space-y-2 lg:col-span-1 overflow-y-auto max-h-[700px]">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 items-start">
+          {/* Left Master List (4 cols) */}
+          <div className="space-y-2 lg:col-span-4 max-h-[calc(100vh-220px)] overflow-y-auto pr-1">
             {convos.map((convo) => {
               const isSelected = selectedConvo?.id === convo.id;
               const needsHuman = convo.status === "needs_human";
@@ -77,96 +104,95 @@ export default function ConversationsPage() {
                 <div
                   key={convo.id}
                   onClick={() => setSelectedConvoId(convo.id)}
-                  className={`cursor-pointer rounded-2xl border p-4 transition ${
+                  className={`rounded-lg border p-3.5 transition-all cursor-pointer select-none ${
                     isSelected
-                      ? "border-emerald-500/50 bg-slate-900/90 shadow-md ring-1 ring-emerald-500/20"
-                      : "border-slate-800 bg-slate-900/40 hover:border-slate-700"
+                      ? "border-primary/40 bg-secondary shadow-2xs"
+                      : "border-border bg-card hover:bg-muted/40 hover:border-border/80"
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold text-white text-xs truncate max-w-[150px]">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold text-foreground text-xs truncate">
                       {convo.first_name ? `${convo.first_name} ${convo.last_name || ""}` : convo.prospect_email}
                     </span>
-                    {needsHuman ? (
-                      <span className="rounded bg-rose-500/15 px-1.5 py-0.5 text-[9px] font-semibold text-rose-400 border border-rose-500/30">
-                        Needs You
-                      </span>
-                    ) : isClosed ? (
-                      <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[9px] font-medium text-slate-400">
-                        Closed
-                      </span>
-                    ) : (
-                      <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-medium text-emerald-400">
-                        Open
-                      </span>
-                    )}
+                    <Badge
+                      variant={needsHuman ? "destructive" : isClosed ? "neutral" : "success"}
+                      size="sm"
+                      dot={needsHuman}
+                      pulseDot={needsHuman}
+                    >
+                      {needsHuman ? "Needs You" : isClosed ? "Closed" : "Open"}
+                    </Badge>
                   </div>
-                  <div className="mt-1 text-[11px] text-slate-400 truncate">
-                    {convo.company || "Company"}
-                  </div>
-                  <div className="mt-2 text-xs font-medium text-slate-300 truncate">
+
+                  <p className="mt-0.5 text-[11px] text-muted-foreground truncate">
+                    {convo.company || "Target Company"}
+                  </p>
+
+                  <p className="mt-2 text-xs font-medium text-foreground/90 truncate">
                     {convo.subject || "Reply Thread"}
-                  </div>
+                  </p>
                 </div>
               );
             })}
           </div>
 
-          {/* Conversation Thread Detail */}
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 lg:col-span-2 space-y-4">
+          {/* Right Detail Transcript (8 cols) */}
+          <Card className="lg:col-span-8 flex flex-col sticky top-20 overflow-hidden">
             {selectedConvo ? (
               <>
-                <div className="flex items-start justify-between border-b border-slate-800 pb-4">
+                {/* Header Actions */}
+                <div className="flex items-start justify-between border-b border-border bg-muted/20 p-4">
                   <div>
-                    <h3 className="font-bold text-white text-base">
+                    <h3 className="font-semibold text-sm text-foreground">
                       {selectedConvo.first_name} {selectedConvo.last_name}
                     </h3>
-                    <p className="text-xs text-slate-400">
+                    <p className="text-[11px] font-mono text-muted-foreground mt-0.5">
                       {selectedConvo.prospect_email} · {selectedConvo.company}
                     </p>
                   </div>
 
-                  {/* Close / Reopen Actions */}
                   <div className="flex items-center gap-2">
                     {selectedConvo.status === "closed" ? (
-                      <button
+                      <Button
+                        variant="secondary"
+                        size="xs"
                         onClick={() =>
                           statusMutation.mutate({ id: selectedConvo.id, status: "open" })
                         }
                         disabled={statusMutation.isPending}
-                        className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700 transition"
+                        leftIcon={<RotateCcw className="h-3 w-3" />}
                       >
-                        <RotateCcw className="h-3.5 w-3.5" />
-                        <span>Reopen</span>
-                      </button>
+                        Reopen Thread
+                      </Button>
                     ) : (
-                      <button
+                      <Button
+                        variant="outline"
+                        size="xs"
                         onClick={() =>
                           statusMutation.mutate({ id: selectedConvo.id, status: "closed" })
                         }
                         disabled={statusMutation.isPending}
-                        className="flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/20 transition"
+                        leftIcon={<Check className="h-3 w-3" />}
                       >
-                        <Check className="h-3.5 w-3.5" />
-                        <span>Mark Handled / Close</span>
-                      </button>
+                        Mark Handled
+                      </Button>
                     )}
                   </div>
                 </div>
 
-                {/* Email History / Exchange */}
-                <div className="space-y-4 py-2 max-h-[500px] overflow-y-auto">
+                {/* Messages Transcript */}
+                <div className="p-5 space-y-3.5 max-h-[calc(100vh-320px)] overflow-y-auto">
                   {selectedConvo.emails?.map((e: any, idx: number) => (
                     <div
                       key={idx}
-                      className="rounded-xl border border-slate-800 bg-slate-950/70 p-4 space-y-1.5"
+                      className="rounded-lg border border-border bg-muted/30 p-4 space-y-1.5"
                     >
-                      <div className="flex items-center justify-between text-[11px] text-slate-400">
-                        <span className="font-semibold text-sky-400">Outbound Sent</span>
-                        <span>{e.sent_at || "Recent"}</span>
+                      <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                        <span className="font-semibold text-primary">Outbound Pitch Dispatched</span>
+                        <span className="font-mono">{e.sent_at || "Recent"}</span>
                       </div>
-                      <div className="font-semibold text-xs text-white">Subject: {e.subject}</div>
-                      <div className="font-mono text-xs text-slate-300 whitespace-pre-wrap pt-1">
+                      <div className="font-medium text-xs text-foreground">Subject: {e.subject}</div>
+                      <div className="font-mono text-xs text-muted-foreground whitespace-pre-wrap pt-1 leading-relaxed">
                         {e.body}
                       </div>
                     </div>
@@ -177,18 +203,24 @@ export default function ConversationsPage() {
                     return (
                       <div
                         key={idx}
-                        className={`rounded-xl border p-4 space-y-1.5 ${
+                        className={`rounded-lg border p-4 space-y-1.5 ${
                           isFromThem
-                            ? "border-emerald-500/30 bg-emerald-950/20"
-                            : "border-slate-800 bg-slate-950/70"
+                            ? "border-emerald-500/20 bg-emerald-500/5 text-foreground"
+                            : "border-border bg-muted/20"
                         }`}
                       >
                         <div className="flex items-center justify-between text-[11px]">
-                          <span className={isFromThem ? "font-semibold text-emerald-400" : "font-semibold text-sky-400"}>
-                            {isFromThem ? "Prospect Reply" : "Outreach Reply"}
+                          <span
+                            className={
+                              isFromThem
+                                ? "font-semibold text-emerald-600 dark:text-emerald-400"
+                                : "font-semibold text-primary"
+                            }
+                          >
+                            {isFromThem ? "Prospect Inbound Reply" : "Outreach Response"}
                           </span>
                         </div>
-                        <div className="font-mono text-xs text-slate-200 whitespace-pre-wrap">
+                        <div className="font-mono text-xs whitespace-pre-wrap leading-relaxed">
                           {msg.content || msg.text || msg.body}
                         </div>
                       </div>
@@ -197,7 +229,7 @@ export default function ConversationsPage() {
                 </div>
               </>
             ) : null}
-          </div>
+          </Card>
         </div>
       )}
     </div>

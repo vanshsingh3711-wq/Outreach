@@ -3,7 +3,29 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchApi } from "@/lib/api-client";
-import { Settings, Shield, Mail, CheckCircle2, XCircle, Key, Cpu, Loader2 } from "lucide-react";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  Badge,
+  Button,
+  Skeleton,
+} from "@/components/ui";
+import {
+  Settings,
+  Shield,
+  Mail,
+  CheckCircle2,
+  XCircle,
+  Key,
+  Cpu,
+  Building2,
+  ArrowRight,
+  Terminal,
+} from "lucide-react";
+import Link from "next/link";
 
 export default function SettingsPage() {
   const { data, isLoading } = useQuery<any>({
@@ -12,88 +34,128 @@ export default function SettingsPage() {
   });
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
-      <div>
-        <div className="flex items-center gap-2.5">
-          <h1 className="text-2xl font-bold tracking-tight text-white">System Settings & Integrations</h1>
-          <span className="rounded-full bg-slate-800 px-2.5 py-0.5 text-xs font-semibold text-slate-300 border border-slate-700">
-            Environment
-          </span>
+    <div className="space-y-5 animate-in fade-in duration-200">
+      {/* Page Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">
+              Settings & Integrations
+            </h1>
+            <Badge variant="neutral" size="sm">
+              System Environment
+            </Badge>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Configuration of AI intelligence models, outbound mailbox dispatchers, and company value proposition.
+          </p>
         </div>
-        <p className="mt-1 text-sm text-slate-400">
-          Verification of API credentials, outbound email dispatchers, and AI provider configurations.
-        </p>
+
+        <div className="flex items-center gap-2">
+          <Link href="/company">
+            <Button variant="outline" size="sm" rightIcon={<ArrowRight className="h-3.5 w-3.5" />}>
+              Edit Company & ICP
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {isLoading ? (
-        <div className="py-20 text-center text-slate-500">
-          <Loader2 className="mx-auto h-6 w-6 animate-spin text-sky-400 mb-2" />
-          <span>Loading system settings...</span>
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+          <Skeleton className="h-48 w-full" />
+          <Skeleton className="h-48 w-full" />
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           {/* AI Intelligence Engine */}
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 space-y-4">
-            <div className="flex items-center gap-2">
-              <Cpu className="h-4 w-4 text-sky-400" />
-              <h3 className="font-semibold text-white text-sm">AI Engine Core</h3>
-            </div>
-
-            <div className="rounded-xl border border-slate-800 bg-slate-950 p-4 space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-400">Active Provider</span>
-                <span className="font-semibold text-white">DeepSeek API</span>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Cpu className="h-4 w-4 text-primary" />
+                <span>AI Engine Core</span>
+              </CardTitle>
+              <CardDescription>
+                Primary LLM provider powering discovery reasoning and cold email drafting.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="rounded-lg border border-border bg-muted/20 p-3.5 space-y-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Active Provider</span>
+                  <span className="font-semibold text-foreground">DeepSeek API</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Chat Model</span>
+                  <span className="font-mono text-primary font-medium">deepseek-chat</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Integration Mode</span>
+                  <Badge variant="success" size="sm" dot>
+                    Direct Native HTTP
+                  </Badge>
+                </div>
               </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-400">Chat Model</span>
-                <span className="font-mono text-sky-400">deepseek-chat</span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-400">Connection Mode</span>
-                <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-400 border border-emerald-500/20">
-                  Direct Native
-                </span>
-              </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
 
           {/* Email Delivery Provider */}
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 space-y-4">
-            <div className="flex items-center gap-2">
-              <Mail className="h-4 w-4 text-indigo-400" />
-              <h3 className="font-semibold text-white text-sm">Outbound Mailbox</h3>
-            </div>
-
-            <div className="rounded-xl border border-slate-800 bg-slate-950 p-4 space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-400">Configured Dispatcher</span>
-                <span className="font-semibold text-white capitalize">
-                  {data?.provider || "Local / Gmail / SMTP"}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-400">Gmail OAuth</span>
-                <span className="flex items-center gap-1 font-medium text-xs">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Mail className="h-4 w-4 text-primary" />
+                <span>Outbound Mailbox</span>
+              </CardTitle>
+              <CardDescription>
+                Authenticated dispatcher used to send personalized sequence emails.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="rounded-lg border border-border bg-muted/20 p-3.5 space-y-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Configured Dispatcher</span>
+                  <span className="font-semibold text-foreground capitalize">
+                    {data?.provider || "Local / Gmail / SMTP"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Gmail OAuth</span>
                   {data?.gmail_authorized ? (
-                    <span className="text-emerald-400 flex items-center gap-1">
-                      <CheckCircle2 className="h-3.5 w-3.5" /> Authorized
-                    </span>
+                    <Badge variant="success" size="sm" dot>
+                      Authorized
+                    </Badge>
                   ) : (
-                    <span className="text-slate-500">Not configured</span>
+                    <span className="text-muted-foreground italic">Not connected</span>
                   )}
-                </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">SMTP Server</span>
+                  <span className="font-mono text-foreground">{data?.smtp_host || "localhost"}</span>
+                </div>
               </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-400">SMTP Host</span>
-                <span className="font-mono text-xs text-slate-300">
-                  {data?.smtp_host || "localhost"}
-                </span>
+            </CardContent>
+          </Card>
+
+          {/* Company Profile Shortcut */}
+          <Card className="lg:col-span-2">
+            <CardHeader className="flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4 text-primary" />
+                  <span>Company Persona & ICP</span>
+                </CardTitle>
+                <CardDescription>
+                  The foundational knowledge Outreach uses to pitch your product or services.
+                </CardDescription>
               </div>
-            </div>
-          </div>
+              <Link href="/company">
+                <Button variant="outline" size="xs" rightIcon={<ArrowRight className="h-3 w-3" />}>
+                  Manage Persona
+                </Button>
+              </Link>
+            </CardHeader>
+          </Card>
         </div>
       )}
     </div>
   );
 }
-

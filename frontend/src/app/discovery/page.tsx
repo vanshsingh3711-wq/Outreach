@@ -10,27 +10,37 @@ import {
   Users,
   ArrowRight,
   Loader2,
-  CheckCircle2,
   Database,
   Mail,
   Copy,
   Check,
   ExternalLink,
   RefreshCw,
-  PlusCircle,
   Briefcase,
   ShieldCheck,
   Target,
-  Send,
   Zap,
   BookmarkPlus,
   Save,
   X,
   FileText,
+  Rocket,
+  Code2,
+  Terminal,
+  Palette,
+  Star,
+  Compass,
+  MapPin,
+  CheckCircle2,
+  Layers,
 } from "lucide-react";
-import { LinkedInIcon, TwitterXIcon } from "@/components/ui/brand-icons";
+import { LinkedInIcon } from "@/components/ui/brand-icons";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import {
+  getInitials,
+  cleanDescription,
+} from "@/lib/discovery-utils";
 
 function formatLinkedInUrl(url?: string): string {
   if (!url) return "";
@@ -62,6 +72,7 @@ interface DiscoveredCompany {
   size?: string;
   revenue?: string;
   target_type?: string;
+  source_platform?: string;
   description?: string;
   snippet?: string;
   contact_count?: number;
@@ -71,13 +82,53 @@ interface DiscoveredCompany {
   is_existing?: boolean;
 }
 
-export default function DiscoveryPage() {
-  // Primary targeting intent: "startup" (job outreach), "agency" (freelance work), or "all"
-  const [targetType, setTargetType] = useState<"startup" | "agency" | "all">("startup");
+interface PlatformOption {
+  id: string;
+  label: string;
+  icon: React.ElementType;
+  desc: string;
+  badge?: string;
+}
 
-  // User requested filters
+const STARTUP_PLATFORMS: PlatformOption[] = [
+  { id: "yc", label: "Y Combinator", icon: Rocket, desc: "Funded tech companies hiring devs", badge: "Verified" },
+  { id: "wellfound", label: "Wellfound (AngelList)", icon: Target, desc: "Seed to Series A tech startups", badge: "Hiring" },
+  { id: "hackernews", label: "Hacker News (HN)", icon: Terminal, desc: "Who's Hiring monthly posts", badge: "Direct" },
+  { id: "ashby", label: "Ashby & Lever ATS", icon: Briefcase, desc: "Live engineering job feeds", badge: "Active" },
+  { id: "producthunt", label: "Product Hunt", icon: Sparkles, desc: "Daily new software product launches", badge: "New" },
+  { id: "eustartups", label: "EU-Startups", icon: Globe, desc: "European funded ventures", badge: "Europe" },
+  { id: "peerlist", label: "Peerlist", icon: Users, desc: "Remote-first tech projects", badge: "Global" },
+  { id: "all", label: "Global Startup Web", icon: Compass, desc: "Broad unfiltered keyword search", badge: "Open" },
+];
+
+const AGENCY_PLATFORMS: PlatformOption[] = [
+  { id: "clutch", label: "Clutch.co", icon: Building2, desc: "Top verified dev shops & digital agencies", badge: "Top Agencies" },
+  { id: "goodfirms", label: "GoodFirms", icon: Star, desc: "Software & web development studios", badge: "Verified" },
+  { id: "designrush", label: "DesignRush", icon: Palette, desc: "B2B web design & engineering studios", badge: "B2B Hub" },
+  { id: "manifest", label: "The Manifest", icon: FileText, desc: "Shortlisted dev agencies & tech studios", badge: "Ranked" },
+  { id: "hn_freelance", label: "HN: Freelancer", icon: Terminal, desc: "Monthly contract & freelance hiring", badge: "Direct" },
+  { id: "agencyspotter", label: "Agency Spotter", icon: Compass, desc: "Digital & software development directory", badge: "Directory" },
+  { id: "upwork_agencies", label: "Upwork Agencies", icon: Briefcase, desc: "Dev agencies seeking delivery bandwidth", badge: "Overflow" },
+  { id: "all", label: "Global Agency Web", icon: Globe, desc: "Direct agency websites & custom studios", badge: "Direct" },
+];
+
+const COMBINED_PLATFORMS: PlatformOption[] = [
+  { id: "clutch", label: "Clutch.co", icon: Building2, desc: "Top dev shops & digital studios", badge: "Agencies" },
+  { id: "yc", label: "Y Combinator", icon: Rocket, desc: "Funded tech startups hiring devs", badge: "Startups" },
+  { id: "goodfirms", label: "GoodFirms", icon: Star, desc: "Software & web development firms", badge: "Agencies" },
+  { id: "wellfound", label: "Wellfound", icon: Target, desc: "Seed to Series A startups", badge: "Startups" },
+  { id: "hn_freelance", label: "HN Freelance", icon: Terminal, desc: "Monthly contract dev postings", badge: "Contracts" },
+  { id: "designrush", label: "DesignRush", icon: Palette, desc: "B2B engineering & design studios", badge: "Agencies" },
+  { id: "ashby", label: "Ashby / Lever", icon: Briefcase, desc: "Live job boards and startup teams", badge: "Startups" },
+  { id: "all", label: "Global Web (All)", icon: Compass, desc: "Startups and dev studios globally", badge: "Open" },
+];
+
+export default function DiscoveryPage() {
+  const [targetType, setTargetType] = useState<"startup" | "agency" | "all">("agency");
+  const [sourcePlatform, setSourcePlatform] = useState<string>("clutch");
+
   const [companySize, setCompanySize] = useState("11-50");
-  const [location, setLocation] = useState("United States, Remote");
+  const [location, setLocation] = useState("Remote, Europe, United States");
   const [revenueTier, setRevenueTier] = useState("");
   const [businessDomain, setBusinessDomain] = useState("Fintech, Healthcare, Cybersecurity, B2B SaaS");
   const [customQuery, setCustomQuery] = useState("");
@@ -88,7 +139,6 @@ export default function DiscoveryPage() {
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Per-company action states
   const [enrichingDomain, setEnrichingDomain] = useState<string | null>(null);
   const [savingDomain, setSavingDomain] = useState<string | null>(null);
   const [isSavingAll, setIsSavingAll] = useState(false);
@@ -114,8 +164,7 @@ export default function DiscoveryPage() {
     router.push(`/discovery/company?domain=${encodeURIComponent(c.domain)}&name=${encodeURIComponent(c.name)}`);
   };
 
-  // Quick preset pills for real business domains (Fintech, Health, Security, SaaS, etc.)
-  const LOCATION_PRESETS = ["Remote", "United States", "Europe", "United Kingdom", "India", "Canada"];
+  const LOCATION_PRESETS = ["Remote", "Europe", "United States", "United Kingdom", "Canada", "Global"];
   const DOMAIN_PRESETS = [
     "Cybersecurity",
     "Fintech",
@@ -127,7 +176,6 @@ export default function DiscoveryPage() {
     "EdTech",
   ];
 
-  // Load permanently saved companies and their decision-makers on mount
   const loadSavedAccounts = async () => {
     try {
       setIsLoadingExisting(true);
@@ -186,11 +234,10 @@ export default function DiscoveryPage() {
           contact_count: attachedPeople.length || c.contact_count || 0,
           people: attachedPeople,
           fit_score: c.fit,
-          is_existing: true, // Permanent DB record
+          is_existing: true,
         };
       });
 
-      // Preserve any temporary unsaved results the user currently has open
       setResults((prev) => {
         const existingDomains = new Set(mapped.map((m) => m.domain.toLowerCase()));
         const temporary = prev.filter((p) => !p.is_existing && !existingDomains.has(p.domain.toLowerCase()));
@@ -207,7 +254,6 @@ export default function DiscoveryPage() {
     loadSavedAccounts();
   }, []);
 
-  // Run discovery: produces temporary staged results without saving to DB automatically
   const handleRunDiscovery = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsRunning(true);
@@ -218,6 +264,7 @@ export default function DiscoveryPage() {
       const domains = businessDomain.split(",").map((s) => s.trim()).filter(Boolean);
       const payload = {
         target_type: targetType,
+        source_platform: sourcePlatform,
         company_size_tier: companySize,
         revenue_tier: revenueTier,
         locations: location.split(",").map((s) => s.trim()).filter(Boolean),
@@ -226,7 +273,7 @@ export default function DiscoveryPage() {
         custom_query: customQuery.trim(),
         limit: 12,
         auto_enrich: autoEnrich,
-        save_to_db: false, // DO NOT save to database automatically
+        save_to_db: false,
       };
 
       const res = await fetchApi<{ success: boolean; count: number; companies: any[] }>(
@@ -248,12 +295,12 @@ export default function DiscoveryPage() {
         location: c.location || location,
         size: c.size || companySize,
         target_type: c.target_type || targetType,
+        source_platform: c.source_platform || "Global Web",
         contact_count: c.contact_count || (c.people ? c.people.length : 0),
         people: c.people || [],
         is_existing: Boolean(c.is_existing),
       }));
 
-      // Merge new temporary results with existing, keeping unique domains
       setResults((prev) => {
         const existingDomains = new Set(prev.map((p) => p.domain.toLowerCase()));
         const fresh = incoming.filter((item) => !existingDomains.has(item.domain.toLowerCase()));
@@ -261,7 +308,7 @@ export default function DiscoveryPage() {
       });
 
       setSuccessMsg(
-        `Discovered ${res.count || incoming.length} leads! They are staged temporarily below. Click "Save to DB" on any lead you want to permanently keep.`
+        `Discovered ${res.count || incoming.length} accounts. Staged in temporary preview below.`
       );
     } catch (err: any) {
       setError(err.message || "Failed to run discovery.");
@@ -270,7 +317,6 @@ export default function DiscoveryPage() {
     }
   };
 
-  // Enrich temporary candidate in-memory (persist=false)
   const handleEnrichCompany = async (company: DiscoveredCompany) => {
     const targetUrl = company.website || `https://${company.domain}`;
     setEnrichingDomain(company.domain);
@@ -283,7 +329,7 @@ export default function DiscoveryPage() {
         people: DecisionMakerPreview[];
       }>("/api/prospecting/enrich-url", {
         method: "POST",
-        body: JSON.stringify({ url: targetUrl, persist: false }),
+        body: JSON.stringify({ url: targetUrl, domain: company.domain, persist: false }),
       });
 
       if (res.success && res.people) {
@@ -302,7 +348,7 @@ export default function DiscoveryPage() {
           )
         );
         setSuccessMsg(
-          `Extracted ${res.people.length} real decision-maker(s) for ${company.name}! Review below and click "Save to DB" to keep them.`
+          `Extracted ${res.people.length} decision-maker profile(s) for ${company.name}.`
         );
       }
     } catch (err: any) {
@@ -312,7 +358,6 @@ export default function DiscoveryPage() {
     }
   };
 
-  // Explicitly save a single lead permanently to the database
   const handleSaveLead = async (company: DiscoveredCompany) => {
     setSavingDomain(company.domain);
     setError(null);
@@ -343,7 +388,7 @@ export default function DiscoveryPage() {
               : c
           )
         );
-        setSuccessMsg(`✓ Saved ${company.name} and ${res.saved_prospects || 0} decision-maker(s) permanently to database.`);
+        setSuccessMsg(`Saved ${company.name} permanently to database.`);
       }
     } catch (err: any) {
       setError(`Failed to save ${company.name}: ${err.message}`);
@@ -352,7 +397,6 @@ export default function DiscoveryPage() {
     }
   };
 
-  // Batch save all currently unsaved temporary leads to database
   const handleSaveAllUnsaved = async () => {
     const unsaved = results.filter((c) => !c.is_existing);
     if (unsaved.length === 0) return;
@@ -371,7 +415,7 @@ export default function DiscoveryPage() {
 
       if (res.success) {
         setResults((prev) => prev.map((c) => ({ ...c, is_existing: true })));
-        setSuccessMsg(`✓ Successfully saved ${res.companies_saved} companies and ${res.leads_saved} leads permanently to database!`);
+        setSuccessMsg(`Saved ${res.companies_saved} companies and ${res.leads_saved} leads to database.`);
       }
     } catch (err: any) {
       setError(`Failed to batch save: ${err.message}`);
@@ -380,12 +424,10 @@ export default function DiscoveryPage() {
     }
   };
 
-  // Dismiss a temporary lead from the session
   const handleDismissCompany = (domain: string) => {
     setResults((prev) => prev.filter((c) => c.domain.toLowerCase() !== domain.toLowerCase()));
   };
 
-  // Filter accounts in the list
   const filteredResults = results.filter((c) => {
     const matchesSearch =
       !searchFilter ||
@@ -413,32 +455,34 @@ export default function DiscoveryPage() {
   const unsavedCount = results.filter((c) => !c.is_existing).length;
   const totalWithLeads = results.filter((c) => (c.contact_count || 0) > 0 || (c.people && c.people.length > 0)).length;
 
+  const currentPlatformList =
+    targetType === "agency"
+      ? AGENCY_PLATFORMS
+      : targetType === "startup"
+      ? STARTUP_PLATFORMS
+      : COMBINED_PLATFORMS;
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
-      {/* Title & Stats */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-6 max-w-7xl mx-auto animate-in fade-in duration-200">
+      {/* 1. Header & Quick Actions */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-border">
         <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-2xl font-bold tracking-tight text-white">Direct Company & Lead Discovery</h1>
-            <span className="rounded-full bg-sky-500/10 px-2.5 py-0.5 text-xs font-semibold text-sky-400 border border-sky-500/20">
-              Job & Freelance Outreach
-            </span>
-          </div>
-          <p className="mt-1 text-sm text-slate-400">
-            Find tech startups and agencies. Review staged results temporarily and save only the leads you want to keep permanently.
+          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">ICP Prospect Discovery</h1>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Source verified companies and decision-maker emails across job boards, directories, and search rankings.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
-          <div className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-1.5 text-xs">
-            <Database className="h-4 w-4 text-emerald-400" />
-            <span className="text-slate-300 font-medium">{savedCount} Saved in DB</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs text-foreground">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            <span className="font-medium">{savedCount} Saved</span>
           </div>
 
           {unsavedCount > 0 && (
-            <div className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs">
-              <Zap className="h-4 w-4 text-amber-400" />
-              <span className="text-amber-300 font-medium">{unsavedCount} Temporary</span>
+            <div className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs text-muted-foreground">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+              <span>{unsavedCount} Staged</span>
             </div>
           )}
 
@@ -446,142 +490,204 @@ export default function DiscoveryPage() {
             <button
               onClick={handleSaveAllUnsaved}
               disabled={isSavingAll}
-              className="flex items-center gap-1.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40 px-3 py-1.5 text-xs text-emerald-300 hover:bg-emerald-500/30 transition cursor-pointer font-semibold disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-lg bg-primary hover:opacity-90 text-primary-foreground font-semibold px-3 py-1.5 text-xs shadow-xs transition cursor-pointer disabled:opacity-50"
             >
               {isSavingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-              <span>Save All ({unsavedCount}) to DB</span>
+              <span>Save All ({unsavedCount})</span>
             </button>
           )}
 
           <button
             onClick={loadSavedAccounts}
             disabled={isLoadingExisting}
-            className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-1.5 text-xs text-slate-300 hover:text-white hover:border-slate-700 transition cursor-pointer"
+            className="flex items-center gap-1.5 rounded-lg border border-border bg-card hover:bg-muted px-2.5 py-1.5 text-xs text-foreground transition cursor-pointer"
             title="Refresh accounts from database"
           >
-            <RefreshCw className={`h-3.5 w-3.5 ${isLoadingExisting ? "animate-spin" : ""}`} />
-            <span>Sync DB</span>
+            <RefreshCw className={`h-3.5 w-3.5 text-muted-foreground ${isLoadingExisting ? "animate-spin" : ""}`} />
+            <span>Sync</span>
           </button>
         </div>
       </div>
 
-      {/* Discovery Criteria Form */}
+      {/* 2. Sleek Filter Card */}
       <form
         onSubmit={handleRunDiscovery}
-        className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 shadow-sm space-y-5"
+        className="rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-5 space-y-5"
       >
-        {/* 1. Primary Target Intent Selection */}
+        {/* Target Intent Segmented Switcher */}
         <div>
-          <label className="block text-xs font-semibold text-slate-300 mb-2">
-            Target Focus: What are you looking to find?
+          <label className="block text-xs font-medium text-zinc-400 mb-2">
+            Target Focus
           </label>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             <button
               type="button"
               onClick={() => {
-                setTargetType("startup");
+                setTargetType("agency");
                 if (companySize === "") setCompanySize("11-50");
+                if (["yc", "wellfound", "hackernews", "ashby", "producthunt", "eustartups", "peerlist"].includes(sourcePlatform)) {
+                  setSourcePlatform("clutch");
+                }
               }}
-              className={`flex flex-col text-left p-3.5 rounded-xl border transition cursor-pointer ${
-                targetType === "startup"
-                  ? "bg-sky-500/15 border-sky-500 text-white shadow-md shadow-sky-500/10"
-                  : "bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+              className={`flex items-start gap-3 p-3 rounded-lg border text-left transition cursor-pointer ${
+                targetType === "agency"
+                  ? "bg-zinc-800/90 border-zinc-700 text-white shadow-sm"
+                  : "bg-zinc-950/40 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
               }`}
             >
-              <div className="flex items-center justify-between w-full">
-                <span className="text-xs font-bold text-sky-400 flex items-center gap-1.5">
-                  <Briefcase className="h-4 w-4" />
-                  Tech Startups
-                </span>
-                <span className="text-[10px] font-semibold bg-sky-500/20 text-sky-300 px-2 py-0.5 rounded-full">
-                  For Job
-                </span>
+              <div className="p-2 rounded-md bg-zinc-900 border border-zinc-800 text-zinc-300 shrink-0">
+                <Building2 className="h-4 w-4" />
               </div>
-              <p className="text-[11px] text-slate-400 mt-1.5 line-clamp-2">
-                Discover SaaS & product startups to cold email Founders, CTOs, and Engineering Leads for jobs.
-              </p>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-zinc-200">Agencies & Dev Studios</span>
+                  <span className="text-[10px] font-medium text-zinc-400 bg-zinc-900 px-1.5 py-0.2 rounded border border-zinc-800">
+                    Freelance
+                  </span>
+                </div>
+                <p className="text-[11px] text-zinc-400 mt-1 leading-snug">
+                  Pitch agency founders & partners for contract dev work and team overflow.
+                </p>
+              </div>
             </button>
 
             <button
               type="button"
               onClick={() => {
-                setTargetType("agency");
-                if (companySize === "") setCompanySize("1-10");
+                setTargetType("startup");
+                if (["clutch", "goodfirms", "designrush", "manifest", "hn_freelance", "agencyspotter", "upwork_agencies"].includes(sourcePlatform)) {
+                  setSourcePlatform("yc");
+                }
               }}
-              className={`flex flex-col text-left p-3.5 rounded-xl border transition cursor-pointer ${
-                targetType === "agency"
-                  ? "bg-purple-500/15 border-purple-500 text-white shadow-md shadow-purple-500/10"
-                  : "bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+              className={`flex items-start gap-3 p-3 rounded-lg border text-left transition cursor-pointer ${
+                targetType === "startup"
+                  ? "bg-zinc-800/90 border-zinc-700 text-white shadow-sm"
+                  : "bg-zinc-950/40 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
               }`}
             >
-              <div className="flex items-center justify-between w-full">
-                <span className="text-xs font-bold text-purple-400 flex items-center gap-1.5">
-                  <Building2 className="h-4 w-4" />
-                  Agencies & Dev Studios
-                </span>
-                <span className="text-[10px] font-semibold bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full">
-                  For Freelance
-                </span>
+              <div className="p-2 rounded-md bg-zinc-900 border border-zinc-800 text-zinc-300 shrink-0">
+                <Rocket className="h-4 w-4" />
               </div>
-              <p className="text-[11px] text-slate-400 mt-1.5 line-clamp-2">
-                Discover digital agencies and custom dev consultancies to pitch Agency Owners & Partners for freelance work.
-              </p>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-zinc-200">Tech Startups</span>
+                  <span className="text-[10px] font-medium text-zinc-400 bg-zinc-900 px-1.5 py-0.2 rounded border border-zinc-800">
+                    Job Outreach
+                  </span>
+                </div>
+                <p className="text-[11px] text-zinc-400 mt-1 leading-snug">
+                  Target seed to Series A software companies to cold pitch Founders and CTOs.
+                </p>
+              </div>
             </button>
 
             <button
               type="button"
               onClick={() => setTargetType("all")}
-              className={`flex flex-col text-left p-3.5 rounded-xl border transition cursor-pointer ${
+              className={`flex items-start gap-3 p-3 rounded-lg border text-left transition cursor-pointer ${
                 targetType === "all"
-                  ? "bg-emerald-500/15 border-emerald-500 text-white shadow-md shadow-emerald-500/10"
-                  : "bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+                  ? "bg-zinc-800/90 border-zinc-700 text-white shadow-sm"
+                  : "bg-zinc-950/40 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
               }`}
             >
-              <div className="flex items-center justify-between w-full">
-                <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
-                  <Target className="h-4 w-4" />
-                  Both (Startups & Agencies)
-                </span>
-                <span className="text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full">
-                  Combined
-                </span>
+              <div className="p-2 rounded-md bg-zinc-900 border border-zinc-800 text-zinc-300 shrink-0">
+                <Layers className="h-4 w-4" />
               </div>
-              <p className="text-[11px] text-slate-400 mt-1.5 line-clamp-2">
-                Discover high-fit candidates across both fast-growing tech companies and dev studios.
-              </p>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-zinc-200">Combined Pipeline</span>
+                  <span className="text-[10px] font-medium text-zinc-400 bg-zinc-900 px-1.5 py-0.2 rounded border border-zinc-800">
+                    All
+                  </span>
+                </div>
+                <p className="text-[11px] text-zinc-400 mt-1 leading-snug">
+                  Source from both high-growth tech ventures and specialized software agencies.
+                </p>
+              </div>
             </button>
           </div>
         </div>
 
-        {/* 2. Primary 4 Filters Grid */}
+        {/* Source Platform Grid (Clean SVG Icons, Zero Emojis) */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-xs font-medium text-zinc-400">
+              Source Directory / Platform
+            </label>
+            <span className="text-[11px] text-zinc-500">
+              Select verified source directory
+            </span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {currentPlatformList.map((plat) => {
+              const isSelected = sourcePlatform === plat.id;
+              const IconComp = plat.icon;
+              return (
+                <button
+                  key={plat.id}
+                  type="button"
+                  onClick={() => setSourcePlatform(plat.id)}
+                  className={`flex items-start gap-2.5 p-2.5 rounded-lg border text-left transition cursor-pointer ${
+                    isSelected
+                      ? "bg-zinc-800/80 border-zinc-600 text-white shadow-sm"
+                      : "bg-zinc-950/40 border-zinc-800/80 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
+                  }`}
+                >
+                  <div
+                    className={`p-1.5 rounded shrink-0 mt-0.5 ${
+                      isSelected ? "bg-zinc-700 text-zinc-100" : "bg-zinc-900 text-zinc-500"
+                    }`}
+                  >
+                    <IconComp className="h-3.5 w-3.5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-xs font-medium truncate text-zinc-200">
+                        {plat.label}
+                      </span>
+                      {plat.badge && (
+                        <span className="text-[9px] font-medium px-1.5 py-0.2 rounded bg-zinc-900 border border-zinc-800 text-zinc-400">
+                          {plat.badge}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-zinc-500 truncate mt-0.5">
+                      {plat.desc}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Form Inputs Grid */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 pt-1">
-          {/* Company / Agency Size */}
           <div>
-            <label className="block text-xs font-medium text-slate-300">
-              {targetType === "agency" ? "Agency Size" : "Company / Team Size"}
+            <label className="block text-xs font-medium text-zinc-400">
+              {targetType === "agency" ? "Agency Size" : "Team Size"}
             </label>
             <select
               value={companySize}
               onChange={(e) => setCompanySize(e.target.value)}
-              className="mt-1.5 block w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2 text-xs text-white focus:border-sky-500 focus:outline-none"
+              className="mt-1.5 block w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-zinc-200 focus:border-zinc-600 focus:outline-none"
             >
               <option value="">Any Size</option>
-              <option value="1-10">1 - 10 (Early / Boutique Studio)</option>
-              <option value="11-50">11 - 50 (Small Studio / Seed Startup)</option>
+              <option value="1-10">1 - 10 (Boutique Studio / Seed)</option>
+              <option value="11-50">11 - 50 (Small Studio / Series A)</option>
               <option value="51-200">51 - 200 (Mid-sized / Established)</option>
               <option value="200+">200+ (Scaleup / Enterprise)</option>
             </select>
           </div>
 
-          {/* Location / Headquarters */}
           <div>
-            <label className="block text-xs font-medium text-slate-300">Headquarters / Location</label>
+            <label className="block text-xs font-medium text-zinc-400">Location / Headquarters</label>
             <input
               type="text"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
-              placeholder="e.g. United States, Remote"
-              className="mt-1.5 block w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2 text-xs text-white focus:border-sky-500 focus:outline-none"
+              placeholder="e.g. Remote, United States, Europe"
+              className="mt-1.5 block w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-zinc-200 focus:border-zinc-600 focus:outline-none"
             />
             <div className="flex flex-wrap gap-1 mt-1.5">
               {LOCATION_PRESETS.slice(0, 4).map((preset) => (
@@ -589,7 +695,7 @@ export default function DiscoveryPage() {
                   key={preset}
                   type="button"
                   onClick={() => setLocation(preset)}
-                  className="text-[10px] text-slate-400 hover:text-sky-300 transition cursor-pointer"
+                  className="text-[10px] text-zinc-500 hover:text-zinc-300 transition cursor-pointer"
                 >
                   +{preset}
                 </button>
@@ -597,36 +703,34 @@ export default function DiscoveryPage() {
             </div>
           </div>
 
-          {/* Revenue / Funding (Optional) */}
           <div>
-            <label className="block text-xs font-medium text-slate-300">
-              Revenue / Funding <span className="text-slate-500">(Optional)</span>
+            <label className="block text-xs font-medium text-zinc-400">
+              Revenue / Stage <span className="text-zinc-600">(Optional)</span>
             </label>
             <select
               value={revenueTier}
               onChange={(e) => setRevenueTier(e.target.value)}
-              className="mt-1.5 block w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2 text-xs text-white focus:border-sky-500 focus:outline-none"
+              className="mt-1.5 block w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-zinc-200 focus:border-zinc-600 focus:outline-none"
             >
-              <option value="">Any Revenue / Stage</option>
+              <option value="">Any Stage</option>
               <option value="Bootstrapped">Bootstrapped / Profitable</option>
               <option value="Seed">Pre-Seed / Seed Funded</option>
-              <option value="Series A">Series A+ High Growth</option>
+              <option value="Series A">Series A+ Growth</option>
               <option value="< $1M ARR">&lt; $1M ARR</option>
               <option value="$1M - $10M ARR">$1M - $10M ARR</option>
             </select>
           </div>
 
-          {/* Business Domain / Industry */}
           <div>
-            <label className="block text-xs font-medium text-slate-300">
-              Business Domain / Industry
+            <label className="block text-xs font-medium text-zinc-400">
+              Industry Domain
             </label>
             <input
               type="text"
               value={businessDomain}
               onChange={(e) => setBusinessDomain(e.target.value)}
-              placeholder="e.g. Fintech, Healthcare, Cybersecurity, B2B SaaS"
-              className="mt-1.5 block w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2 text-xs text-white focus:border-sky-500 focus:outline-none"
+              placeholder="e.g. Fintech, Healthcare, B2B SaaS"
+              className="mt-1.5 block w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-zinc-200 focus:border-zinc-600 focus:outline-none"
             />
             <div className="flex flex-wrap gap-1 mt-1.5">
               {DOMAIN_PRESETS.slice(0, 4).map((preset) => (
@@ -639,7 +743,7 @@ export default function DiscoveryPage() {
                       setBusinessDomain(current.length > 0 ? `${businessDomain}, ${preset}` : preset);
                     }
                   }}
-                  className="text-[10px] text-slate-400 hover:text-sky-300 transition cursor-pointer"
+                  className="text-[10px] text-zinc-500 hover:text-zinc-300 transition cursor-pointer"
                 >
                   +{preset}
                 </button>
@@ -648,9 +752,9 @@ export default function DiscoveryPage() {
           </div>
         </div>
 
-        {/* Quick Business Domain Pills */}
-        <div className="flex flex-wrap items-center gap-2 pt-1">
-          <span className="text-slate-400 font-medium text-[11px]">Popular Domains:</span>
+        {/* Popular Domain Pills */}
+        <div className="flex flex-wrap items-center gap-1.5 pt-1">
+          <span className="text-zinc-500 font-medium text-[11px] mr-1">Popular:</span>
           {DOMAIN_PRESETS.map((domain) => {
             const isSelected = businessDomain.toLowerCase().includes(domain.toLowerCase());
             return (
@@ -666,10 +770,10 @@ export default function DiscoveryPage() {
                     setBusinessDomain([...current, domain].join(", "));
                   }
                 }}
-                className={`rounded-lg px-2.5 py-1 text-xs font-medium transition cursor-pointer border ${
+                className={`rounded-md px-2 py-0.5 text-[11px] font-medium transition cursor-pointer border ${
                   isSelected
-                    ? "bg-sky-500/15 border-sky-500 text-sky-300 shadow-sm shadow-sky-500/10"
-                    : "bg-slate-950/60 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700"
+                    ? "bg-zinc-800 border-zinc-600 text-zinc-100"
+                    : "bg-zinc-950/60 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700"
                 }`}
               >
                 {isSelected ? `✓ ${domain}` : `+ ${domain}`}
@@ -678,60 +782,69 @@ export default function DiscoveryPage() {
           })}
         </div>
 
-        {/* 3. Anti-Job-Listing Guarantee Banner */}
-        <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 px-4 py-3 flex items-start gap-3 text-xs text-slate-300">
-          <ShieldCheck className="h-5 w-5 text-sky-400 shrink-0 mt-0.5" />
-          <div className="space-y-0.5">
-            <span className="font-semibold text-sky-300">Temporary Staging Discovery</span>
-            <p className="text-[11px] text-slate-400 leading-relaxed">
-              Discovered results are kept in memory for review. Only the leads you explicitly click <strong>"Save to DB"</strong> will be written permanently to your database.
-            </p>
+        {/* Staging Info Note (Subdued, Non-intrusive) */}
+        <div className="rounded-lg border border-zinc-800/80 bg-zinc-950/40 px-3.5 py-2.5 flex items-center justify-between text-xs text-zinc-400">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-zinc-400 shrink-0" />
+            <span>
+              Discovered leads are staged in temporary preview. Click <strong>"Save to DB"</strong> on any account to save it permanently.
+            </span>
           </div>
         </div>
 
         {error && (
-          <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-300">
-            {error}
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900/80 p-3 text-xs text-zinc-300 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0" />
+              <span>{error}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setError(null)}
+              className="text-zinc-500 hover:text-zinc-300 text-xs cursor-pointer"
+            >
+              Dismiss
+            </button>
           </div>
         )}
 
         {successMsg && (
-          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-300 flex items-center gap-2">
+          <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3 text-xs text-emerald-300 flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
             <span>{successMsg}</span>
           </div>
         )}
 
-        {/* 4. Controls & Submit */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
-          <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer select-none hover:text-slate-200 transition">
+        {/* Controls Bar & Submit */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+          <label className="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer select-none hover:text-zinc-200 transition">
             <input
               type="checkbox"
               checked={autoEnrich}
               onChange={(e) => setAutoEnrich(e.target.checked)}
-              className="rounded border-slate-700 bg-slate-950 text-sky-500 focus:ring-sky-500/20"
+              className="rounded border-zinc-800 bg-zinc-950 text-blue-500 focus:ring-0"
             />
-            <span>Deep web enrichment (auto-crawl site & extract decision-makers)</span>
+            <span>Auto-crawl website & extract decision-makers during discovery</span>
           </label>
           <button
             type="submit"
             disabled={isRunning}
-            className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 px-6 py-2.5 text-xs font-semibold text-white shadow-lg shadow-sky-500/25 hover:opacity-95 transition cursor-pointer disabled:opacity-50"
+            className="flex items-center justify-center gap-2 rounded-lg bg-zinc-100 hover:bg-white text-zinc-900 font-semibold px-5 py-2 text-xs shadow-sm transition cursor-pointer disabled:opacity-50"
           >
             {isRunning ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Searching & Staging...</span>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <span>Searching Directory...</span>
               </>
             ) : (
               <>
-                <Sparkles className="h-4 w-4" />
+                <Search className="h-3.5 w-3.5" />
                 <span>
                   {targetType === "agency"
-                    ? "Find Agencies for Freelance"
+                    ? "Find Agencies"
                     : targetType === "startup"
-                    ? "Find Startups for Jobs"
-                    : "Discover Startups & Agencies"}
+                    ? "Find Startups"
+                    : "Discover Accounts"}
                 </span>
               </>
             )}
@@ -739,46 +852,46 @@ export default function DiscoveryPage() {
         </div>
       </form>
 
-      {/* Discovered Accounts Controls & Header */}
+      {/* 3. Discovered Results Section */}
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
             <button
               onClick={() => setActiveTab("all")}
-              className={`rounded-xl px-3 py-1.5 text-xs font-medium transition cursor-pointer ${
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition cursor-pointer ${
                 activeTab === "all"
-                  ? "bg-slate-800 text-white"
-                  : "text-slate-400 hover:text-white hover:bg-slate-900"
+                  ? "bg-zinc-800 text-white"
+                  : "text-zinc-400 hover:text-white hover:bg-zinc-900"
               }`}
             >
               All Results ({results.length})
             </button>
             <button
               onClick={() => setActiveTab("saved")}
-              className={`rounded-xl px-3 py-1.5 text-xs font-medium transition cursor-pointer ${
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition cursor-pointer ${
                 activeTab === "saved"
-                  ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
-                  : "text-slate-400 hover:text-white hover:bg-slate-900"
+                  ? "bg-zinc-800 text-emerald-400"
+                  : "text-zinc-400 hover:text-white hover:bg-zinc-900"
               }`}
             >
-              ✓ Saved in DB ({savedCount})
+              Saved ({savedCount})
             </button>
             <button
               onClick={() => setActiveTab("temporary")}
-              className={`rounded-xl px-3 py-1.5 text-xs font-medium transition cursor-pointer ${
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition cursor-pointer ${
                 activeTab === "temporary"
-                  ? "bg-amber-500/15 text-amber-300 border border-amber-500/30"
-                  : "text-slate-400 hover:text-white hover:bg-slate-900"
+                  ? "bg-zinc-800 text-zinc-200"
+                  : "text-zinc-400 hover:text-white hover:bg-zinc-900"
               }`}
             >
-              ⚡ Temporary ({unsavedCount})
+              Staged ({unsavedCount})
             </button>
             <button
               onClick={() => setActiveTab("with_leads")}
-              className={`rounded-xl px-3 py-1.5 text-xs font-medium transition cursor-pointer ${
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition cursor-pointer ${
                 activeTab === "with_leads"
-                  ? "bg-sky-500/15 text-sky-300 border border-sky-500/30"
-                  : "text-slate-400 hover:text-white hover:bg-slate-900"
+                  ? "bg-zinc-800 text-blue-400"
+                  : "text-zinc-400 hover:text-white hover:bg-zinc-900"
               }`}
             >
               With Leads ({totalWithLeads})
@@ -786,144 +899,138 @@ export default function DiscoveryPage() {
           </div>
 
           <div className="relative w-full sm:w-64">
-            <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-500" />
+            <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-zinc-500" />
             <input
               type="text"
               value={searchFilter}
               onChange={(e) => setSearchFilter(e.target.value)}
-              placeholder="Search companies, domains, leads..."
-              className="w-full rounded-xl border border-slate-800 bg-slate-950 pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:border-sky-500 focus:outline-none"
+              placeholder="Filter by company, domain, lead..."
+              className="w-full rounded-lg border border-zinc-800 bg-zinc-950 pl-8 pr-3 py-1.5 text-xs text-zinc-200 placeholder-zinc-500 focus:border-zinc-600 focus:outline-none"
             />
           </div>
         </div>
 
-        {/* Loading skeleton or empty state */}
+        {/* Loading / Empty States */}
         {isLoadingExisting && results.length === 0 ? (
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/30 p-12 text-center text-slate-500 flex flex-col items-center gap-3">
-            <Loader2 className="h-6 w-6 animate-spin text-sky-400" />
-            <span>Loading accounts...</span>
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-12 text-center text-zinc-500 flex flex-col items-center gap-3">
+            <Loader2 className="h-5 w-5 animate-spin text-zinc-400" />
+            <span className="text-xs">Loading accounts...</span>
           </div>
         ) : filteredResults.length === 0 ? (
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/30 p-12 text-center text-slate-500">
-            {searchFilter ? "No companies matched your search filter." : 'No accounts found yet. Adjust criteria above and click search.'}
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-12 text-center text-zinc-500 text-xs">
+            {searchFilter ? "No companies matched your filter." : 'No accounts found yet. Adjust criteria above and click search.'}
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {filteredResults.map((c) => {
-              const hasLeads = (c.people && c.people.length > 0) || (c.contact_count || 0) > 0;
               const isEnrichingThis = enrichingDomain === c.domain;
               const isSavingThis = savingDomain === c.domain;
               const isAgency = c.target_type === "agency" || (c.name || "").toLowerCase().includes("agency");
+              const initials = getInitials(c.name, "CO");
+              const cleanedDesc = cleanDescription(c.description);
 
               return (
                 <div
                   key={c.id || c.domain}
-                  className={`rounded-2xl border p-5 shadow-sm transition flex flex-col justify-between ${
+                  className={`rounded-xl border p-4 shadow-sm transition flex flex-col justify-between ${
                     c.is_existing
-                      ? "border-slate-800 bg-slate-900/50 hover:border-slate-700"
-                      : "border-amber-500/20 bg-slate-900/40 hover:border-amber-500/40"
+                      ? "border-zinc-800 bg-zinc-900/40 hover:border-zinc-700"
+                      : "border-zinc-800/80 bg-zinc-900/30 hover:border-zinc-700"
                   }`}
                 >
                   <div className="space-y-3">
                     {/* Header */}
                     <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2.5">
-                        <div
-                          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
-                            isAgency ? "bg-purple-500/10 text-purple-400" : "bg-sky-500/10 text-sky-400"
-                          }`}
-                        >
-                          {isAgency ? <Building2 className="h-5 w-5" /> : <Briefcase className="h-5 w-5" />}
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        {/* Company Monogram */}
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-800 border border-zinc-700/60 text-zinc-200 font-medium text-xs">
+                          {initials}
                         </div>
                         <div className="min-w-0">
-                          <h3 className="font-semibold text-white text-sm truncate" title={c.name}>
+                          <h3 className="font-semibold text-zinc-100 text-sm truncate" title={c.name}>
                             {c.name}
                           </h3>
                           <a
                             href={c.website || `https://${c.domain}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="font-mono text-[11px] text-slate-400 hover:text-sky-400 transition flex items-center gap-1"
+                            className="font-mono text-[11px] text-zinc-400 hover:text-zinc-200 transition flex items-center gap-1"
                           >
-                            <span>{c.domain}</span>
-                            <ExternalLink className="h-2.5 w-2.5" />
+                            <span className="truncate">{c.domain}</span>
+                            <ExternalLink className="h-2.5 w-2.5 text-zinc-500 shrink-0" />
                           </a>
                         </div>
                       </div>
 
-                      <div className="flex flex-col items-end gap-1.5">
+                      <div className="flex items-center gap-1.5 shrink-0">
                         {c.is_existing ? (
-                          <span className="flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-400 border border-emerald-500/30">
-                            <Check className="h-2.5 w-2.5" />
-                            Saved in DB
+                          <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-400 border border-emerald-500/20">
+                            <span className="h-1 w-1 rounded-full bg-emerald-400" />
+                            Saved
                           </span>
                         ) : (
-                          <div className="flex items-center gap-1.5">
-                            <span className="flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-300 border border-amber-500/30">
-                              <Zap className="h-2.5 w-2.5" />
-                              Temporary
+                          <div className="flex items-center gap-1">
+                            <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[10px] font-medium text-zinc-400 border border-zinc-700/60">
+                              Staged
                             </span>
                             <button
                               type="button"
                               onClick={() => handleDismissCompany(c.domain)}
-                              className="text-slate-500 hover:text-rose-400 p-0.5 rounded cursor-pointer transition"
+                              className="text-zinc-500 hover:text-zinc-300 p-0.5 rounded cursor-pointer transition"
                               title="Dismiss from temporary view"
                             >
                               <X className="h-3 w-3" />
                             </button>
                           </div>
                         )}
-                        {c.fit_score ? (
-                          <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold text-sky-400 border border-sky-500/20">
-                            {c.fit_score}% Fit
-                          </span>
-                        ) : null}
                       </div>
                     </div>
 
-                    {/* Target Intent & Firmographics Badges */}
+                    {/* Clean Firmographics Tags (No Emojis) */}
                     <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-                      <span
-                        className={`rounded-lg px-2 py-0.5 font-medium ${
-                          isAgency
-                            ? "bg-purple-500/10 text-purple-300 border border-purple-500/20"
-                            : "bg-sky-500/10 text-sky-300 border border-sky-500/20"
-                        }`}
-                      >
-                        {isAgency ? "🏢 Agency (Freelance)" : "🚀 Tech Startup (Job)"}
+                      <span className="rounded-md bg-zinc-800/80 px-2 py-0.5 text-zinc-300 border border-zinc-700/50 flex items-center gap-1 font-medium">
+                        {isAgency ? <Building2 className="h-3 w-3 text-zinc-400" /> : <Briefcase className="h-3 w-3 text-zinc-400" />}
+                        <span>{isAgency ? "Agency" : "Startup"}</span>
                       </span>
-                      {c.size && (
-                        <span className="rounded-lg bg-slate-800/60 px-2 py-0.5 text-slate-300">
-                          👥 {c.size} team
+
+                      {c.source_platform && (
+                        <span className="rounded-md bg-zinc-900 border border-zinc-800 px-2 py-0.5 text-zinc-400 font-medium">
+                          {c.source_platform}
                         </span>
                       )}
-                      <span className="rounded-lg bg-slate-800/60 px-2 py-0.5 text-slate-400">
-                        📍 {c.location || "Remote / US"}
-                      </span>
-                      {c.industry && c.industry !== (isAgency ? "Agency" : "Tech Startup") && (
-                        <span className="rounded-lg bg-slate-800/60 px-2 py-0.5 text-slate-400">
-                          {c.industry}
+
+                      {c.size && (
+                        <span className="rounded-md bg-zinc-900 border border-zinc-800 px-2 py-0.5 text-zinc-400 flex items-center gap-1">
+                          <Users className="h-3 w-3 text-zinc-500" />
+                          <span>{c.size}</span>
+                        </span>
+                      )}
+
+                      {c.location && (
+                        <span className="rounded-md bg-zinc-900 border border-zinc-800 px-2 py-0.5 text-zinc-400 flex items-center gap-1">
+                          <MapPin className="h-3 w-3 text-zinc-500" />
+                          <span className="truncate max-w-[120px]">{c.location}</span>
                         </span>
                       )}
                     </div>
 
-                    {/* Description */}
-                    {c.description && (
-                      <p className="text-xs text-slate-300 line-clamp-2 leading-relaxed">
-                        {c.description}
+                    {/* Sanitized Clean Description */}
+                    {cleanedDesc && (
+                      <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed">
+                        {cleanedDesc}
                       </p>
                     )}
 
-                    {/* Verified Decision Makers Section */}
+                    {/* Decision-Makers Preview Section */}
                     {c.people && c.people.length > 0 ? (
-                      <div className="rounded-xl border border-slate-800/80 bg-slate-950/60 p-3 space-y-2 mt-2">
-                        <div className="flex items-center justify-between text-[11px] font-semibold text-slate-300 border-b border-slate-800/60 pb-1.5">
-                          <span className="flex items-center gap-1.5 text-emerald-400">
-                            <ShieldCheck className="h-3.5 w-3.5" />
-                            Verified Decision-Makers ({c.people.length})
+                      <div className="rounded-lg border border-zinc-800/80 bg-zinc-950/60 p-2.5 space-y-2 mt-2">
+                        <div className="flex items-center justify-between text-[11px] font-medium text-zinc-400 border-b border-zinc-800/60 pb-1.5">
+                          <span className="flex items-center gap-1.5 text-zinc-200">
+                            <Users className="h-3.5 w-3.5 text-zinc-400" />
+                            Decision-Makers ({c.people.length})
                           </span>
-                          <span className="text-[10px] text-slate-500">
-                            {c.is_existing ? "Saved in DB" : "Staged (Unsaved)"}
+                          <span className="text-[10px] text-zinc-500">
+                            {c.is_existing ? "Saved in DB" : "Staged Lead"}
                           </span>
                         </div>
 
@@ -931,10 +1038,10 @@ export default function DiscoveryPage() {
                           {c.people.slice(0, 2).map((p, idx) => (
                             <div key={idx} className="text-xs space-y-1">
                               <div className="flex items-center justify-between gap-1">
-                                <span className="font-medium text-slate-200">
+                                <span className="font-medium text-zinc-200">
                                   {p.first_name} {p.last_name}
                                 </span>
-                                <span className="text-[10px] text-slate-400 truncate max-w-[130px]" title={p.title}>
+                                <span className="text-[10px] text-zinc-400 truncate max-w-[130px]" title={p.title}>
                                   {p.title}
                                 </span>
                               </div>
@@ -943,19 +1050,19 @@ export default function DiscoveryPage() {
                                 {p.email ? (
                                   <button
                                     onClick={() => handleCopyEmail(p.email!)}
-                                    className="flex items-center gap-1 font-mono text-sky-400 hover:text-sky-300 transition text-[11px] cursor-pointer"
+                                    className="flex items-center gap-1.5 font-mono text-zinc-300 hover:text-white transition text-[11px] cursor-pointer"
                                     title="Click to copy email"
                                   >
-                                    <Mail className="h-3 w-3 shrink-0" />
+                                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" />
                                     <span className="truncate max-w-[140px]">{p.email}</span>
                                     {copiedEmail === p.email ? (
                                       <Check className="h-3 w-3 text-emerald-400" />
                                     ) : (
-                                      <Copy className="h-2.5 w-2.5 text-slate-500" />
+                                      <Copy className="h-2.5 w-2.5 text-zinc-500" />
                                     )}
                                   </button>
                                 ) : (
-                                  <span className="text-slate-500 text-[10px]">Email resolving...</span>
+                                  <span className="text-zinc-500 text-[10px]">Email resolving...</span>
                                 )}
 
                                 {p.linkedin_url && (
@@ -963,7 +1070,7 @@ export default function DiscoveryPage() {
                                     href={formatLinkedInUrl(p.linkedin_url)}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="flex items-center gap-1 text-[#0A66C2] hover:underline text-[10px] shrink-0"
+                                    className="flex items-center gap-1 text-zinc-400 hover:text-white text-[10px] shrink-0 transition"
                                   >
                                     <LinkedInIcon className="h-3 w-3" />
                                     <span>Profile</span>
@@ -974,31 +1081,31 @@ export default function DiscoveryPage() {
                           ))}
 
                           {c.people.length > 2 && (
-                            <p className="text-[10px] text-slate-500 text-center pt-1">
-                              +{c.people.length - 2} more decision-makers found
+                            <p className="text-[10px] text-zinc-500 text-center pt-0.5">
+                              +{c.people.length - 2} more decision-makers
                             </p>
                           )}
                         </div>
                       </div>
                     ) : (
-                      <div className="rounded-xl border border-dashed border-slate-800 bg-slate-950/40 p-2.5 flex items-center justify-between gap-2 mt-2">
-                        <span className="text-[11px] text-slate-400">
+                      <div className="rounded-lg border border-dashed border-zinc-800 bg-zinc-950/40 p-2.5 flex items-center justify-between gap-2 mt-2">
+                        <span className="text-[11px] text-zinc-400">
                           Decision-makers ready to extract
                         </span>
                         <button
                           type="button"
                           onClick={() => handleEnrichCompany(c)}
                           disabled={isEnrichingThis}
-                          className="flex items-center gap-1 rounded-lg bg-sky-500/10 border border-sky-500/30 px-2 py-1 text-[11px] font-semibold text-sky-300 hover:bg-sky-500/20 transition cursor-pointer disabled:opacity-50"
+                          className="flex items-center gap-1 rounded-md bg-zinc-800 hover:bg-zinc-700 border border-zinc-700/60 px-2.5 py-1 text-[11px] font-medium text-zinc-200 transition cursor-pointer disabled:opacity-50"
                         >
                           {isEnrichingThis ? (
                             <>
-                              <Loader2 className="h-3 w-3 animate-spin" />
+                              <Loader2 className="h-3 w-3 animate-spin text-zinc-400" />
                               <span>Scanning...</span>
                             </>
                           ) : (
                             <>
-                              <Sparkles className="h-3 w-3 text-sky-400" />
+                              <Search className="h-3 w-3 text-zinc-400" />
                               <span>Find Decision-Makers</span>
                             </>
                           )}
@@ -1007,36 +1114,32 @@ export default function DiscoveryPage() {
                     )}
                   </div>
 
-                  {/* Card Actions Footer */}
-                  <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between gap-2">
-                    {/* View Details Button */}
+                  {/* Actions Footer */}
+                  <div className="mt-4 pt-3 border-t border-zinc-800/80 flex items-center justify-between gap-2">
                     <button
                       type="button"
                       onClick={() => handleViewDetails(c)}
-                      className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-200 font-semibold px-3 py-1.5 text-xs transition cursor-pointer"
-                      title="Open full company analysis & decision-maker profiles"
+                      className="flex items-center gap-1.5 rounded-md border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 font-medium px-3 py-1.5 text-xs transition cursor-pointer"
                     >
-                      <FileText className="h-3.5 w-3.5 text-sky-400" />
+                      <FileText className="h-3.5 w-3.5 text-zinc-400" />
                       <span>View Details</span>
                     </button>
 
-                    {/* Right button: Save to DB or Saved Indicator */}
                     {!c.is_existing ? (
                       <button
                         type="button"
                         onClick={() => handleSaveLead(c)}
                         disabled={isSavingThis}
-                        className="flex items-center gap-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-3 py-1.5 text-xs shadow-md shadow-emerald-500/20 transition cursor-pointer disabled:opacity-50"
-                        title="Permanently save this company & leads to database"
+                        className="flex items-center gap-1.5 rounded-md bg-zinc-100 hover:bg-white text-zinc-900 font-semibold px-3 py-1.5 text-xs shadow-sm transition cursor-pointer disabled:opacity-50"
                       >
                         {isSavingThis ? (
                           <>
-                            <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-950" />
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
                             <span>Saving...</span>
                           </>
                         ) : (
                           <>
-                            <BookmarkPlus className="h-3.5 w-3.5 text-slate-950" />
+                            <BookmarkPlus className="h-3.5 w-3.5" />
                             <span>Save to DB</span>
                           </>
                         )}
@@ -1044,12 +1147,11 @@ export default function DiscoveryPage() {
                     ) : (
                       <Link
                         href={`/decision-makers?search=${encodeURIComponent(c.name)}`}
-                        className="text-xs text-emerald-400 hover:text-emerald-300 transition flex items-center gap-1 font-medium"
-                        title="Saved in database - view in pipeline"
+                        className="text-xs text-zinc-400 hover:text-zinc-200 transition flex items-center gap-1 font-medium"
                       >
-                        <Check className="h-3.5 w-3.5" />
-                        <span>Saved in DB</span>
-                        <ArrowRight className="h-3 w-3" />
+                        <Check className="h-3 w-3 text-emerald-400" />
+                        <span>Saved</span>
+                        <ArrowRight className="h-3 w-3 text-zinc-500" />
                       </Link>
                     )}
                   </div>

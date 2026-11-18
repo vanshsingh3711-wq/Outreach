@@ -3,105 +3,84 @@ brain:
   model: "deepseek-chat"
 
 persona:
-  name: "Vansh"
-  company: "Outreach"
-  role: "Founder"
-  email: "vansh@outreach.internal"
-  linkedin: "linkedin.com/in/vansh"
-  tone: "concise, direct, authentic, founder-to-founder"
+  name: "Vansh Singh"
+  company: "Independent Developer"
+  role: "Full-Stack & Backend Engineer"
+  email: "vanshsingh0115@gmail.com"
+  linkedin: "https://www.linkedin.com/in/vansh"
+  tone: "concise, direct, authentic, engineer-to-founder"
 
 product:
-  name: "Outreach"
-  description: "Autonomous lead discovery, qualification, and personalized multi-channel outreach engine"
-  pricing: "Starting at $X/mo"
+  name: "Contract Full-Stack & AI Engineering"
+  description: "Building web apps, scalable backend services, API integrations, and AI/LLM workflows for tech startups and digital agencies."
+  pricing: "Flexible hourly or project-based contract rates"
   key_benefits:
-    - "Benefit 1"
-    - "Benefit 2"
-    - "Benefit 3"
+    - "Rapid delivery of MVPs, full-stack features, and API integrations with zero overhead"
+    - "Clean, maintainable code across Python, TypeScript, React, Node, and FastAPI"
+    - "Reliable developer bandwidth for backlog crunch, product sprints, and specialized modules"
   objection_responses:
-    "too expensive": "I understand budget is important. Most of our clients see ROI within 30 days..."
-    "already have a solution": "That makes sense. Curious — what's the one thing you wish it did better?"
-    "not interested": "No worries at all. Mind if I ask what your current approach looks like?"
+    "not hiring right now": "Understood! If you ever need contract dev bandwidth or overflow help for a sprint, feel free to keep me in mind."
+    "already have developers": "Makes complete sense. I often plug in as an extra pair of hands for ad-hoc modules or backlog crunch."
+    "no budget": "Completely understand. Happy to stay in touch or help out if smaller scoped tasks come up later."
   offer:
-    primary: ""                    # Main offer (e.g., "Monthly subscription starting at $99/mo")
-    entry: ""                      # Low-commitment entry (e.g., "14-day free trial", "Free audit")
-    goal: "book_call"              # Goal of outreach: book_call, start_trial, get_reply
-    booking_method: "calendar_link" # calendar_link, suggest_times, ask_preference
+    primary: "Contract engineering and freelance full-stack / backend development"
+    entry: "A quick 15-minute intro chat to see if I can take any engineering tasks off your plate"
+    goal: "get_reply"              # Goal of outreach: get_reply, book_call, start_trial
+    booking_method: "ask_preference" # ask_preference, suggest_times, calendar_link
     booking_url: ""                # Calendar link URL (if using calendar_link method)
     meeting_duration: "15 minutes" # How long the call is
-    meeting_owner: ""              # Who takes the meeting (name or role)
+    meeting_owner: "Vansh"         # Who takes the meeting
 
 icp:
   industries:
+    - "Tech Startups"
+    - "Software Development"
+    - "Digital Agencies"
     - "SaaS"
-    - "Marketing Agency"
-  company_size: "10-200 employees"
+    - "Product Studios"
+  company_size: "1-50 employees"
   titles:
-    - "VP Marketing"
-    - "Head of Growth"
-    - "CMO"
-    - "Director of Marketing"
+    - "Founder"
+    - "Co-Founder"
+    - "CTO"
+    - "Head of Engineering"
+    - "Engineering Manager"
+    - "Technical Director"
+    - "Managing Director"
   geography:
     - "United States"
-  # Roles that signal a company is in-market RIGHT NOW (a company hiring a
-  # "Head of Growth" is shopping for growth tooling). Used for careers-page
-  # scanning and job-board discovery. Empty = fall back to titles above.
-  hiring_signals: []
+    - "India"
+    - "United Kingdom"
+    - "Remote"
+  # Roles that signal a company is in-market RIGHT NOW
+  hiring_signals:
+    - "Full Stack Engineer"
+    - "Backend Engineer"
+    - "Software Engineer"
+    - "Python Developer"
 
 channels:
   email:
     enabled: true
-    provider: "gmail"          # gmail (recommended) | microsoft | smtp | instantly
-    max_daily_sends: 50
-    require_approval: true      # native: review in Outbox; Instantly: sending held
-    # link_domains: ["mainsite.com"]   # your own sites besides the sending
-    #                                  # domain and booking link; on autopilot,
-    #                                  # an email linking elsewhere waits for you
-    # phone_numbers: ["+1 555 010 2000"]  # your own numbers; on autopilot, an
-    #                                  # email giving any other number waits for you
-    send_to_risky: false        # also send to catch-all domains (off = safest)
-    # min_write_score: 60       # only write for prospects Scout scored at
-    #                           # least this (0-100); 0 or unset = everyone
+    provider: "smtp"           # using smtp with Gmail App Password for safe, direct delivery
+    max_daily_sends: 15        # Safe limit for personal Gmail account
+    require_approval: true      # native: review in Outbox; safety check before sending
+    send_to_risky: true         # also send to catch-all domains — won't bounce, boosts reach ~20%
     max_bounce_rate: 0.05       # pause all sending if bounces exceed this
-    # New sending domain? Set start_date to the day your warmup service went
-    # on: no cold email for min_days, then the cold cap climbs from
-    # start_sends by daily_increase a day up to max_daily_sends. Replies are
-    # never held. Gmail/Microsoft/SMTP only (Instantly has its own warmup).
-    # Check readiness any time with `outreach warmup`.
-    # We recommend TrulyInbox for warmup: https://trulyinbox.com/?via=outreach
-    # Connect it (`outreach trulyinbox connect`) and `outreach warmup` reads
-    # whether this mailbox is actually warmed.
     warmup:
-      start_date: ""            # YYYY-MM-DD; blank = no ramp
+      start_date: ""            # 1.5 yr old Gmail needs no synthetic ramp; rate capped at 15/day
       min_days: 14
       start_sends: 5
       daily_increase: 3
-      dkim_selector: ""         # only if your provider uses an unusual one
-    # Send cold email only in office hours in each recipient's own time zone,
-    # worked out from the company's location or the country Precleared finds.
-    # Anyone Outreach can't place gets the window in usage.quiet_hours.timezone.
-    # Follow-ups move into the window; replies are never held. Quiet hours
-    # then stop prospecting and writing, not mail that's due.
-    # Gmail/Microsoft/SMTP only. Remove the # marks to switch it on.
-    # send_window:
-    #   start: "08:00"
-    #   end: "17:00"
-    #   weekdays_only: true      # Monday to Friday, in every country
-    #   recipient_timezone: true  # false: one zone for everyone (quiet_hours.timezone)
-    # A logo under every email, cold or reply: the email goes out as HTML
-    # with the image embedded. Blank logo = plain text, as before. If the
-    # file can't be used, approved email waits instead of going out without
-    # it. Gmail/Microsoft/SMTP only.
-    # Plain text usually lands better for cold email: images and HTML can push
-    # a new mailbox toward spam. Warm up first, and test placement after adding it.
+      dkim_selector: ""
     signature:
-      logo: ""                  # PNG/JPEG/GIF up to 100 KB, e.g. "data/assets/logo.png"
-      width: 120                # display width in pixels
-      alt: ""                   # text when images are off; blank = persona.company
-      link: ""                  # optional web address the logo opens
-      direction: "auto"         # rtl for Hebrew or Arabic email
+      logo: ""
+      width: 120
+      alt: ""
+      link: ""
+      direction: "auto"
   linkedin:
-    enabled: false             # explicit opt-in; credentials alone do not enable it
+    enabled: true              # LinkedIn prospecting ON — finds decision makers by title
     max_daily_connections: 20
     max_daily_messages: 10
 
@@ -113,40 +92,15 @@ usage:
     end: "07:00"
     timezone: "America/New_York"
 
-# Optional: check each new recipient with Precleared (precleared.dev) before
-# the first cold email: may cold marketing email go to this address under the
-# rules of the recipient's country (UK PECR, US CAN-SPAM, Canada's CASL,
-# Germany's UWG, France's CPCE and the rest of Precleared's fourteen)? Any other
-# answer holds the email back, with the reason in the Outbox. One check per
-# address; 10 a day free without a key. A free key (PRECLEARED_API_KEY in .env,
-# which `outreach precleared-key` gets for you) allows 100 a day for its first 14
-# days, then 25. Applies to the native providers (gmail, microsoft, smtp). If all
-# your prospects are in one country, set prospect_country: Precleared uses it
-# only when it can't tell the country from the address, company records or the
-# company's website.
 compliance:
-  # Added under every cold email (never replies). US law (CAN-SPAM) requires a
-  # postal address you receive mail at: a street address, PO box or virtual
-  # mailbox. Until it's set, cold email still sends, with a warning.
-  postal_address: ""
-  # Any wording works: Outreach reads every reply for a request to stop.
-  opt_out_line: "Not interested? Just let me know and I won't email you again."
-  # Never email these, cold or in reply: competitors, your existing customers,
-  # anyone under a legal hold. An entry is an address or a domain, and a domain
-  # covers its subdomains ("acme.example" also blocks "mail.acme.example", but
-  # not "notacme.example"). Checked by the gate at send time, so it holds even
-  # for an email you already approved in the Outbox, and picked up by a running
-  # Outreach at once. If you trained Outreach, set it in outreach.local.yaml instead:
-  # that file wins.
+  postal_address: "New Delhi, India"
+  opt_out_line: "Not interested or wrong timing? Just reply and let me know, and I won't follow up."
   do_not_contact: []
-  #   - "competitor.example"
-  #   - "jane@acme.example"
   precleared:
     enabled: false
-    sender_country: ""          # where your business is based: GB, US, CA, DE, FR, AU,
-                                # IE, NL, ES, IT, LV, AE, EG or QA
-    address_source: "unknown"   # published | bought | scraped | given | unknown
-    prospect_country: ""        # optional, e.g. US if all your prospects are in one country
+    sender_country: ""
+    address_source: "unknown"
+    prospect_country: ""
     # Outreach also tells Precleared the recipient's country when the company's
     # location makes it certain, and the company's and person's names when
     # it has them (see docs/precleared.md).

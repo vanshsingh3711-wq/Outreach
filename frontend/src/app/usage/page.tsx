@@ -4,7 +4,23 @@ import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchApi } from "@/lib/api-client";
 import { formatNumber, formatTokens } from "@/lib/utils";
-import { BarChart3, Cpu, DollarSign, Activity, Layers, Sparkles } from "lucide-react";
+import {
+  MetricCard,
+  Badge,
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  Table,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  TableCell,
+  Skeleton,
+} from "@/components/ui";
+import { BarChart3, Cpu, DollarSign, Activity, Sparkles, Layers } from "lucide-react";
 
 export default function UsagePage() {
   const { data, isLoading } = useQuery<any>({
@@ -24,145 +40,154 @@ export default function UsagePage() {
   const monthCost = month.cost_usd || 0;
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
-      <div>
-        <div className="flex items-center gap-2.5">
-          <h1 className="text-2xl font-bold tracking-tight text-white">AI Usage & Cost Telemetry</h1>
-          <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-400 border border-emerald-500/20">
-            {data?.provider || "DeepSeek"}
-          </span>
+    <div className="space-y-5 animate-in fade-in duration-200">
+      {/* Page Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">
+              AI Usage & Cost Telemetry
+            </h1>
+            <Badge variant="success" size="sm" dot>
+              {data?.provider || "DeepSeek API"}
+            </Badge>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Monitor model token throughput, prompt/completion ratios, and operational LLM expenses.
+          </p>
         </div>
-        <p className="mt-1 text-sm text-slate-400">
-          Monitor token consumption, prompt/completion ratios, and operational costs across all agent routines.
-        </p>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
-          <div className="flex items-center justify-between text-xs font-medium text-slate-400">
-            <span>Tokens Today</span>
-            <Sparkles className="h-4 w-4 text-sky-400" />
-          </div>
-          <div className="mt-3 text-2xl font-bold text-white">
-            {formatTokens(todayTokens)}
-          </div>
-          <p className="mt-1 text-[11px] text-slate-400">
-            In: {formatTokens(today.input_tokens || 0)} · Out: {formatTokens(today.output_tokens || 0)}
-          </p>
-        </div>
+      <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-4">
+        <MetricCard
+          title="Tokens Today"
+          value={formatTokens(todayTokens)}
+          icon={<Sparkles className="h-4 w-4" />}
+          subtitle={`In: ${formatTokens(today.input_tokens || 0)} · Out: ${formatTokens(today.output_tokens || 0)}`}
+        />
 
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
-          <div className="flex items-center justify-between text-xs font-medium text-slate-400">
-            <span>Tokens (30 Days)</span>
-            <BarChart3 className="h-4 w-4 text-indigo-400" />
-          </div>
-          <div className="mt-3 text-2xl font-bold text-white">
-            {formatTokens(monthTokens)}
-          </div>
-          <p className="mt-1 text-[11px] text-slate-400">
-            Across {formatNumber(month.calls || 0)} model inferences
-          </p>
-        </div>
+        <MetricCard
+          title="Tokens (30 Days)"
+          value={formatTokens(monthTokens)}
+          icon={<BarChart3 className="h-4 w-4" />}
+          subtitle={`Across ${formatNumber(month.calls || 0)} model inferences`}
+        />
 
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
-          <div className="flex items-center justify-between text-xs font-medium text-slate-400">
-            <span>API Calls Today</span>
-            <Activity className="h-4 w-4 text-emerald-400" />
-          </div>
-          <div className="mt-3 text-2xl font-bold text-white">
-            {formatNumber(todayCalls)}
-          </div>
-          <p className="mt-1 text-[11px] text-slate-400">Direct HTTP calls to DeepSeek</p>
-        </div>
+        <MetricCard
+          title="API Inferences Today"
+          value={formatNumber(todayCalls)}
+          icon={<Activity className="h-4 w-4" />}
+          subtitle="Direct HTTP calls to DeepSeek"
+        />
 
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5">
-          <div className="flex items-center justify-between text-xs font-medium text-slate-400">
-            <span>Est. Cost (30 Days)</span>
-            <DollarSign className="h-4 w-4 text-amber-400" />
-          </div>
-          <div className="mt-3 text-2xl font-bold text-white">
-            ${monthCost.toFixed(3)}
-          </div>
-          <p className="mt-1 text-[11px] text-slate-400">High efficiency deepseek-chat pricing</p>
-        </div>
+        <MetricCard
+          title="Est. Cost (30 Days)"
+          value={`$${monthCost.toFixed(3)}`}
+          icon={<DollarSign className="h-4 w-4" />}
+          subtitle="Optimized deepseek-chat pricing"
+          trend={{ value: "Low Cost", isPositive: true }}
+        />
       </div>
 
-      {/* Breakdowns */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Breakdown by Agent */}
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 space-y-4">
-          <div className="flex items-center gap-2">
-            <Cpu className="h-4 w-4 text-sky-400" />
-            <h3 className="font-semibold text-white text-sm">Usage by Agent (30 Days)</h3>
-          </div>
-
-          <div className="space-y-3">
-            {byAgent.length === 0 ? (
-              <p className="py-6 text-center text-xs text-slate-500">No agent usage recorded yet.</p>
+      {/* Breakdowns Grid */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        {/* By Agent Routine */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Cpu className="h-4 w-4 text-primary" />
+              <span>Usage by Agent Routine</span>
+            </CardTitle>
+            <CardDescription>
+              Breakdown of token consumption across Scout, Writer, and Dispatcher agents.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="space-y-2">
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-full" />
+              </div>
+            ) : byAgent.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-4">No agent telemetry recorded yet.</p>
             ) : (
-              byAgent.map((agent: any, idx: number) => {
-                const total = (agent.input_tokens || 0) + (agent.output_tokens || 0);
-                return (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between rounded-xl border border-slate-800/80 bg-slate-950/60 p-3"
-                  >
-                    <div>
-                      <span className="font-semibold text-white text-xs uppercase tracking-wider">
-                        {agent.agent || "Core"}
-                      </span>
-                      <p className="text-[11px] text-slate-400">
-                        {agent.calls || 0} calls · ${(agent.cost_usd || 0).toFixed(4)}
-                      </p>
-                    </div>
-                    <span className="font-mono text-xs font-medium text-sky-400">
-                      {formatTokens(total)} tok
-                    </span>
-                  </div>
-                );
-              })
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Agent</TableHead>
+                    <TableHead className="text-right">Inferences</TableHead>
+                    <TableHead className="text-right">Tokens</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {byAgent.map((item: any, idx: number) => (
+                    <TableRow key={idx}>
+                      <TableCell className="font-semibold capitalize text-xs">
+                        {item.agent || "Scout / Brain"}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-xs text-muted-foreground">
+                        {formatNumber(item.calls || 0)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-xs text-foreground font-medium">
+                        {formatTokens(item.total_tokens || 0)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             )}
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
-        {/* Breakdown by Task */}
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 space-y-4">
-          <div className="flex items-center gap-2">
-            <Layers className="h-4 w-4 text-indigo-400" />
-            <h3 className="font-semibold text-white text-sm">Usage by Task (30 Days)</h3>
-          </div>
-
-          <div className="space-y-3">
-            {byTask.length === 0 ? (
-              <p className="py-6 text-center text-xs text-slate-500">No task usage recorded yet.</p>
+        {/* By Task Category */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Layers className="h-4 w-4 text-primary" />
+              <span>Usage by Task Type</span>
+            </CardTitle>
+            <CardDescription>
+              Model workload distribution between discovery, research, and personalization.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="space-y-2">
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-full" />
+              </div>
+            ) : byTask.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-4">No task telemetry recorded yet.</p>
             ) : (
-              byTask.map((task: any, idx: number) => {
-                const total = (task.input_tokens || 0) + (task.output_tokens || 0);
-                return (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between rounded-xl border border-slate-800/80 bg-slate-950/60 p-3"
-                  >
-                    <div>
-                      <span className="font-medium text-slate-200 text-xs">
-                        {task.task || "routine"}
-                      </span>
-                      <p className="text-[11px] text-slate-400">
-                        {task.calls || 0} executions
-                      </p>
-                    </div>
-                    <span className="font-mono text-xs font-medium text-indigo-400">
-                      {formatTokens(total)} tok
-                    </span>
-                  </div>
-                );
-              })
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Task Type</TableHead>
+                    <TableHead className="text-right">Inferences</TableHead>
+                    <TableHead className="text-right">Est. Cost</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {byTask.map((item: any, idx: number) => (
+                    <TableRow key={idx}>
+                      <TableCell className="font-semibold capitalize text-xs">
+                        {item.task || "Outreach Pitch"}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-xs text-muted-foreground">
+                        {formatNumber(item.calls || 0)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-xs text-foreground font-medium">
+                        ${((item.cost_usd || 0) as number).toFixed(3)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             )}
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
 }
-

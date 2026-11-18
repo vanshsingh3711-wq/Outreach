@@ -3,7 +3,16 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchApi } from "@/lib/api-client";
-import { Activity, Clock, Shield, CheckCircle2, User, Send, Sparkles, Loader2 } from "lucide-react";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  Badge,
+  Skeleton,
+} from "@/components/ui";
+import { Activity, CheckCircle2, Send, Sparkles, AlertCircle } from "lucide-react";
 
 export default function ActivityPage() {
   const { data, isLoading } = useQuery<any[]>({
@@ -15,31 +24,43 @@ export default function ActivityPage() {
   const activities = data || [];
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
-      <div>
-        <div className="flex items-center gap-2.5">
-          <h1 className="text-2xl font-bold tracking-tight text-white">System Activity & Audit Log</h1>
-          <span className="rounded-full bg-slate-800 px-2.5 py-0.5 text-xs font-semibold text-slate-300 border border-slate-700">
-            {activities.length} Recorded Events
-          </span>
+    <div className="space-y-5 animate-in fade-in duration-200">
+      {/* Page Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">
+              System Activity & Audit Log
+            </h1>
+            <Badge variant="neutral" size="sm" className="font-mono">
+              {activities.length} Recorded Events
+            </Badge>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Chronological audit trail of autonomous agent tasks, draft approvals, outbound dispatches, and sentiment events.
+          </p>
         </div>
-        <p className="mt-1 text-sm text-slate-400">
-          Chronological record of automated agent operations, draft approvals, outbound dispatches, and decisions.
-        </p>
       </div>
 
       {isLoading ? (
-        <div className="py-20 text-center text-slate-500">
-          <Loader2 className="mx-auto h-6 w-6 animate-spin text-sky-400 mb-2" />
-          <span>Loading activity log...</span>
+        <div className="space-y-3">
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-16 w-full" />
         </div>
       ) : activities.length === 0 ? (
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/30 p-12 text-center text-slate-500">
-          No system actions logged yet. Agent operations will record here automatically.
-        </div>
+        <Card className="p-12 text-center text-muted-foreground">
+          <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-muted text-muted-foreground mb-3">
+            <Activity className="h-5 w-5" />
+          </div>
+          <h3 className="text-sm font-semibold text-foreground">No system events logged yet</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            As autonomous operations run, their timestamped actions and decisions will stream here.
+          </p>
+        </Card>
       ) : (
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 shadow-sm">
-          <div className="space-y-4">
+        <Card>
+          <CardContent className="p-4 divide-y divide-border/60">
             {activities.map((act) => {
               const actionType = act.action_type || act.action || "action";
               const isSend = actionType.includes("send");
@@ -49,53 +70,46 @@ export default function ActivityPage() {
               return (
                 <div
                   key={act.id || act.created_at}
-                  className="flex items-start gap-4 rounded-xl border border-slate-800/80 bg-slate-950/60 p-4 transition hover:border-slate-700"
+                  className="flex items-start gap-3.5 py-3 first:pt-1 last:pb-1"
                 >
                   <div
-                    className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${
+                    className={`mt-0.5 flex h-7.5 w-7.5 shrink-0 items-center justify-center rounded-lg ${
                       isSend
-                        ? "bg-emerald-500/15 text-emerald-400"
+                        ? "bg-emerald-500/10 text-emerald-500"
                         : isApprove
-                        ? "bg-sky-500/15 text-sky-400"
+                        ? "bg-sky-500/10 text-sky-500"
                         : isDiscover
-                        ? "bg-indigo-500/15 text-indigo-400"
-                        : "bg-slate-800 text-slate-400"
+                        ? "bg-primary/10 text-primary"
+                        : "bg-muted text-muted-foreground"
                     }`}
                   >
                     {isSend ? (
-                      <Send className="h-4 w-4" />
+                      <Send className="h-3.5 w-3.5" />
                     ) : isApprove ? (
-                      <CheckCircle2 className="h-4 w-4" />
+                      <CheckCircle2 className="h-3.5 w-3.5" />
                     ) : (
-                      <Sparkles className="h-4 w-4" />
+                      <Sparkles className="h-3.5 w-3.5" />
                     )}
                   </div>
 
-                  <div className="flex-1 space-y-1">
+                  <div className="flex-1 space-y-0.5">
                     <div className="flex items-center justify-between">
-                      <span className="font-semibold text-white text-xs uppercase tracking-wider">
+                      <span className="font-semibold text-foreground text-xs uppercase tracking-wider">
                         {actionType.replace(/_/g, " ")}
                       </span>
-                      <span className="text-[11px] text-slate-500 font-mono">
+                      <span className="text-[10px] text-muted-foreground font-mono">
                         {act.created_at || "Recent"}
                       </span>
                     </div>
-
-                    <p className="text-xs text-slate-300">
-                      Actor: <span className="font-medium text-slate-200">{act.actor || "autonomous_agent"}</span>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      {act.detail || act.notes || act.message || "Agent routine executed successfully."}
                     </p>
-
-                    {act.details && Object.keys(act.details).length > 0 && (
-                      <div className="mt-2 rounded-lg bg-slate-900/80 p-2 font-mono text-[11px] text-slate-400 overflow-x-auto">
-                        {JSON.stringify(act.details)}
-                      </div>
-                    )}
                   </div>
                 </div>
               );
             })}
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

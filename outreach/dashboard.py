@@ -786,6 +786,23 @@ async def enrich_company_url(request: Request):
         return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
 
     url = (body.get("url") or "").strip()
+    domain = (body.get("domain") or "").strip().lower()
+
+    # Automatically resolve directory profile URLs (e.g. clutch.co/profile/<slug>) to real company domains
+    import re
+    if "clutch.co/profile/" in url:
+        m = re.search(r"clutch\.co/profile/([a-zA-Z0-9_\-]+)", url)
+        if m:
+            clean_slug = re.sub(r"-\d+$", "", m.group(1).lower())
+            url = f"https://{clean_slug}.com"
+    elif "goodfirms.co/company/" in url:
+        m = re.search(r"goodfirms\.co/company/([a-zA-Z0-9_\-]+)", url)
+        if m:
+            clean_slug = re.sub(r"-\d+$", "", m.group(1).lower())
+            url = f"https://{clean_slug}.com"
+    elif domain and any(d in url for d in ("clutch.co", "goodfirms.co", "designrush.com", "themanifest.com")):
+        url = f"https://{domain}"
+
     if not url:
         return JSONResponse({"error": "Missing 'url' field"}, status_code=400)
 
@@ -803,9 +820,19 @@ async def enrich_company_url(request: Request):
     except Exception as exc:
         logger.exception("URL enrichment error: %s", exc)
         print(f"  [❌ DASHBOARD API] Enrichment error: {exc}", flush=True)
-        return JSONResponse({"error": str(exc)}, status_code=500)
+        from outreach.collectors.discover import name_from_domain, normalize_domain
+        safe_d = normalize_domain(url)
+        return {
+            "success": False,
+            "error": f"Enrichment scan failed: {exc}",
+            "people": [],
+            "company": {"name": name_from_domain(safe_d), "domain": safe_d, "website": url},
+            "pages_crawled": [],
+            "emails": [],
+            "hiring_detected": False,
+        }
 
-    if result.error:
+    if result.error and not result.people and not (result.company and result.company.name):
         print(f"  [⚠️ DASHBOARD API] Target unreachable: {result.error}", flush=True)
         return JSONResponse({"error": result.error}, status_code=502)
 
@@ -826,6 +853,7 @@ async def enrich_company_url(request: Request):
                 "source_url": p.source_url,
                 "confidence": p.confidence,
                 "linkedin_url": getattr(p, "linkedin_url", ""),
+                "email": getattr(p, "primary_email", "") or getattr(p, "email", ""),
                 "primary_email": getattr(p, "primary_email", ""),
                 "email_status": getattr(p, "email_status", ""),
                 "email_match_confidence": getattr(p, "email_match_confidence", 0.0),
@@ -853,6 +881,7 @@ async def discover_companies_endpoint(request: Request):
     save_to_db = bool(body.get("save_to_db", False))
     criteria = DiscoveryCriteria(
         target_type=body.get("target_type") or "all",
+        source_platform=body.get("source_platform") or body.get("source") or "all",
         industries=body.get("industries") or [],
         roles=body.get("roles") or [],
         tech_stack=body.get("tech_stack") or [],
@@ -932,7 +961,7 @@ async def save_lead_endpoint(request: Request):
         first = (p.get("first_name") or "").strip()
         last = (p.get("last_name") or "").strip()
         title = (p.get("title") or "").strip()
-        email = (p.get("email") or "").strip()
+        email = (p.get("email") or p.get("primary_email") or "").strip()
         if not first and not last and not title:
             continue
 
@@ -1010,7 +1039,7 @@ async def save_leads_batch_endpoint(request: Request):
             first = (p.get("first_name") or "").strip()
             last = (p.get("last_name") or "").strip()
             title = (p.get("title") or "").strip()
-            email = (p.get("email") or "").strip()
+            email = (p.get("email") or p.get("primary_email") or "").strip()
             if not first and not last and not title:
                 continue
 
@@ -1041,10 +1070,11 @@ async def save_leads_batch_endpoint(request: Request):
 
 
 @app.get("/api/prospecting/company-detail")
-async def get_company_detail_endpoint(domain: str = "", id: str = "", enrich: bool = False):
+async def get_company_detail_endpoint(domain: str = "", id: str = "", url: str = "", enrich: bool = False):
     """Retrieve full detail analysis for a company: profile, mission, tech stack, and decision makers."""
     domain = (domain or "").strip().lower()
     company_id = (id or "").strip()
+    url = (url or "").strip()
     state = _state()
     await state.init_db()
 
@@ -1085,9 +1115,9 @@ async def get_company_detail_endpoint(domain: str = "", id: str = "", enrich: bo
         }
 
     # 2. If not saved in DB or live enrichment requested
-    if domain or company_id:
+    if domain or company_id or url:
         from outreach.enrichment import CompanyEnricher
-        target_url = (company.website if company else f"https://{domain}") if (company or domain) else ""
+        target_url = url or (company.website if company else (f"https://{domain}" if domain else ""))
         enricher = CompanyEnricher(state)
         try:
             res = await enricher.enrich_url(target_url, persist=False)
@@ -1137,7 +1167,28 @@ async def get_company_detail_endpoint(domain: str = "", id: str = "", enrich: bo
                     ],
                     "tech_stack": getattr(company, "tech_stack", []) or [],
                 }
-            return JSONResponse({"error": str(e)}, status_code=500)
+            from outreach.models.company import Company
+            from outreach.collectors.discover import name_from_domain
+            c_name = name_from_domain(domain)
+            fallback_co = Company(
+                domain=domain,
+                name=c_name,
+                website=target_url,
+                description=f"{c_name} operates at {target_url}.",
+                industry="Technology",
+                location="Remote",
+                company_size="11-50",
+            )
+            return {
+                "success": True,
+                "is_saved": False,
+                "warning": str(e),
+                "company": fallback_co.model_dump(),
+                "people": [],
+                "pages_crawled": [],
+                "firmographics": {},
+                "tech_stack": [],
+            }
 
     return JSONResponse({"error": "Missing domain or id parameter"}, status_code=400)
 

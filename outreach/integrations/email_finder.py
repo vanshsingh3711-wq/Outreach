@@ -604,10 +604,9 @@ async def verify_hunter(email: str, api_key: str) -> Optional[dict]:
 
 
 async def verify_email_smtp(email: str) -> Optional[bool]:
-    """SMTP RCPT check — only trustworthy for small, self-hosted mail servers.
+    """SMTP RCPT check directly against the domain's MX server.
 
-    Returns True (accepted), False (rejected), or None (couldn't tell).
-    Port 25 is blocked on most cloud hosts, so this frequently returns None.
+    Returns True (accepted), False (rejected / NoSuchUser), or None (inconclusive / blocked / timeout).
     """
     if "@" not in email:
         return False
@@ -618,13 +617,20 @@ async def verify_email_smtp(email: str) -> Optional[bool]:
     smtp = aiosmtplib.SMTP(hostname=mx_host, port=25, timeout=10)
     try:
         await smtp.connect()
-        await smtp.ehlo()
-        await smtp.mail("verify@example.com")
-        code, _ = await smtp.rcpt(email)
-        if code == 250:
-            return True
-        if code in (550, 551, 553):
-            return False
+        await smtp.ehlo(hostname="mail.verifycheck.org")
+        await smtp.mail("probe@verifycheck.org")
+        try:
+            code, _ = await smtp.rcpt(email)
+            if code == 250:
+                return True
+            if code in (550, 551, 552, 553, 554):
+                return False
+        except aiosmtplib.SMTPRecipientRefused as e:
+            if e.code in (550, 551, 552, 553, 554):
+                return False
+        except aiosmtplib.SMTPResponseException as e:
+            if e.code in (550, 551, 552, 553, 554):
+                return False
         return None
     except Exception as e:
         logger.debug(f"SMTP verification failed for {email}: {e}")

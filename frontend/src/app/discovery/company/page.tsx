@@ -14,18 +14,25 @@ import {
   Copy,
   Check,
   BookmarkPlus,
-  Zap,
-  CheckCircle2,
   Loader2,
   Sparkles,
   Send,
-  Layers,
   ShieldCheck,
-  FileText,
   Search,
+  CheckCircle2,
+  Layers,
+  Briefcase,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { LinkedInIcon, TwitterXIcon } from "@/components/ui/brand-icons";
 import Link from "next/link";
+import {
+  getInitials,
+  cleanDescription,
+  extractEvidenceHighlights,
+  formatExecutiveRole,
+} from "@/lib/discovery-utils";
 
 interface DecisionMaker {
   first_name: string;
@@ -37,6 +44,12 @@ interface DecisionMaker {
   email_status?: string;
   email_verified?: boolean;
   email_match_confidence?: number;
+  email_candidates?: Array<{
+    email: string;
+    deliverability_status?: string;
+    discovery_method?: string;
+    match_confidence?: number;
+  }>;
   linkedin_url?: string;
   twitter_url?: string;
   github_url?: string;
@@ -76,6 +89,8 @@ function CompanyDetailContent() {
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [copiedEmail, setCopiedEmail] = useState<string | null>(null);
+  const [copiedHook, setCopiedHook] = useState(false);
+  const [showPatternsFor, setShowPatternsFor] = useState<Record<number, boolean>>({});
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
@@ -98,7 +113,13 @@ function CompanyDetailContent() {
     setTimeout(() => setCopiedEmail(null), 2000);
   };
 
-  // 1. Initial Load: Load from sessionStorage cache first, then verify with backend
+  const handleCopyPitchHook = (hookText: string) => {
+    navigator.clipboard.writeText(hookText);
+    setCopiedHook(true);
+    setTimeout(() => setCopiedHook(false), 2000);
+  };
+
+  // Initial load
   useEffect(() => {
     if (!domain && !idParam) {
       setError("No company specified.");
@@ -106,7 +127,6 @@ function CompanyDetailContent() {
       return;
     }
 
-    // Try loading from sessionStorage
     let cached: any = null;
     if (domain) {
       try {
@@ -125,11 +145,11 @@ function CompanyDetailContent() {
       setIsSaved(Boolean(cached.is_existing || cached.is_saved));
     }
 
-    // Load full details from backend API
     const loadDetails = async () => {
       try {
         setIsLoading(!cached);
-        const endpoint = `/api/prospecting/company-detail?domain=${encodeURIComponent(domain)}&id=${encodeURIComponent(idParam)}`;
+        const cachedUrl = cached?.website || "";
+        const endpoint = `/api/prospecting/company-detail?domain=${encodeURIComponent(domain)}&id=${encodeURIComponent(idParam)}&url=${encodeURIComponent(cachedUrl)}`;
         const res = await fetchApi<{
           success: boolean;
           is_saved: boolean;
@@ -165,7 +185,7 @@ function CompanyDetailContent() {
           }
         }
       } catch (err: any) {
-        console.warn("Could not fetch detailed company API, using cached data if available:", err);
+        console.warn("Using cached company data:", err);
         if (!cached) {
           setError(err.message || "Failed to load company details.");
         }
@@ -177,9 +197,12 @@ function CompanyDetailContent() {
     loadDetails();
   }, [domain, idParam, nameParam]);
 
-  // Deep Scan / Enrich live if decision-makers aren't fetched yet
+  // Deep Scan / Enrich live
   const handleRunDeepScan = async () => {
-    const targetUrl = company?.website || (domain ? `https://${domain}` : "");
+    let targetUrl = domain ? `https://${domain}` : (company?.website || "");
+    if (company?.website && !company.website.includes("clutch.co") && !company.website.includes("goodfirms.co") && !company.website.includes("designrush.com")) {
+      targetUrl = company.website;
+    }
     if (!targetUrl) return;
 
     setIsEnriching(true);
@@ -192,7 +215,7 @@ function CompanyDetailContent() {
         pages_crawled: string[];
       }>("/api/prospecting/enrich-url", {
         method: "POST",
-        body: JSON.stringify({ url: targetUrl, persist: false }),
+        body: JSON.stringify({ url: targetUrl, domain: domain || company?.domain, persist: false }),
       });
 
       if (res.success) {
@@ -206,14 +229,15 @@ function CompanyDetailContent() {
         if (res.people) {
           setPeople(res.people);
         }
-        setSuccessMsg(`Deep scan complete! Extracted ${res.people?.length || 0} decision-makers & verified emails.`);
+        setSuccessMsg(`Extracted ${res.people?.length || 0} decision-maker profiles & emails.`);
         setTimeout(() => setSuccessMsg(null), 4000);
 
-        // Update sessionStorage
         if (domain) {
           const updated = { ...company, people: res.people };
           sessionStorage.setItem(`discovery_company_${domain.toLowerCase()}`, JSON.stringify(updated));
         }
+      } else if ((res as any).error) {
+        setError((res as any).error);
       }
     } catch (err: any) {
       setError(err.message || "Deep scan failed.");
@@ -257,10 +281,9 @@ function CompanyDetailContent() {
 
       if (res.success) {
         setIsSaved(true);
-        setSuccessMsg(`✅ Saved ${company.name} and ${people.length} decision-makers permanently to your database.`);
+        setSuccessMsg(`Saved ${company.name} and ${people.length} decision-makers to database.`);
         setTimeout(() => setSuccessMsg(null), 4000);
 
-        // Update cache
         if (domain) {
           sessionStorage.setItem(
             `discovery_company_${domain.toLowerCase()}`,
@@ -277,24 +300,24 @@ function CompanyDetailContent() {
 
   if (isLoading) {
     return (
-      <div className="py-24 text-center text-slate-500">
-        <Loader2 className="mx-auto h-8 w-8 animate-spin text-sky-400 mb-3" />
-        <h2 className="text-base font-semibold text-white">Analyzing Company & Decision-Makers...</h2>
-        <p className="text-xs text-slate-400 mt-1">Extracting technical firmographics, social profiles, and verified emails</p>
+      <div className="py-24 text-center text-zinc-500">
+        <Loader2 className="mx-auto h-7 w-7 animate-spin text-zinc-400 mb-3" />
+        <h2 className="text-sm font-semibold text-zinc-200">Loading Account Details...</h2>
+        <p className="text-xs text-zinc-500 mt-1">Retrieving leadership contacts and technical firmographics</p>
       </div>
     );
   }
 
   if (!company) {
     return (
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-10 text-center space-y-4">
-        <p className="text-sm text-slate-400">Company details could not be found.</p>
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-10 text-center space-y-4">
+        <p className="text-sm text-zinc-400">Account could not be found.</p>
         <button
           onClick={() => router.push("/discovery")}
-          className="inline-flex items-center gap-2 rounded-xl bg-slate-800 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-700"
+          className="inline-flex items-center gap-2 rounded-lg bg-zinc-800 px-3.5 py-2 text-xs font-medium text-zinc-200 hover:bg-zinc-700 transition"
         >
           <ArrowLeft className="h-4 w-4" />
-          <span>Return to Discovery</span>
+          <span>Back to Discovery</span>
         </button>
       </div>
     );
@@ -305,39 +328,47 @@ function CompanyDetailContent() {
     (company.industry || "").toLowerCase().includes("agency") ||
     (company.name || "").toLowerCase().includes("studio");
 
+  const companyInitials = getInitials(company.name, "CO");
+  const displayDescription = cleanDescription(company.description) ||
+    `${company.name} is a software engineering organization delivering custom digital solutions, product modernization, and scalable cloud architectures.`;
+
+  const pitchHook = isAgency
+    ? `"Saw your team's client work in ${company.industry || "digital engineering"}. I help studios scale backend & full-stack deliverables during heavy sprint cycles."`
+    : `"Loved ${company.name}'s approach to ${company.industry || "product infrastructure"}. I specialize in shipping high-reliability systems and would love to contribute to your core engineering roadmap."`;
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
-      {/* Top Breadcrumb & Action Bar */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
+    <div className="space-y-6 max-w-7xl mx-auto">
+      {/* 1. Sleek B2B Header & Action Bar */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pb-2 border-b border-zinc-800/60">
+        <div className="flex items-center gap-2.5 text-xs text-zinc-400">
           <button
             onClick={() => router.push("/discovery")}
-            className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900/60 px-3.5 py-2 text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800 transition"
+            className="flex items-center gap-1.5 text-zinc-400 hover:text-zinc-100 transition cursor-pointer font-medium"
           >
-            <ArrowLeft className="h-4 w-4" />
-            <span>Back to Discovery</span>
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span>Discovery</span>
           </button>
-          <span className="text-slate-600">/</span>
-          <span className="text-xs font-medium text-slate-400 truncate max-w-[200px] sm:max-w-xs">
+          <span className="text-zinc-600">/</span>
+          <span className="text-zinc-200 font-medium truncate max-w-[220px]">
             {company.name}
           </span>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           <button
             onClick={handleRunDeepScan}
             disabled={isEnriching}
-            className="flex items-center gap-1.5 rounded-xl border border-sky-500/30 bg-sky-500/10 px-3.5 py-2 text-xs font-semibold text-sky-400 hover:bg-sky-500/20 transition cursor-pointer disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900/60 hover:bg-zinc-800 hover:border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-300 transition cursor-pointer disabled:opacity-50"
             title="Re-crawl website and refresh leadership profiles"
           >
             {isEnriching ? (
               <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-400" />
                 <span>Scanning...</span>
               </>
             ) : (
               <>
-                <Search className="h-3.5 w-3.5" />
+                <Search className="h-3.5 w-3.5 text-zinc-400" />
                 <span>Deep Re-Scan</span>
               </>
             )}
@@ -347,30 +378,30 @@ function CompanyDetailContent() {
             <button
               onClick={handleSaveToDb}
               disabled={isSaving}
-              className="flex items-center gap-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-4 py-2 text-xs shadow-md shadow-emerald-500/20 transition cursor-pointer disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-lg bg-zinc-100 hover:bg-white text-zinc-900 font-semibold px-3 py-1.5 text-xs shadow-sm transition cursor-pointer disabled:opacity-50"
             >
               {isSaving ? (
                 <>
-                  <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-950" />
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   <span>Saving...</span>
                 </>
               ) : (
                 <>
-                  <BookmarkPlus className="h-3.5 w-3.5 text-slate-950" />
-                  <span>Save to DB</span>
+                  <BookmarkPlus className="h-3.5 w-3.5" />
+                  <span>Save Lead</span>
                 </>
               )}
             </button>
           ) : (
-            <span className="flex items-center gap-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 px-3.5 py-2 text-xs font-semibold text-emerald-400">
-              <CheckCircle2 className="h-3.5 w-3.5" />
+            <span className="flex items-center gap-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 text-xs font-medium text-emerald-400">
+              <Check className="h-3.5 w-3.5" />
               <span>Saved in DB</span>
             </span>
           )}
 
           <Link
             href={`/outreach-prep?search=${encodeURIComponent(company.name)}`}
-            className="flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-4 py-2 text-xs shadow-md shadow-indigo-600/20 transition"
+            className="flex items-center gap-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium px-3.5 py-1.5 text-xs shadow-sm transition"
           >
             <Send className="h-3.5 w-3.5" />
             <span>Draft Pitch</span>
@@ -380,64 +411,75 @@ function CompanyDetailContent() {
 
       {/* Notifications */}
       {successMsg && (
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 text-xs text-emerald-300 flex items-center gap-2">
+        <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3 text-xs text-emerald-300 flex items-center gap-2">
           <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
           <span>{successMsg}</span>
         </div>
       )}
 
       {error && (
-        <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3.5 text-xs text-rose-300 flex items-center gap-2">
-          <span>{error}</span>
+        <div className="rounded-lg border border-zinc-800 bg-zinc-900/80 p-3 text-xs text-zinc-300 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0" />
+            <span>{error}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            className="text-zinc-500 hover:text-zinc-300 text-xs cursor-pointer"
+          >
+            Dismiss
+          </button>
         </div>
       )}
 
-      {/* Hero Overview Header */}
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6 shadow-sm space-y-5">
+      {/* 2. Hero Account Header (Attio/Linear style) */}
+      <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-6 space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-start gap-4">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-indigo-500/15 text-indigo-400 border border-indigo-500/20 shadow-inner">
-              <Building2 className="h-7 w-7" />
+            {/* Monogram avatar */}
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-zinc-800 border border-zinc-700/60 text-zinc-200 font-semibold text-sm tracking-wider">
+              {companyInitials}
             </div>
 
             <div className="space-y-1.5">
               <div className="flex items-center gap-2.5 flex-wrap">
-                <h1 className="text-2xl font-bold tracking-tight text-white">{company.name}</h1>
+                <h1 className="text-xl font-semibold tracking-tight text-white">{company.name}</h1>
                 {isSaved ? (
-                  <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
-                    <CheckCircle2 className="h-3 w-3" />
+                  <span className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                     Saved in Database
                   </span>
                 ) : (
-                  <span className="flex items-center gap-1 text-[11px] font-semibold text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20">
-                    <Zap className="h-3 w-3" />
-                    ⚡ Temporary Preview (Not in DB)
+                  <span className="flex items-center gap-1.5 text-[11px] font-medium text-zinc-400 bg-zinc-800/60 px-2.5 py-0.5 rounded-full border border-zinc-700/50">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-400/80" />
+                    Temporary Staged Lead
                   </span>
                 )}
               </div>
 
-              <div className="flex items-center gap-3 text-xs text-slate-400 flex-wrap">
+              <div className="flex items-center gap-3 text-xs text-zinc-400 flex-wrap">
                 <a
                   href={company.website || `https://${company.domain}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="font-mono text-sky-400 hover:text-sky-300 flex items-center gap-1 underline underline-offset-2"
+                  className="font-mono text-zinc-300 hover:text-white flex items-center gap-1.5 transition underline-offset-4 hover:underline"
                 >
-                  <Globe className="h-3.5 w-3.5" />
+                  <Globe className="h-3.5 w-3.5 text-zinc-500" />
                   <span>{company.domain}</span>
-                  <ExternalLink className="h-3 w-3" />
+                  <ExternalLink className="h-3 w-3 text-zinc-500" />
                 </a>
 
                 {company.location && (
-                  <span className="flex items-center gap-1 text-slate-300">
-                    <MapPin className="h-3.5 w-3.5 text-rose-400" />
+                  <span className="flex items-center gap-1.5 text-zinc-400">
+                    <MapPin className="h-3.5 w-3.5 text-zinc-500" />
                     <span>{company.location}</span>
                   </span>
                 )}
 
                 {company.size && (
-                  <span className="flex items-center gap-1 text-slate-300">
-                    <Users className="h-3.5 w-3.5 text-indigo-400" />
+                  <span className="flex items-center gap-1.5 text-zinc-400">
+                    <Users className="h-3.5 w-3.5 text-zinc-500" />
                     <span>{company.size}</span>
                   </span>
                 )}
@@ -445,112 +487,106 @@ function CompanyDetailContent() {
             </div>
           </div>
 
-          {/* Target Role Tag */}
+          {/* Segment Tag */}
           <div className="flex items-center gap-2">
-            <span
-              className={`rounded-xl px-3 py-1.5 text-xs font-semibold border ${
-                isAgency
-                  ? "bg-purple-500/10 border-purple-500/20 text-purple-300"
-                  : "bg-sky-500/10 border-sky-500/20 text-sky-300"
-              }`}
-            >
-              {isAgency ? "🏢 Digital Agency (Freelance Outreach)" : "🚀 Tech Startup (Job Outreach)"}
+            <span className="rounded-lg px-2.5 py-1 text-xs font-medium border border-zinc-800 bg-zinc-900 text-zinc-300 flex items-center gap-1.5">
+              {isAgency ? (
+                <>
+                  <Building2 className="h-3.5 w-3.5 text-zinc-400" />
+                  <span>Digital Agency (Freelance Outreach)</span>
+                </>
+              ) : (
+                <>
+                  <Briefcase className="h-3.5 w-3.5 text-zinc-400" />
+                  <span>Tech Startup (Job Outreach)</span>
+                </>
+              )}
             </span>
           </div>
         </div>
 
-        {/* Firmographic Attributes Grid */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 pt-3 border-t border-slate-800/80 text-xs">
-          <div className="rounded-xl bg-slate-950/60 p-3 border border-slate-800/60">
-            <span className="text-[11px] text-slate-500 block">Industry / Domain</span>
-            <span className="font-semibold text-slate-200 mt-0.5 block truncate">
-              {company.industry || "Technology"}
+        {/* Firmographic KPI Row */}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 pt-4 border-t border-zinc-800/60 text-xs">
+          <div className="rounded-lg bg-zinc-950/40 p-3 border border-zinc-800/50">
+            <span className="text-[11px] text-zinc-500 block font-medium">Industry / Sector</span>
+            <span className="font-medium text-zinc-200 mt-1 block truncate">
+              {company.industry || "Software & Technology"}
             </span>
           </div>
-          <div className="rounded-xl bg-slate-950/60 p-3 border border-slate-800/60">
-            <span className="text-[11px] text-slate-500 block">Headquarters</span>
-            <span className="font-semibold text-slate-200 mt-0.5 block truncate">
-              {company.location || "Remote / US"}
+          <div className="rounded-lg bg-zinc-950/40 p-3 border border-zinc-800/50">
+            <span className="text-[11px] text-zinc-500 block font-medium">Headquarters</span>
+            <span className="font-medium text-zinc-200 mt-1 block truncate">
+              {company.location || "Remote"}
             </span>
           </div>
-          <div className="rounded-xl bg-slate-950/60 p-3 border border-slate-800/60">
-            <span className="text-[11px] text-slate-500 block">Team Size</span>
-            <span className="font-semibold text-slate-200 mt-0.5 block truncate">
+          <div className="rounded-lg bg-zinc-950/40 p-3 border border-zinc-800/50">
+            <span className="text-[11px] text-zinc-500 block font-medium">Organization Size</span>
+            <span className="font-medium text-zinc-200 mt-1 block truncate">
               {company.size || "11-50 team"}
             </span>
           </div>
-          <div className="rounded-xl bg-slate-950/60 p-3 border border-slate-800/60">
-            <span className="text-[11px] text-slate-500 block">Decision-Makers</span>
-            <span className="font-semibold text-emerald-400 mt-0.5 block">
-              {people.length} Verified Contacts
+          <div className="rounded-lg bg-zinc-950/40 p-3 border border-zinc-800/50">
+            <span className="text-[11px] text-zinc-500 block font-medium">Decision-Makers</span>
+            <span className="font-medium text-zinc-200 mt-1 flex items-center gap-1.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+              {people.length} Verified Contact{people.length === 1 ? "" : "s"}
             </span>
           </div>
         </div>
       </div>
 
-      {/* Main Analysis Body (2 Columns) */}
+      {/* 3. Main Grid (2 Columns) */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Left 2 Cols: What the Company Does & Decision-Makers */}
+        {/* Left Column: What company does + Key decision-makers */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Section: What the company does */}
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 space-y-4">
-            <div className="flex items-center gap-2">
-              <FileText className="h-4 w-4 text-sky-400" />
-              <h2 className="text-sm font-bold text-white tracking-wide uppercase">
-                What {company.name} Does
-              </h2>
-            </div>
+          {/* Section: Company Overview */}
+          <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-5 space-y-4">
+            <h2 className="text-xs font-semibold text-zinc-400 tracking-wider uppercase">
+              Company Overview
+            </h2>
 
-            <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-line">
-              {company.description ||
-                `${company.name} is an active technology organization operating in the ${company.industry || "software"} sector. They provide modern digital products, scalable infrastructure, and dedicated software solutions.`}
+            <p className="text-sm text-zinc-300 leading-relaxed">
+              {displayDescription}
             </p>
 
-            {/* Detected Tech Stack */}
-            <div className="pt-3 border-t border-slate-800/80 space-y-2">
-              <span className="text-xs font-semibold text-slate-400 block">Detected Tech Stack & Signals</span>
-              {company.tech_stack && company.tech_stack.length > 0 ? (
-                <div className="flex flex-wrap gap-1.5">
-                  {company.tech_stack.map((tech, i) => (
-                    <span
-                      key={i}
-                      className="rounded-lg bg-slate-800/90 border border-slate-700 px-2.5 py-1 text-xs font-mono text-sky-300"
-                    >
-                      {tech}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex flex-wrap gap-1.5">
-                  <span className="rounded-lg bg-slate-800/80 border border-slate-700/60 px-2.5 py-1 text-xs font-mono text-slate-300">
-                    Next.js / React
+            {/* Tech Stack & Signals */}
+            <div className="pt-3 border-t border-zinc-800/60 space-y-2">
+              <span className="text-[11px] font-medium text-zinc-500 block">
+                Technical Stack & Delivery Capabilities
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {(company.tech_stack && company.tech_stack.length > 0
+                  ? company.tech_stack
+                  : ["Full-Stack Engineering", "Custom Software", "Cloud Infrastructure", "API Architecture"]
+                ).map((tech, i) => (
+                  <span
+                    key={i}
+                    className="rounded-md bg-zinc-950/60 border border-zinc-800 px-2.5 py-1 text-xs font-mono text-zinc-300"
+                  >
+                    {tech}
                   </span>
-                  <span className="rounded-lg bg-slate-800/80 border border-slate-700/60 px-2.5 py-1 text-xs font-mono text-slate-300">
-                    Python / FastAPI
-                  </span>
-                  <span className="rounded-lg bg-slate-800/80 border border-slate-700/60 px-2.5 py-1 text-xs font-mono text-slate-300">
-                    Cloud Infrastructure
-                  </span>
-                </div>
-              )}
+                ))}
+              </div>
             </div>
           </div>
 
-          {/* Section: Key Decision Makers & Social Profiles */}
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 space-y-4">
+          {/* Section: Key Decision-Makers (Clean B2B Cards) */}
+          <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-5 space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Users className="h-4 w-4 text-emerald-400" />
-                <h2 className="text-sm font-bold text-white tracking-wide uppercase">
-                  Key Decision-Makers ({people.length})
+                <h2 className="text-xs font-semibold text-zinc-400 tracking-wider uppercase">
+                  Key Decision-Makers
                 </h2>
+                <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[10px] font-semibold text-zinc-300">
+                  {people.length}
+                </span>
               </div>
 
               {people.length === 0 && (
                 <button
                   onClick={handleRunDeepScan}
                   disabled={isEnriching}
-                  className="flex items-center gap-1 text-xs font-semibold text-sky-400 hover:text-sky-300"
+                  className="flex items-center gap-1 text-xs font-medium text-zinc-300 hover:text-white transition"
                 >
                   <Search className="h-3.5 w-3.5" />
                   <span>Find Decision Makers</span>
@@ -559,23 +595,23 @@ function CompanyDetailContent() {
             </div>
 
             {people.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-slate-800 p-8 text-center space-y-3">
-                <p className="text-xs text-slate-400">
-                  No decision-makers have been scanned for {company.name} yet.
+              <div className="rounded-lg border border-dashed border-zinc-800 p-8 text-center space-y-3">
+                <p className="text-xs text-zinc-400">
+                  No decision-makers extracted for {company.name} yet.
                 </p>
                 <button
                   onClick={handleRunDeepScan}
                   disabled={isEnriching}
-                  className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow hover:bg-indigo-500 transition"
+                  className="inline-flex items-center gap-2 rounded-lg bg-zinc-100 hover:bg-white text-zinc-900 font-semibold px-4 py-2 text-xs shadow-sm transition"
                 >
                   {isEnriching ? (
                     <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       <span>Scanning Executives...</span>
                     </>
                   ) : (
                     <>
-                      <Search className="h-4 w-4" />
+                      <Search className="h-3.5 w-3.5" />
                       <span>Extract Decision-Makers & Emails</span>
                     </>
                   )}
@@ -587,29 +623,55 @@ function CompanyDetailContent() {
                   const email = person.primary_email || person.email || "";
                   const isCopied = copiedEmail === email;
                   const liUrl = person.linkedin_url ? formatLinkedInUrl(person.linkedin_url) : "";
+                  const personInitials = getInitials(`${person.first_name} ${person.last_name}`, "EX");
+                  const roleMeta = formatExecutiveRole(person.role_priority, person.title);
+                  const isVerified = person.email_status === "verified" || person.email_verified;
+                  const highlights = extractEvidenceHighlights(person.evidence_snippet || person.personalization_notes);
+                  const otherCandidates = (person.email_candidates || []).filter((c) => c.email !== email);
+                  const showPatterns = Boolean(showPatternsFor[idx]);
 
                   return (
                     <div
                       key={idx}
-                      className="rounded-xl border border-slate-800/80 bg-slate-950/70 p-4 space-y-3 hover:border-slate-700 transition"
+                      className="rounded-xl border border-zinc-800/80 bg-zinc-950/40 p-4 space-y-3.5 hover:border-zinc-700/80 transition"
                     >
+                      {/* Top row: Avatar, Name, Title, Actions */}
                       <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <h3 className="font-semibold text-white text-sm">
-                              {person.first_name} {person.last_name}
-                            </h3>
-                            {person.role_priority && (
-                              <span className="rounded bg-indigo-500/15 px-2 py-0.5 text-[10px] font-bold text-indigo-400 border border-indigo-500/20">
-                                {person.role_priority === 1
-                                  ? "P1 · Founder / CEO"
-                                  : person.role_priority === 2
-                                  ? "P2 · CTO / VP Eng"
-                                  : `Priority ${person.role_priority}`}
-                              </span>
+                        <div className="flex items-start gap-3">
+                          {/* Avatar */}
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-800 border border-zinc-700/60 text-zinc-200 font-medium text-xs">
+                            {personInitials}
+                          </div>
+
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h3 className="font-semibold text-white text-sm">
+                                {person.first_name} {person.last_name}
+                              </h3>
+                              {roleMeta.label && (
+                                <span className="rounded bg-zinc-800 px-2 py-0.5 text-[10px] font-medium text-zinc-300 border border-zinc-700/50">
+                                  {roleMeta.label}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-zinc-400 mt-0.5 font-normal">
+                              {person.title || "Executive"}
+                            </p>
+
+                            {/* Clean highlights badge (e.g. Ireland · 500+ connections) */}
+                            {highlights.length > 0 && (
+                              <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                                {highlights.map((h, hIdx) => (
+                                  <span
+                                    key={hIdx}
+                                    className="text-[10px] text-zinc-400 bg-zinc-900 border border-zinc-800 px-1.5 py-0.5 rounded"
+                                  >
+                                    {h}
+                                  </span>
+                                ))}
+                              </div>
                             )}
                           </div>
-                          <p className="text-xs text-slate-400 mt-0.5 font-medium">{person.title}</p>
                         </div>
 
                         {/* Social Links */}
@@ -619,65 +681,119 @@ function CompanyDetailContent() {
                               href={liUrl}
                               target="_blank"
                               rel="noreferrer"
-                              className="rounded-lg p-1.5 text-slate-400 hover:text-sky-400 hover:bg-slate-800 border border-slate-800 transition"
-                              title="View LinkedIn Profile in English"
+                              className="rounded-lg p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-800 border border-zinc-800 transition"
+                              title="View LinkedIn Profile"
                             >
-                              <LinkedInIcon className="h-4 w-4" />
+                              <LinkedInIcon className="h-3.5 w-3.5" />
                             </a>
                           )}
-
                           {person.twitter_url && (
                             <a
                               href={person.twitter_url}
                               target="_blank"
                               rel="noreferrer"
-                              className="rounded-lg p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800 transition"
-                              title="View X / Twitter Profile"
+                              className="rounded-lg p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-800 border border-zinc-800 transition"
+                              title="View X Profile"
                             >
-                              <TwitterXIcon className="h-4 w-4" />
+                              <TwitterXIcon className="h-3.5 w-3.5" />
                             </a>
                           )}
                         </div>
                       </div>
 
-                      {/* Verified Email Box */}
+                      {/* Email Row (Clay/Apollo style) */}
                       {email ? (
-                        <div className="flex items-center justify-between gap-2 rounded-lg bg-slate-900/90 px-3 py-2 border border-slate-800 text-xs font-mono text-sky-300">
-                          <div className="flex items-center gap-2 truncate">
-                            <Mail className="h-3.5 w-3.5 text-slate-500 shrink-0" />
-                            <span className="truncate">{email}</span>
-                            <span className="rounded bg-emerald-500/10 px-1.5 py-0.2 text-[10px] font-semibold text-emerald-400 border border-emerald-500/20 shrink-0">
-                              {person.email_status || "verified"}
-                            </span>
+                        <div className="space-y-2 pt-1">
+                          <div className="flex items-center justify-between gap-2 rounded-lg bg-zinc-900/70 px-3 py-2 border border-zinc-800 text-xs">
+                            <div className="flex items-center gap-2.5 truncate">
+                              <span
+                                className={`h-2 w-2 rounded-full shrink-0 ${
+                                  isVerified ? "bg-emerald-400" : "bg-zinc-500"
+                                }`}
+                              />
+                              <span className="font-mono text-zinc-200 truncate">{email}</span>
+                              <span
+                                className={`rounded px-1.5 py-0.5 text-[10px] font-medium border shrink-0 ${
+                                  isVerified
+                                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                    : "bg-zinc-800 text-zinc-400 border-zinc-700/60"
+                                }`}
+                              >
+                                {isVerified ? "Verified (Deliverable)" : "Unverified"}
+                              </span>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleCopyEmail(email)}
+                              className="flex items-center gap-1 text-[11px] text-zinc-400 hover:text-zinc-100 transition shrink-0 cursor-pointer ml-2"
+                              title="Copy email address"
+                            >
+                              {isCopied ? (
+                                <>
+                                  <Check className="h-3.5 w-3.5 text-emerald-400" />
+                                  <span className="text-emerald-400 font-medium">Copied</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="h-3.5 w-3.5" />
+                                  <span>Copy</span>
+                                </>
+                              )}
+                            </button>
                           </div>
 
-                          <button
-                            type="button"
-                            onClick={() => handleCopyEmail(email)}
-                            className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-white transition shrink-0 cursor-pointer"
-                          >
-                            {isCopied ? (
-                              <>
-                                <Check className="h-3.5 w-3.5 text-emerald-400" />
-                                <span className="text-emerald-400">Copied</span>
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="h-3.5 w-3.5" />
-                                <span>Copy</span>
-                              </>
-                            )}
-                          </button>
+                          {/* Pattern Variations Toggle */}
+                          {otherCandidates.length > 0 && (
+                            <div className="pt-0.5">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setShowPatternsFor((prev) => ({
+                                    ...prev,
+                                    [idx]: !prev[idx],
+                                  }))
+                                }
+                                className="flex items-center gap-1 text-[11px] text-zinc-500 hover:text-zinc-300 transition cursor-pointer"
+                              >
+                                <span>
+                                  {showPatterns ? "Hide" : "View"} {otherCandidates.length} alternative email pattern{otherCandidates.length === 1 ? "" : "s"}
+                                </span>
+                                {showPatterns ? (
+                                  <ChevronUp className="h-3 w-3" />
+                                ) : (
+                                  <ChevronDown className="h-3 w-3" />
+                                )}
+                              </button>
+
+                              {showPatterns && (
+                                <div className="flex items-center gap-1.5 flex-wrap pt-2">
+                                  {otherCandidates.map((cand, cIdx) => (
+                                    <button
+                                      key={cIdx}
+                                      type="button"
+                                      onClick={() => handleCopyEmail(cand.email)}
+                                      className={`inline-flex items-center gap-1.5 text-[10px] font-mono rounded px-2 py-1 border transition cursor-pointer ${
+                                        copiedEmail === cand.email
+                                          ? "bg-emerald-950/60 text-emerald-300 border-emerald-500/30"
+                                          : "bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-zinc-200 hover:border-zinc-700"
+                                      }`}
+                                    >
+                                      <span>{cand.email}</span>
+                                      {copiedEmail === cand.email ? (
+                                        <Check className="h-2.5 w-2.5 text-emerald-400" />
+                                      ) : (
+                                        <Copy className="h-2.5 w-2.5 opacity-50" />
+                                      )}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       ) : (
-                        <p className="text-[11px] text-slate-500 italic">No direct personal email extracted yet.</p>
-                      )}
-
-                      {/* Evidence / Context */}
-                      {(person.evidence_snippet || person.personalization_notes) && (
-                        <p className="text-[11px] text-slate-400 leading-relaxed italic bg-slate-900/40 p-2.5 rounded-lg border border-slate-800/50">
-                          "{person.evidence_snippet || person.personalization_notes}"
-                        </p>
+                        <p className="text-[11px] text-zinc-500 italic">No direct email address discovered.</p>
                       )}
                     </div>
                   );
@@ -687,59 +803,67 @@ function CompanyDetailContent() {
           </div>
         </div>
 
-        {/* Right Col: Pitch & Outreach Strategy */}
+        {/* Right Column: Pitch & Outreach Strategy */}
         <div className="space-y-6">
-          {/* Pitch Strategy Card */}
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 space-y-4">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-amber-400" />
-              <h3 className="text-sm font-bold text-white uppercase tracking-wide">
-                Pitch & Outreach Strategy
-              </h3>
-            </div>
+          {/* Strategy Card */}
+          <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-5 space-y-4">
+            <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+              Outreach Strategy
+            </h3>
 
-            <div className="space-y-3 text-xs leading-relaxed text-slate-300">
+            <div className="space-y-3 text-xs leading-relaxed text-zinc-300">
               {isAgency ? (
                 <>
-                  <p className="font-semibold text-purple-300">
-                    🏢 Agency & Dev Studio Angle (Freelance Work):
+                  <p className="font-medium text-zinc-200">
+                    Agency Capacity & Dev Overflow Angle
                   </p>
-                  <p>
-                    Target Agency Owners, Partners, and Technical Directors. Pitch as a reliable contract engineer
-                    to expand their delivery capacity on active client projects without full-time overhead.
+                  <p className="text-zinc-400">
+                    Pitch Agency Owners and Technical Directors as a specialized contractor who can absorb heavy sprint backlogs without full-time employee overhead.
                   </p>
-                  <div className="rounded-xl bg-purple-500/10 border border-purple-500/20 p-3 space-y-1 text-purple-200">
-                    <span className="font-bold block text-[11px]">Recommended Pitch Hook:</span>
-                    <span>
-                      "Saw your client work in {company.industry || "digital products"}. I help studios scale backend &
-                      full-stack deliverables during heavy sprint cycles."
-                    </span>
-                  </div>
                 </>
               ) : (
                 <>
-                  <p className="font-semibold text-sky-300">
-                    🚀 Tech Startup Angle (Full-Time / Contract Job):
+                  <p className="font-medium text-zinc-200">
+                    Fast-Ship Engineering Contributor Angle
                   </p>
-                  <p>
-                    Target the Founder, CEO, or CTO directly. Early-stage startups move fast and value proactive
-                    engineers who can take immediate ownership of product features.
+                  <p className="text-zinc-400">
+                    Pitch Founders & CTOs directly. Fast-growing product teams prioritize senior engineers who can take immediate ownership of product roadmap features.
                   </p>
-                  <div className="rounded-xl bg-sky-500/10 border border-sky-500/20 p-3 space-y-1 text-sky-200">
-                    <span className="font-bold block text-[11px]">Recommended Pitch Hook:</span>
-                    <span>
-                      "Loved {company.name}'s approach to {company.industry || "product infrastructure"}. I specialize
-                      in shipping high-reliability systems and would love to contribute to your core roadmap."
-                    </span>
-                  </div>
                 </>
               )}
+
+              {/* Pitch Hook Box */}
+              <div className="rounded-lg bg-zinc-950/60 border border-zinc-800/80 p-3.5 space-y-2">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="font-medium text-zinc-400">Recommended Hook:</span>
+                  <button
+                    type="button"
+                    onClick={() => handleCopyPitchHook(pitchHook)}
+                    className="flex items-center gap-1 text-zinc-400 hover:text-white transition cursor-pointer"
+                  >
+                    {copiedHook ? (
+                      <>
+                        <Check className="h-3 w-3 text-emerald-400" />
+                        <span className="text-emerald-400">Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3 w-3" />
+                        <span>Copy</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+                <p className="text-zinc-200 italic font-sans text-xs">
+                  {pitchHook}
+                </p>
+              </div>
             </div>
 
             <div className="pt-2">
               <Link
                 href={`/outreach-prep?search=${encodeURIComponent(company.name)}`}
-                className="flex items-center justify-center gap-2 w-full rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2.5 text-xs shadow-md shadow-indigo-600/20 transition"
+                className="flex items-center justify-center gap-2 w-full rounded-lg bg-zinc-100 hover:bg-white text-zinc-900 font-semibold py-2.5 text-xs shadow-sm transition"
               >
                 <Send className="h-3.5 w-3.5" />
                 <span>Prepare Cold Email Pitch</span>
@@ -748,23 +872,26 @@ function CompanyDetailContent() {
           </div>
 
           {/* Verification & Compliance Signals */}
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 space-y-3 text-xs">
-            <div className="flex items-center gap-2 text-slate-300 font-semibold">
-              <ShieldCheck className="h-4 w-4 text-emerald-400" />
-              <span>Deliverability & Verification</span>
-            </div>
-            <ul className="space-y-2 text-slate-400">
+          <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-5 space-y-3 text-xs">
+            <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider block">
+              Deliverability & Compliance
+            </span>
+            <ul className="space-y-2.5 text-zinc-300">
               <li className="flex items-center gap-2">
-                <Check className="h-3.5 w-3.5 text-emerald-400" />
-                <span>Corporate MX server verified</span>
+                <Check className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                <span>Corporate MX mailserver verified</span>
               </li>
               <li className="flex items-center gap-2">
-                <Check className="h-3.5 w-3.5 text-emerald-400" />
+                <Check className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
                 <span>Zero role mailbox contamination (no info@/sales@)</span>
               </li>
               <li className="flex items-center gap-2">
-                <Check className="h-3.5 w-3.5 text-emerald-400" />
+                <Check className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
                 <span>LinkedIn profile canonicalized in English</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <Check className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                <span>DNS SPF & DKIM record sanity checked</span>
               </li>
             </ul>
           </div>
@@ -778,9 +905,9 @@ export default function CompanyDetailPage() {
   return (
     <Suspense
       fallback={
-        <div className="py-24 text-center text-slate-500">
-          <Loader2 className="mx-auto h-8 w-8 animate-spin text-sky-400 mb-2" />
-          <span>Loading company analysis...</span>
+        <div className="py-24 text-center text-zinc-500">
+          <Loader2 className="mx-auto h-7 w-7 animate-spin text-zinc-400 mb-2" />
+          <span>Loading account analysis...</span>
         </div>
       }
     >

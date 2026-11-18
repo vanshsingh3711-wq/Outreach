@@ -10,6 +10,7 @@ Never marks an email as verified via LLM guesswork or MX lookup alone.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import re
@@ -24,6 +25,7 @@ from outreach.integrations.email_finder import (
     build_email,
     classify_mx,
     derive_pattern,
+    detect_catch_all,
     get_mx_host,
     infer_pattern_from_email,
     verify_hunter,
@@ -83,6 +85,8 @@ class EmailIntelligenceService:
         self.env = env
         # Local verification cache: (email.lower()) -> (status, provider, timestamp)
         self._cache: dict[str, tuple[str, str, datetime]] = {}
+        self._catch_all_cache: dict[str, Optional[bool]] = {}
+        self._exhausted_providers: set[str] = set()
 
     async def verify_candidate(
         self, candidate: EmailCandidate, mx_type: str = ""
@@ -116,7 +120,7 @@ class EmailIntelligenceService:
             or env_dict.get("REOON_API_KEY")
             or os.environ.get("REOON_API_KEY", "")
         )
-        if reoon_key:
+        if reoon_key and "reoon" not in self._exhausted_providers:
             try:
                 res = await verify_reoon(email, reoon_key)
                 if res and res.get("status"):
@@ -129,7 +133,10 @@ class EmailIntelligenceService:
                         candidate.verified_at,
                     )
                     return candidate
+                else:
+                    self._exhausted_providers.add("reoon")
             except Exception as exc:
+                self._exhausted_providers.add("reoon")
                 logger.debug("Reoon check failed for %s: %s", email, exc)
 
         # Priority 2: ZeroBounce
@@ -138,7 +145,7 @@ class EmailIntelligenceService:
             or env_dict.get("ZEROBOUNCE_API_KEY")
             or os.environ.get("ZEROBOUNCE_API_KEY", "")
         )
-        if zb_key:
+        if zb_key and "zerobounce" not in self._exhausted_providers:
             try:
                 res = await verify_zerobounce(email, zb_key)
                 if res and res.get("status"):
@@ -151,7 +158,10 @@ class EmailIntelligenceService:
                         candidate.verified_at,
                     )
                     return candidate
+                else:
+                    self._exhausted_providers.add("zerobounce")
             except Exception as exc:
+                self._exhausted_providers.add("zerobounce")
                 logger.debug("ZeroBounce check failed for %s: %s", email, exc)
 
         # Priority 3: Hunter
@@ -176,28 +186,34 @@ class EmailIntelligenceService:
             except Exception as exc:
                 logger.debug("Hunter check failed for %s: %s", email, exc)
 
-        # Priority 4: SMTP check for self-hosted mail servers (never against Google / Microsoft)
-        if mx_type not in ("google", "microsoft"):
-            try:
-                smtp_ok = await verify_email_smtp(email)
-                if smtp_ok is True:
-                    candidate.deliverability_status = "verified"
-                    candidate.verification_provider = "smtp"
-                elif smtp_ok is False:
-                    candidate.deliverability_status = "invalid"
-                    candidate.verification_provider = "smtp"
+        # Priority 4: Free direct SMTP handshake with catch-all probing (Google, Microsoft, Zoho, self-hosted)
+        try:
+            domain = email.split("@")[1]
+            if domain not in self._catch_all_cache:
+                self._catch_all_cache[domain] = await detect_catch_all(domain)
+            is_catch_all = self._catch_all_cache[domain]
+            smtp_ok = await verify_email_smtp(email)
+            if smtp_ok is True:
+                if is_catch_all:
+                    candidate.deliverability_status = "risky"
                 else:
-                    candidate.deliverability_status = "guess"
-                    candidate.verification_provider = "none"
-                candidate.verified_at = datetime.now(timezone.utc).replace(tzinfo=None)
-                self._cache[email] = (
-                    candidate.deliverability_status,
-                    candidate.verification_provider,
-                    candidate.verified_at,
-                )
-                return candidate
-            except Exception as exc:
-                logger.debug("SMTP verification failed for %s: %s", email, exc)
+                    candidate.deliverability_status = "verified"
+                candidate.verification_provider = "smtp_direct"
+            elif smtp_ok is False:
+                candidate.deliverability_status = "invalid"
+                candidate.verification_provider = "smtp_direct"
+            else:
+                candidate.deliverability_status = "guess"
+                candidate.verification_provider = "none"
+            candidate.verified_at = datetime.now(timezone.utc).replace(tzinfo=None)
+            self._cache[email] = (
+                candidate.deliverability_status,
+                candidate.verification_provider,
+                candidate.verified_at,
+            )
+            return candidate
+        except Exception as exc:
+            logger.debug("SMTP verification failed for %s: %s", email, exc)
 
         # If no verifier is active, email remains an honest "guess"
         candidate.deliverability_status = "guess"
@@ -266,6 +282,12 @@ class EmailIntelligenceService:
 
         has_proven_pattern = pattern_source not in ("default", "default_after_hunter")
 
+        # In startups / small teams or when last name is a single initial, prefer {f} (e.g. tanmaay@)
+        # over {f}.{l} (tanmaay.k@) unless a proven multi-person pattern exists
+        if not has_proven_pattern and (len(clean_last) <= 1 or pattern == DEFAULT_PATTERN):
+            if len(clean_last) <= 1:
+                pattern = "{f}"
+
         # 3. Generate primary candidate from derived pattern
         primary_email = build_email(pattern, clean_first, clean_last, clean_domain)
         if primary_email and primary_email not in seen_emails and not is_role_mailbox(primary_email):
@@ -283,7 +305,7 @@ class EmailIntelligenceService:
             seen_emails.add(primary_email)
 
         # 4. Generate secondary common pattern candidates
-        common_patterns = ["{f}.{l}", "{fi}{l}", "{f}"]
+        common_patterns = ["{f}", "{f}.{l}", "{fi}{l}"]
         for p in common_patterns:
             if p == pattern:
                 continue
@@ -304,8 +326,8 @@ class EmailIntelligenceService:
 
         # 5. Verify candidates if requested
         if verify and mx_host:
-            for cand in candidates:
-                await self.verify_candidate(cand, mx_type=mx_type)
+            # Concurrently verify candidate addresses to avoid sequential network delays
+            await asyncio.gather(*[self.verify_candidate(cand, mx_type=mx_type) for cand in candidates])
         elif not mx_host:
             for cand in candidates:
                 cand.deliverability_status = "invalid"

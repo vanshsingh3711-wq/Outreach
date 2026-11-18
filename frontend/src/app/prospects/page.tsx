@@ -3,10 +3,32 @@
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchApi } from "@/lib/api-client";
-import { Mail, Search, Download, CheckCircle, HelpCircle, Loader2, User } from "lucide-react";
+import {
+  Table,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  TableCell,
+  Badge,
+  Button,
+  Input,
+  Skeleton,
+} from "@/components/ui";
+import {
+  Mail,
+  Search,
+  Download,
+  Copy,
+  Check,
+  Building2,
+  Users,
+} from "lucide-react";
+import Link from "next/link";
 
 export default function ProspectsPage() {
   const [search, setSearch] = useState("");
+  const [copiedEmail, setCopiedEmail] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery<any[]>({
     queryKey: ["prospects-list"],
@@ -25,110 +47,152 @@ export default function ProspectsPage() {
       )
     : prospects;
 
+  const handleCopy = (email: string) => {
+    navigator.clipboard.writeText(email);
+    setCopiedEmail(email);
+    setTimeout(() => setCopiedEmail(null), 2000);
+  };
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
+    <div className="space-y-5 animate-in fade-in duration-200">
+      {/* Page Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2.5">
-            <h1 className="text-2xl font-bold tracking-tight text-white">Contacts & Prospects</h1>
-            <span className="rounded-full bg-indigo-500/10 px-2.5 py-0.5 text-xs font-semibold text-indigo-400 border border-indigo-500/20">
+            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">
+              Contacts Registry
+            </h1>
+            <Badge variant="neutral" size="sm" className="font-mono">
               {prospects.length} Contacts
-            </span>
+            </Badge>
           </div>
-          <p className="mt-1 text-sm text-slate-400">
-            Full registry of individual decision-maker contacts and their delivery status.
+          <p className="mt-1 text-xs text-muted-foreground">
+            Complete database of individual verified contacts and their outreach lifecycle status.
           </p>
         </div>
 
-        <a
-          href="/api/export/prospects.csv"
-          download="prospects.csv"
-          className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/60 px-3.5 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-800 transition"
-        >
-          <Download className="h-4 w-4" />
-          <span>Export CSV</span>
-        </a>
+        <div className="flex items-center gap-2">
+          <Link href="/decision-makers">
+            <Button variant="outline" size="sm" leftIcon={<Users className="h-3.5 w-3.5" />}>
+              Open Decision-Makers
+            </Button>
+          </Link>
+          <a href="/api/export/prospects.csv" download="prospects.csv">
+            <Button variant="secondary" size="sm" leftIcon={<Download className="h-3.5 w-3.5" />}>
+              Export CSV
+            </Button>
+          </a>
+        </div>
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-        <input
-          type="text"
+      {/* Filter and Search Bar */}
+      <div className="flex items-center gap-3">
+        <Input
           placeholder="Filter by contact name, email, company, title..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full rounded-xl border border-slate-700 bg-slate-900/40 py-2.5 pl-10 pr-4 text-xs text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+          leftIcon={<Search className="h-3.5 w-3.5" />}
+          className="max-w-md h-8.5"
         />
+        {search && (
+          <Button variant="ghost" size="xs" onClick={() => setSearch("")}>
+            Clear
+          </Button>
+        )}
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/40 shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="border-b border-slate-800 bg-slate-950/60 uppercase tracking-wider text-[11px] text-slate-400">
-              <tr>
-                <th className="px-5 py-3.5 font-medium">Contact</th>
-                <th className="px-5 py-3.5 font-medium">Company</th>
-                <th className="px-5 py-3.5 font-medium">Email</th>
-                <th className="px-5 py-3.5 font-medium">Status</th>
-                <th className="px-5 py-3.5 text-right font-medium">Stage</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={5} className="py-12 text-center text-slate-500">
-                    <Loader2 className="mx-auto h-6 w-6 animate-spin text-indigo-400 mb-2" />
-                    <span>Loading contacts...</span>
-                  </td>
-                </tr>
-              ) : filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="py-12 text-center text-slate-500">
-                    No contacts found.
-                  </td>
-                </tr>
-              ) : (
-                filtered.map((p) => {
-                  const isVerified = p.email_status === "verified" || p.email_verified;
+      {/* Contacts Data Table */}
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-[30%]">Contact</TableHead>
+            <TableHead className="w-[25%]">Company</TableHead>
+            <TableHead className="w-[25%]">Email Address</TableHead>
+            <TableHead className="w-[10%]">Verification</TableHead>
+            <TableHead className="w-[10%] text-right">Lifecycle Stage</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {isLoading ? (
+            Array.from({ length: 6 }).map((_, i) => (
+              <TableRow key={i}>
+                <TableCell><Skeleton className="h-5 w-3/4" /></TableCell>
+                <TableCell><Skeleton className="h-5 w-1/2" /></TableCell>
+                <TableCell><Skeleton className="h-5 w-2/3" /></TableCell>
+                <TableCell><Skeleton className="h-5 w-12" /></TableCell>
+                <TableCell className="text-right"><Skeleton className="h-5 w-14 ml-auto" /></TableCell>
+              </TableRow>
+            ))
+          ) : filtered.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={5} className="py-12 text-center text-xs text-muted-foreground">
+                No contacts match your filter.
+              </TableCell>
+            </TableRow>
+          ) : (
+            filtered.map((p) => {
+              const isVerified = p.email_status === "verified" || p.email_verified;
 
-                  return (
-                    <tr key={p.id} className="hover:bg-slate-800/30 transition-colors">
-                      <td className="px-5 py-3.5">
-                        <div className="font-semibold text-white">
+              return (
+                <TableRow key={p.id} className="group">
+                  <TableCell>
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground font-mono text-[11px] font-semibold">
+                        {(p.first_name?.[0] || "") + (p.last_name?.[0] || "")}
+                      </div>
+                      <div className="truncate">
+                        <span className="font-semibold text-foreground text-xs group-hover:text-primary transition-colors">
                           {p.first_name} {p.last_name}
-                        </div>
-                        <div className="text-[11px] text-slate-400">{p.title || "Contact"}</div>
-                      </td>
-                      <td className="px-5 py-3.5 text-slate-200">{p.company || "Unknown"}</td>
-                      <td className="px-5 py-3.5">
-                        <div className="font-mono text-slate-300">{p.email || "No email"}</div>
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <span
-                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                            isVerified
-                              ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
-                              : "bg-slate-800 text-slate-300"
-                          }`}
+                        </span>
+                        <p className="text-[11px] text-muted-foreground truncate">{p.title || "Contact"}</p>
+                      </div>
+                    </div>
+                  </TableCell>
+
+                  <TableCell>
+                    <span className="text-xs font-medium text-foreground truncate block">
+                      {p.company || "—"}
+                    </span>
+                  </TableCell>
+
+                  <TableCell>
+                    {p.email ? (
+                      <div className="flex items-center gap-1.5 font-mono text-xs text-foreground">
+                        <span className="truncate">{p.email}</span>
+                        <button
+                          onClick={() => handleCopy(p.email)}
+                          title="Copy email"
+                          className="text-muted-foreground hover:text-foreground cursor-pointer"
                         >
-                          {isVerified ? <CheckCircle className="h-2.5 w-2.5" /> : null}
-                          <span className="capitalize">{p.email_status || "Standard"}</span>
-                        </span>
-                      </td>
-                      <td className="px-5 py-3.5 text-right">
-                        <span className="rounded bg-slate-800 px-2 py-0.5 text-[10px] uppercase font-mono text-slate-300">
-                          {p.status || "new"}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                          {copiedEmail === p.email ? (
+                            <Check className="h-3 w-3 text-emerald-500" />
+                          ) : (
+                            <Copy className="h-3 w-3" />
+                          )}
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-[11px] text-muted-foreground italic">No email</span>
+                    )}
+                  </TableCell>
+
+                  <TableCell>
+                    <Badge variant={isVerified ? "success" : "neutral"} size="sm" dot>
+                      {isVerified ? "Verified" : "Unverified"}
+                    </Badge>
+                  </TableCell>
+
+                  <TableCell className="text-right">
+                    <span className="text-xs font-mono capitalize text-muted-foreground">
+                      {p.stage || p.status || "Identified"}
+                    </span>
+                  </TableCell>
+                </TableRow>
+              );
+            })
+          )}
+        </TableBody>
+      </Table>
     </div>
   );
 }
-
